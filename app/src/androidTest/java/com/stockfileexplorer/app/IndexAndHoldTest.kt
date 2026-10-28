@@ -34,10 +34,10 @@ class IndexAndHoldTest {
     private fun waitTextContains(value: String): UiObject2 = device.wait(Until.findObject(By.textContains(value)), 15000)
         ?: throw AssertionError("Missing UI text containing: $value")
     private fun clickTile(value: String) {
-        assertTrue("Tile present: $value", device.wait(Until.hasObject(By.text(value)),15000))
         repeat(3) {
             try {
-                val bounds = device.findObjects(By.text(value)).maxBy { it.visibleBounds.centerY() }.visibleBounds
+                val tile = waitText(value)
+                val bounds = tile.visibleBounds
                 device.click(bounds.centerX(), bounds.centerY())
                 return
             } catch (_: StaleObjectException) { device.waitForIdle() }

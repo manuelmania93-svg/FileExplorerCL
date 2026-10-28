@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 
 data class FileActionCallbacks(
     val onOpen: () -> Unit,
@@ -51,12 +52,12 @@ fun FileActionMenu(
     val context = LocalContext.current
     val visible = FileActionPreferences.visibleActions(context)
 
-    Surface(
-        modifier = Modifier.fillMaxWidth().padding(24.dp),
-        shape = MaterialTheme.shapes.large,
-        tonalElevation = 4.dp,
-    ) {
-        Column(Modifier.padding(16.dp)) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = MaterialTheme.shapes.large,
+            tonalElevation = 4.dp,
+        ) {
+            Column(Modifier.padding(16.dp)) {
             Text(name, style = MaterialTheme.typography.titleMedium)
             LazyColumn(
                 modifier = Modifier.heightIn(max = 420.dp),
@@ -94,6 +95,7 @@ fun FileActionMenu(
             }
         }
     }
+}
 }
 
 @Composable

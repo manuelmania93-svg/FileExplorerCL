@@ -35,7 +35,7 @@ jobs:
           disable-animations: true
           script: |
             mkdir -p app/build/reports/device
-            ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.GateFlowTest -Pandroid.testInstrumentationRunnerArguments.capture=gate; r1=$?
+            ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.GateFlowTest -Pandroid.testInstrumentationRunnerArguments.capture=gate
             adb pull /sdcard/Download/ app/build/reports/device/
             adb shell am force-stop com.stockfileexplorer.app || true
             ./gradlew installDebug
@@ -44,9 +44,8 @@ jobs:
             printf 'DOCXFIXTURE' > fixture.docx && adb push fixture.docx /sdcard/Download/sfe-fixture-notes.docx
             printf 'TXTFIXTURE' > fixture.txt && adb push fixture.txt /sdcard/Download/sfe-fixture-todo.txt
             adb shell ls -la /sdcard/Download
-            ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.DocumentVisibilitySmokeTest -Pandroid.testInstrumentationRunnerArguments.capture=portrait; r2=$?
+            ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.DocumentVisibilitySmokeTest -Pandroid.testInstrumentationRunnerArguments.capture=portrait
             adb pull /sdcard/Download/ app/build/reports/device/
-            test "$r1" -eq 0 -a "$r2" -eq 0
       - uses: actions/upload-artifact@v4
         with:
           name: StockFileExplorer-Debug-APK

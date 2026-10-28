@@ -79,8 +79,8 @@ import java.io.File
 private val FolderYellow = Color(0xFFFFC107)
 private val thumbnailCache = android.util.LruCache<String, ImageBitmap>(120)
 
-private fun loadThumbnail(file: File, reqSize: Int): ImageBitmap? {
-    thumbnailCache.get(file.absolutePath)?.let { return it }
+private fun loadThumbnail(file: File, reqSize: Int, cacheKey: String): ImageBitmap? {
+    thumbnailCache.get(cacheKey)?.let { return it }
     return try {
         val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeFile(file.absolutePath, opts)
@@ -92,7 +92,7 @@ private fun loadThumbnail(file: File, reqSize: Int): ImageBitmap? {
         val decodeOpts = BitmapFactory.Options().apply { inSampleSize = sample }
         val bmp = BitmapFactory.decodeFile(file.absolutePath, decodeOpts) ?: return null
         val result = bmp.asImageBitmap()
-        thumbnailCache.put(file.absolutePath, result)
+        thumbnailCache.put(cacheKey, result)
         result
     } catch (e: Exception) {
         null
@@ -314,7 +314,7 @@ fun BrowserScreen(
                             else if (item.isDirectory) navigateTo(item.file.absolutePath)
                             else openFile(context, item.file, noAppMessage)
                         },
-                        onLongClick = { toggleSelection(item.file.absolutePath) }
+                        onLongClick = { if (selecting) toggleSelection(item.file.absolutePath) else menuTarget = item }
                     )
                 }
             }
@@ -330,7 +330,7 @@ fun BrowserScreen(
                             else if (item.isDirectory) navigateTo(item.file.absolutePath)
                             else openFile(context, item.file, noAppMessage)
                         },
-                        onLongClick = { toggleSelection(item.file.absolutePath) },
+                        onLongClick = { if (selecting) toggleSelection(item.file.absolutePath) else menuTarget = item },
                         trailing = {
                             Box {
                                 IconButton(onClick = { menuTarget = item }) {
@@ -339,46 +339,21 @@ fun BrowserScreen(
                                         contentDescription = stringResource(R.string.file_actions)
                                     )
                                 }
-                                DropdownMenu(
-                                    expanded = menuTarget == item,
-                                    onDismissRequest = { menuTarget = null }
-                                ) {
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.menu_open)) },
-                                        onClick = {
-                                            menuTarget = null
-                                            if (item.isDirectory) navigateTo(item.file.absolutePath)
-                                            else openFile(context, item.file, noAppMessage)
-                                        }
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.rename)) },
-                                        onClick = { menuTarget = null; renameTarget = item }
-                                    )
-                                    if (!item.isDirectory) {
-                                        DropdownMenuItem(
-                                            text = { Text(stringResource(R.string.share)) },
-                                            onClick = {
-                                                menuTarget = null
-                                                shareFiles(context, listOf(item.file))
-                                            }
-                                        )
-                                    }
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.delete)) },
-                                        onClick = {
-                                            menuTarget = null
-                                            selection = setOf(item.file.absolutePath)
-                                            showDeleteConfirm = true
-                                        }
-                                    )
-                                }
+
                             }
                         }
                     )
                 }
             }
         }
+    }
+
+    menuTarget?.let { item ->
+        FileActionMenu(item.name, item.isDirectory, { menuTarget = null },
+            { if (item.isDirectory) navigateTo(item.file.absolutePath) else openFile(context, item.file, noAppMessage) },
+            { renameTarget = item }, { shareFiles(context, listOf(item.file)) },
+            { selection = setOf(item.file.absolutePath); showDeleteConfirm = true },
+            { selection = setOf(item.file.absolutePath) })
     }
 
     if (showNewFolder) {
@@ -397,7 +372,7 @@ fun BrowserScreen(
                         Toast.LENGTH_SHORT
                     ).show()
                     if (ok) {
-                        ScanStore.invalidate()
+                        com.stockfileexplorer.app.data.FileIndex.invalidate()
                         refreshTick++
                     }
                 }
@@ -420,6 +395,7 @@ fun BrowserScreen(
                     val ok = withContext(Dispatchers.IO) {
                         com.stockfileexplorer.app.data.Rename.move(target.file, newName)
                     }
+                    if (ok) com.stockfileexplorer.app.data.FileIndex.renamed(target.file, File(target.file.parentFile, newName))
                     if (!ok) {
                         Toast.makeText(
                             context,
@@ -427,7 +403,7 @@ fun BrowserScreen(
                             Toast.LENGTH_SHORT
                         ).show()
                     } else {
-                        ScanStore.invalidate()
+                        com.stockfileexplorer.app.data.FileIndex.invalidate()
                     }
                     refreshTick++
                 }
@@ -446,16 +422,18 @@ fun BrowserScreen(
                 val toDelete = selection
                 selection = emptySet()
                 scope.launch {
-                    val allOk = withContext(Dispatchers.IO) {
-                        toDelete.all { File(it).deleteRecursively() }
+                    val results = withContext(Dispatchers.IO) {
+                        toDelete.map { File(it) }.map { it to (it.exists() && it.deleteRecursively()) }
                     }
+                    com.stockfileexplorer.app.data.FileIndex.removed(results.filter { it.second }.map { it.first })
+                    val allOk = results.all { it.second }
                     Toast.makeText(
                         context,
                         if (allOk) context.getString(R.string.deleted_ok)
                         else context.getString(R.string.delete_failed),
                         Toast.LENGTH_SHORT
                     ).show()
-                    ScanStore.invalidate()
+                    com.stockfileexplorer.app.data.FileIndex.invalidate()
                     refreshTick++
                 }
             },
@@ -527,7 +505,7 @@ fun FileListRow(
             Text(item.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
                 text = if (item.isDirectory)
-                    stringResource(if (item.childCount == 1) R.string.one_item else R.string.items_count, item.childCount) +
+                    stringResource(R.string.folder) +
                             " • " + FileLogic.formatDate(item.lastModified)
                 else FileLogic.formatSize(item.size) + " • " + FileLogic.formatDate(item.lastModified),
                 style = MaterialTheme.typography.bodySmall,
@@ -583,7 +561,7 @@ fun FileGridCell(
             )
             Text(
                 text = if (item.isDirectory)
-                    stringResource(if (item.childCount == 1) R.string.one_item else R.string.items_count, item.childCount)
+                    stringResource(R.string.folder)
                 else FileLogic.formatSize(item.size),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -602,13 +580,14 @@ fun FileIcon(item: FileItem, size: Int) {
             modifier = Modifier.size(size.dp)
         )
     } else if (FileLogic.isImage(item.name)) {
-        val thumb = produceState<ImageBitmap?>(null, item.file.absolutePath) {
-            value = withContext(Dispatchers.IO) { loadThumbnail(item.file, 128) }
+        val cacheKey = "${item.file.absolutePath}:${item.size}:${item.lastModified}"
+        val thumb = produceState<ImageBitmap?>(null, cacheKey) {
+            value = withContext(Dispatchers.IO) { loadThumbnail(item.file, 128, cacheKey) }
         }.value
         if (thumb != null) {
             Image(
                 bitmap = thumb,
-                contentDescription = null,
+                contentDescription = stringResource(R.string.picture_thumbnail, item.name),
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.size(size.dp)
             )

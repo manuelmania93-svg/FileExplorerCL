@@ -26,6 +26,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -60,10 +61,10 @@ fun DashboardScreen(
     val root = remember { Environment.getExternalStorageDirectory() }
     var totalBytes by remember { mutableStateOf(0L) }
     var freeBytes by remember { mutableStateOf(0L) }
-    val cachedScan = remember { ScanStore.current() }
-    var scanning by remember { mutableStateOf(cachedScan == null) }
-    var sizes by remember { mutableStateOf(cachedScan?.sizes ?: LongArray(FileCategory.entries.size)) }
-    var counts by remember { mutableStateOf(cachedScan?.counts ?: IntArray(FileCategory.entries.size)) }
+    val status by com.stockfileexplorer.app.data.FileIndex.state.collectAsState()
+    val scanning = status.refreshing || status.incomplete
+    var sizes by remember { mutableStateOf(LongArray(FileCategory.entries.size)) }
+    LaunchedEffect(status.revision) { sizes = com.stockfileexplorer.app.data.FileIndex.sizes() }
 
     LaunchedEffect(Unit) {
         val (total, free) = withContext(Dispatchers.IO) {
@@ -72,11 +73,6 @@ fun DashboardScreen(
         }
         totalBytes = total
         freeBytes = free
-        // Shared snapshot: instant when fresh, one silent rescan when stale.
-        val snapshot = ScanStore.snapshot(root)
-        sizes = snapshot.sizes
-        counts = snapshot.counts
-        scanning = false
     }
 
     val usedBytes = (totalBytes - freeBytes).coerceAtLeast(0L)
@@ -95,6 +91,12 @@ fun DashboardScreen(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        item(span = { GridItemSpan(3) }) {
+            if (status.refreshing || status.incomplete) Text(
+                stringResource(if (status.refreshing) R.string.index_updating else R.string.index_incomplete),
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
         item(span = { GridItemSpan(3) }) {
             Card(
                 modifier = Modifier.fillMaxWidth().clickable { onOpenStorage() },
@@ -162,30 +164,30 @@ fun DashboardScreen(
                             Column(Modifier.weight(1f)) {
                                 CategorySizeLine(
                                     categoryLabel(FileCategory.IMAGES),
-                                    categorySizeText(FileCategory.IMAGES, sizes, scanning)
+                                    categorySizeText(FileCategory.IMAGES, sizes, scanning, status.incomplete && !status.refreshing)
                                 )
                                 CategorySizeLine(
                                     categoryLabel(FileCategory.VIDEOS),
-                                    categorySizeText(FileCategory.VIDEOS, sizes, scanning)
+                                    categorySizeText(FileCategory.VIDEOS, sizes, scanning, status.incomplete && !status.refreshing)
                                 )
                                 CategorySizeLine(
                                     categoryLabel(FileCategory.AUDIO),
-                                    categorySizeText(FileCategory.AUDIO, sizes, scanning)
+                                    categorySizeText(FileCategory.AUDIO, sizes, scanning, status.incomplete && !status.refreshing)
                                 )
                             }
                             Spacer(Modifier.width(10.dp))
                             Column(Modifier.weight(1f)) {
                                 CategorySizeLine(
                                     categoryLabel(FileCategory.DOCUMENTS),
-                                    categorySizeText(FileCategory.DOCUMENTS, sizes, scanning)
+                                    categorySizeText(FileCategory.DOCUMENTS, sizes, scanning, status.incomplete && !status.refreshing)
                                 )
                                 CategorySizeLine(
                                     categoryLabel(FileCategory.APPS),
-                                    categorySizeText(FileCategory.APPS, sizes, scanning)
+                                    categorySizeText(FileCategory.APPS, sizes, scanning, status.incomplete && !status.refreshing)
                                 )
                                 CategorySizeLine(
                                     stringResource(R.string.cat_etc),
-                                    if (scanning) stringResource(R.string.scanning)
+                                    if (scanning) stringResource(if (status.incomplete && !status.refreshing) R.string.index_partial else R.string.scanning)
                                     else FileLogic.formatSize(
                                         // All remaining used space: archives and uncategorized
                                         // files, plus Android/data, Android/obb and app-private
@@ -229,8 +231,9 @@ fun DashboardScreen(
 }
 
 @Composable
-private fun categorySizeText(category: FileCategory, sizes: LongArray, scanning: Boolean): String =
-    if (scanning) stringResource(R.string.scanning)
+private fun categorySizeText(category: FileCategory, sizes: LongArray, scanning: Boolean, incomplete: Boolean = false): String =
+    if (incomplete) stringResource(R.string.index_partial)
+    else if (scanning) stringResource(R.string.scanning)
     else FileLogic.formatSize(sizes[category.ordinal])
 
 @Composable

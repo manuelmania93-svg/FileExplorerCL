@@ -79,4 +79,12 @@
     <string name="viewer_play">Abspielen</string>
     <string name="viewer_pause">Pause</string>
     <string name="rename_whole_name">Vollständiger Dateiname, einschließlich Endung</string>
+    <string name="select">Auswählen</string>
+    <string name="load_more">Weitere Dateien laden</string>
+    <string name="folder">Ordner</string>
+    <string name="index_updating">Dateien werden aktualisiert. Du kannst Dateien schon öffnen, während weitere Ordner geprüft werden.</string>
+    <string name="index_incomplete">Einige Ordner konnten nicht geprüft werden. Ergebnisse sind möglicherweise unvollständig.</string>
+    <string name="index_no_results_yet">Noch keine Dateien verfügbar. Die Dateiliste ist nicht vollständig.</string>
+    <string name="index_partial">Unvollständig</string>
+    <string name="picture_thumbnail">Bildvorschau: %1$s</string>
 </resources>

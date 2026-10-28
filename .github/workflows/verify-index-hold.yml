@@ -8,6 +8,10 @@ permissions:
 jobs:
   verify:
     timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [30, 35]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
@@ -29,27 +33,32 @@ jobs:
       - name: Real holds and large mixed-file benchmark, Android 15
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
+          api-level: ${{ matrix.api }}
           arch: x86_64
           profile: pixel_2
           disable-animations: true
           script: |
             mkdir -p app/build/reports/device
-            ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.IndexAndHoldTest || (adb pull /sdcard/Download/ app/build/reports/device/; exit 1)
+            ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.IndexAndHoldTest#a_largeIndexFirstBenchmarkAndPersistence,com.stockfileexplorer.app.IndexAndHoldTest#b_actualHoldAcrossAllViewsAndSelect || (adb pull /sdcard/Download/ app/build/reports/device/; exit 1)
             adb pull /sdcard/Download/ app/build/reports/device/
+            adb shell am force-stop com.stockfileexplorer.app
+            ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.IndexAndHoldTest#c_productionColdRestartUsesPersistedRows || (adb pull /sdcard/Download/ app/build/reports/device/; exit 1)
+            adb pull /sdcard/Download/ app/build/reports/device/
+            if [ "${{ matrix.api }}" = "35" ]; then
             ./gradlew installDebug
             adb shell cmd locale set-app-locales com.stockfileexplorer.app --locales de-AT
             ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.IndexAndHoldTest#b_actualHoldAcrossAllViewsAndSelect || (adb pull /sdcard/Download/ app/build/reports/device/; exit 1)
             adb pull /sdcard/Download/ app/build/reports/device/
+            fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Index-hold-validation
+          name: Index-hold-validation-${{ matrix.api }}
           path: |
             app/build/reports/
             app/build/outputs/androidTest-results/
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: File-Explorer-Control-PR-only-APK
+          name: File-Explorer-Control-PR-only-APK-${{ matrix.api }}
           path: app/build/outputs/apk/debug/app-debug.apk

@@ -171,6 +171,27 @@ class IndexAndHoldTest {
         assertEquals("hold-one.txt",input.text)
         device.pressBack()
         // Restore a clean dashboard shot with truthful scan state.
-        launch(); screenshot("dashboard")
+        launch(); waitText(label("Internal storage","Interner Speicher")); screenshot("dashboard")
     }
+    /** Launched in a separate instrumentation process after adb force-stop. */
+    @Test fun c_productionColdRestartUsesPersistedRows() = runBlocking {
+        assertTrue(Environment.isExternalStorageManager())
+        val started = SystemClock.elapsedRealtime()
+        FileIndex.start(context)
+        val initial = FileIndex.page(FileCategory.DOCUMENTS,100)
+        assertTrue("Disk rows survive actual process death",initial.items.any { it.name == "hold-one.txt" })
+        Log.i("SfeBenchmark","actualProcessRestart100Ms=" + (SystemClock.elapsedRealtime()-started))
+        launch()
+        waitText(label("Internal storage","Interner Speicher"))
+        screenshot("production-dashboard")
+        clickTile(label("Documents","Dokumente"))
+        val row = waitText("hold-one.txt")
+        row.longClick()
+        waitText(label("Rename","Umbenennen"))
+        screenshot("production-restart-hold")
+        device.pressBack()
+        // The normal, non-fixture background pass must keep persisted rows usable.
+        assertTrue(device.hasObject(By.text("hold-one.txt")))
+    }
+
 }

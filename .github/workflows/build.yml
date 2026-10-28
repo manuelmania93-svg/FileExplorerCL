@@ -55,6 +55,12 @@ jobs:
             ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.DocumentVisibilitySmokeTest -Pandroid.testInstrumentationRunnerArguments.capture=night
             adb shell cmd uimode night no
             adb pull /sdcard/Download/ app/build/reports/device/
+            ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.BuiltInViewersTest -Pandroid.testInstrumentationRunnerArguments.capture=viewers
+            adb pull /sdcard/Download/ app/build/reports/device/
+            adb shell cmd uimode night yes
+            ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.BuiltInViewersTest -Pandroid.testInstrumentationRunnerArguments.capture=viewers-night
+            adb pull /sdcard/Download/ app/build/reports/device/
+            adb shell cmd uimode night no
       - uses: actions/upload-artifact@v4
         with:
           name: StockFileExplorer-Debug-APK

@@ -12,6 +12,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.StockFileExplorer">
 
+        <activity android:name=".ViewerActivity" android:exported="false"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

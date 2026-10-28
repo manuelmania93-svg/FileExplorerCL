@@ -53,7 +53,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    Root()
+                    Root(intent.getStringExtra("browse_path"))
                 }
             }
         }
@@ -65,7 +65,7 @@ private const val TAB_LIBRARY = 1
 private const val TAB_NETWORK = 2
 
 @Composable
-fun Root() {
+fun Root(initialBrowsePath: String? = null) {
     var hasAccess by remember { mutableStateOf(Environment.isExternalStorageManager()) }
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -81,15 +81,15 @@ fun Root() {
     if (!hasAccess) {
         PermissionScreen()
     } else {
-        MainScaffold()
+        MainScaffold(initialBrowsePath)
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScaffold() {
+fun MainScaffold(initialBrowsePath: String? = null) {
     var tab by remember { mutableIntStateOf(TAB_LOCAL) }
-    var browsePath by remember { mutableStateOf<String?>(null) }
+    var browsePath by remember { mutableStateOf<String?>(initialBrowsePath) }
     var libraryCategory by remember { mutableStateOf<FileCategory?>(null) }
     var showRecent by remember { mutableStateOf(false) }
     val storageRoot = remember { Environment.getExternalStorageDirectory().absolutePath }

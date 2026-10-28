@@ -52,4 +52,25 @@
     <string name="loading">Loading…</string>
     <string name="storage_permission_missing">Grant all-files access to browse storage.</string>
     <string name="open_with">Open with</string>
+    <string name="viewer_back">Back</string>
+    <string name="viewer_cannot_open">Cannot open this file</string>
+    <string name="viewer_image_error">Unsupported or damaged image. JPEG, PNG, WebP and other Android-decodable images are supported. Animated images show a still frame.</string>
+    <string name="viewer_rotate">Rotate</string>
+    <string name="viewer_pinch">Pinch to zoom</string>
+    <string name="viewer_picture">Picture preview</string>
+    <string name="viewer_pdf_error">This PDF is damaged, unsupported or password-protected. Password-protected PDFs are not supported in this build.</string>
+    <string name="viewer_previous">Previous</string>
+    <string name="viewer_next">Next</string>
+    <string name="viewer_pdf_page">PDF page %1$d</string>
+    <string name="viewer_video_error">Video cannot be played. The container or codec may be unsupported on this device, or the file may be damaged.</string>
+    <string name="viewer_video_loading">Loading video…</string>
+    <string name="viewer_video_playing">Playing</string>
+    <string name="viewer_video_paused">Paused</string>
+    <string name="viewer_archive_error">Cannot read or extract this archive. Encrypted ZIP/RAR and split RAR are not supported in this build. RAR dictionary limit: 64 MiB.</string>
+    <string name="viewer_extract_policy">Extracts into a new folder beside the archive. Existing files are never replaced. Limits: 10,000 entries, 10 GB total. Keep this screen open until complete.</string>
+    <string name="viewer_extract">Extract all</string>
+    <string name="viewer_extracting">Extracting…</string>
+    <string name="viewer_extracted">Extracted to %1$s</string>
+    <string name="viewer_open_folder">Open extracted folder</string>
+    <string name="viewer_entries">%1$d entries</string>
 </resources>

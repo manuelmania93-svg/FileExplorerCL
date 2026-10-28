@@ -108,6 +108,7 @@ private fun uriFor(context: android.content.Context, file: File) =
     FileProvider.getUriForFile(context, context.packageName + ".fileprovider", file)
 
 fun openFile(context: android.content.Context, file: File, noAppMessage: String) {
+    if (com.stockfileexplorer.app.ViewerActivity.open(context, file)) return
     try {
         val intent = Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(uriFor(context, file), mimeTypeFor(file))

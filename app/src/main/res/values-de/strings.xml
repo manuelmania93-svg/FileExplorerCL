@@ -52,4 +52,25 @@
     <string name="loading">Laden…</string>
     <string name="storage_permission_missing">Zugriff auf alle Dateien erlauben, um den Speicher zu durchsuchen.</string>
     <string name="open_with">Öffnen mit</string>
+    <string name="viewer_back">Zurück</string>
+    <string name="viewer_cannot_open">Datei kann nicht geöffnet werden</string>
+    <string name="viewer_image_error">Bildformat nicht unterstützt oder Datei beschädigt. JPEG, PNG, WebP und andere von Android lesbare Bilder werden unterstützt. Animierte Bilder werden als Standbild angezeigt.</string>
+    <string name="viewer_rotate">Drehen</string>
+    <string name="viewer_pinch">Mit zwei Fingern zoomen</string>
+    <string name="viewer_picture">Bildvorschau</string>
+    <string name="viewer_pdf_error">Diese PDF ist beschädigt, nicht unterstützt oder passwortgeschützt. Passwortgeschützte PDFs werden in dieser Version nicht unterstützt.</string>
+    <string name="viewer_previous">Zurück</string>
+    <string name="viewer_next">Weiter</string>
+    <string name="viewer_pdf_page">PDF-Seite %1$d</string>
+    <string name="viewer_video_error">Video kann nicht abgespielt werden. Container oder Codec wird auf diesem Gerät möglicherweise nicht unterstützt, oder die Datei ist beschädigt.</string>
+    <string name="viewer_video_loading">Video wird geladen…</string>
+    <string name="viewer_video_playing">Wiedergabe läuft</string>
+    <string name="viewer_video_paused">Pausiert</string>
+    <string name="viewer_archive_error">Archiv kann nicht gelesen oder entpackt werden. Verschlüsselte ZIP/RAR und mehrteilige RAR werden in dieser Version nicht unterstützt. RAR-Wörterbuchlimit: 64 MiB.</string>
+    <string name="viewer_extract_policy">Entpackt in einen neuen Ordner neben dem Archiv. Vorhandene Dateien werden nie ersetzt. Limits: 10.000 Einträge, 10 GB gesamt. Diese Ansicht bis zum Abschluss offen lassen.</string>
+    <string name="viewer_extract">Alle entpacken</string>
+    <string name="viewer_extracting">Wird entpackt…</string>
+    <string name="viewer_extracted">Entpackt nach %1$s</string>
+    <string name="viewer_open_folder">Entpackten Ordner öffnen</string>
+    <string name="viewer_entries">%1$d Einträge</string>
 </resources>

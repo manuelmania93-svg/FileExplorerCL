@@ -34,11 +34,7 @@ class DocumentVisibilitySmokeTest {
         val context = instrumentation.targetContext
         val pkg = context.packageName
 
-        shell("mkdir -p /sdcard/Download")
-        shell("echo PDFFIXTURE > /sdcard/Download/sfe-fixture-report.pdf")
-        shell("echo DOCXFIXTURE > /sdcard/Download/sfe-fixture-notes.docx")
-        shell("echo TXTFIXTURE > /sdcard/Download/sfe-fixture-todo.txt")
-        Log.i("SfeTest", "Download contents after fixture creation: " + shell("ls -la /sdcard/Download"))
+        Log.i("SfeTest", "Download contents at test start: " + shell("ls -la /sdcard/Download"))
 
         val suffix = InstrumentationRegistry.getArguments().getString("capture", "device")
         instrumentation.startActivitySync(

@@ -40,6 +40,10 @@ jobs:
             adb shell am force-stop com.stockfileexplorer.app || true
             ./gradlew installDebug
             adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
+            printf 'PDFFIXTURE' > fixture.pdf && adb push fixture.pdf /sdcard/Download/sfe-fixture-report.pdf
+            printf 'DOCXFIXTURE' > fixture.docx && adb push fixture.docx /sdcard/Download/sfe-fixture-notes.docx
+            printf 'TXTFIXTURE' > fixture.txt && adb push fixture.txt /sdcard/Download/sfe-fixture-todo.txt
+            adb shell ls -la /sdcard/Download
             ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.DocumentVisibilitySmokeTest -Pandroid.testInstrumentationRunnerArguments.capture=portrait; r2=$?
             adb pull /sdcard/Download/ app/build/reports/device/
             test "$r1" -eq 0 -a "$r2" -eq 0

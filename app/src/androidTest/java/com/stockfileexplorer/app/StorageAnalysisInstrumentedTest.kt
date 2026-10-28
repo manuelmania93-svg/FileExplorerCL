@@ -5,6 +5,7 @@ import android.os.Environment
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
+import androidx.test.uiautomator.BySelector
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
@@ -28,9 +29,13 @@ class StorageAnalysisInstrumentedTest {
         device.takeScreenshot(File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "$name.png"))
     }
 
-    private fun revealText(value: String): UiObject2 {
+    private fun revealText(value: String): UiObject2 = reveal(By.text(value), value)
+
+    private fun revealTextContains(value: String): UiObject2 = reveal(By.textContains(value), value)
+
+    private fun reveal(selector: BySelector, value: String): UiObject2 {
         repeat(12) {
-            device.wait(Until.findObject(By.text(value)), 500)?.let { return it }
+            device.wait(Until.findObject(selector), 500)?.let { return it }
             device.swipe(device.displayWidth / 2, device.displayHeight * 3 / 4, device.displayWidth / 2, device.displayHeight / 4, 12)
             device.waitForIdle()
         }
@@ -69,7 +74,8 @@ class StorageAnalysisInstrumentedTest {
         revealText("Redundant files")
         revealText("analysis-debug.log")
         revealText("Duplicate files")
-        revealText("duplicate-a.txt")
+        revealTextContains("duplicate-a.txt")
+        revealTextContains("duplicate-b.txt")
         revealText("Recycle bin folders")
         revealText(".recycle_bin")
         screenshot("sfe-storage-analysis-redundant-recycle")

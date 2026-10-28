@@ -23,6 +23,18 @@ import java.io.File
 @RunWith(AndroidJUnit4::class)
 class DocumentVisibilitySmokeTest {
 
+
+    // LazyColumn only composes visible rows; accumulated screenshots make the
+    // image category longer than one screen, so scroll until the row appears.
+    private fun scrollToText(device: UiDevice, text: String): Boolean {
+        repeat(14) {
+            if (device.hasObject(By.textContains(text))) return true
+            device.swipe(300, 900, 300, 300, 20)
+            Thread.sleep(250)
+        }
+        return device.hasObject(By.textContains(text))
+    }
+
     private fun shell(command: String): String {
         val fd = InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(command)
         return ParcelFileDescriptor.AutoCloseInputStream(fd).bufferedReader().use { it.readText() }
@@ -118,7 +130,7 @@ class DocumentVisibilitySmokeTest {
         device.findObject(By.text("Images")).click()
         assertTrue(
             "Sample image listed in Images category",
-            device.wait(Until.hasObject(By.textContains("sfe-sample-picture.jpg")), 5000)
+            scrollToText(device, "sfe-sample-picture.jpg")
         )
         assertFalse(
             "Category opened from cached scan without a blocking rescan",

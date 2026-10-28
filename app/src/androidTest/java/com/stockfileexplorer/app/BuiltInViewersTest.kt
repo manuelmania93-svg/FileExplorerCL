@@ -21,7 +21,10 @@ class BuiltInViewersTest {
     private fun fixtures() {
         val fd = inst.uiAutomation.executeShellCommand("appops set ${context.packageName} MANAGE_EXTERNAL_STORAGE allow")
         android.os.ParcelFileDescriptor.AutoCloseInputStream(fd).use { it.readBytes() }
+        root.deleteRecursively()
         root.mkdirs()
+        File(root,"rename-me.mp4").writeText("rename fixture")
+        File(root,"occupied.txt").writeText("keep existing")
         inst.context.assets.list("viewers")!!.forEach { name ->
             inst.context.assets.open("viewers/$name").use { input -> File(root, name).outputStream().use { input.copyTo(it) } }
         }
@@ -102,6 +105,27 @@ class BuiltInViewersTest {
         context.startActivity(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
         waitText("Images");device.findObject(By.text("Images")).click()
         open("sample-picture.jpg");waitText("Rotate");screenshot("library-picture-route");device.pressBack()
+    }
+    @Test fun wholeFilenameIncludingExtensionRename() {
+        fixtures();mainAndDownload()
+        openInList("rename-me.mp4").longClick()
+        device.findObject(By.desc("Rename")).click()
+        val input = device.wait(Until.findObject(By.clazz("android.widget.EditText")), 5000)
+        assertEquals("rename-me.mp4", input.text)
+        screenshot("rename-whole-name")
+        input.text = "renamed.txt"
+        device.findObject(By.text("Rename").clickable(true)).click()
+        waitText("renamed.txt")
+        assertFalse(File(root,"rename-me.mp4").exists())
+        assertEquals("rename fixture", File(root,"renamed.txt").readText())
+        screenshot("renamed-extension-result")
+        assertFalse(com.stockfileexplorer.app.data.Rename.move(File(root,"renamed.txt"),"occupied.txt"))
+        assertEquals("keep existing",File(root,"occupied.txt").readText())
+        assertFalse(com.stockfileexplorer.app.data.Rename.move(File(root,"renamed.txt"),"../escape.txt"))
+    }
+    private fun openInList(name: String): androidx.test.uiautomator.UiObject2 {
+        repeat(12) { if (!device.hasObject(By.text(name))) device.swipe(300,900,300,300,20) }
+        return device.wait(Until.findObject(By.text(name)),5000) ?: throw AssertionError("Missing $name")
     }
     @Test fun archiveSafetyAndRepeatExtraction() {
         fixtures()

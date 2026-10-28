@@ -361,13 +361,15 @@ fun BrowserScreen(
         TextInputDialog(
             title = stringResource(R.string.rename),
             initialValue = target.name,
+            helperText = stringResource(R.string.rename_whole_name),
+            validate = { com.stockfileexplorer.app.data.Rename.validName(it) },
             confirmLabel = stringResource(R.string.rename),
             onConfirm = { newName ->
                 renameTarget = null
                 selection = emptySet()
                 scope.launch {
                     val ok = withContext(Dispatchers.IO) {
-                        target.file.renameTo(File(target.file.parentFile, newName))
+                        com.stockfileexplorer.app.data.Rename.move(target.file, newName)
                     }
                     if (!ok) {
                         Toast.makeText(

@@ -75,4 +75,5 @@
     <string name="viewer_entries">%1$d entries</string>
     <string name="viewer_play">Play</string>
     <string name="viewer_pause">Pause</string>
+    <string name="rename_whole_name">Full filename, including extension</string>
 </resources>

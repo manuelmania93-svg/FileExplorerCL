@@ -11,6 +11,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.res.stringResource
 import com.stockfileexplorer.app.R
 
@@ -20,7 +22,9 @@ fun TextInputDialog(
     initialValue: String,
     confirmLabel: String,
     onConfirm: (String) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    helperText: String? = null,
+    validate: (String) -> Boolean = { it.isNotBlank() }
 ) {
     var value by remember { mutableStateOf(initialValue) }
     AlertDialog(
@@ -31,17 +35,20 @@ fun TextInputDialog(
                 value = value,
                 onValueChange = { value = it },
                 singleLine = true,
+                supportingText = helperText?.let { hint -> { Text(hint) } },
+                isError = !validate(value),
                 modifier = Modifier.fillMaxWidth()
             )
         },
         confirmButton = {
             TextButton(
-                onClick = { if (value.isNotBlank()) onConfirm(value.trim()) },
-                enabled = value.isNotBlank()
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+                onClick = { if (validate(value)) onConfirm(value) },
+                enabled = validate(value)
             ) { Text(confirmLabel) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+            TextButton(colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface), onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
         }
     )
 }
@@ -59,10 +66,10 @@ fun ConfirmDialog(
         title = { Text(title) },
         text = { Text(body) },
         confirmButton = {
-            TextButton(onClick = onConfirm) { Text(confirmLabel) }
+            TextButton(colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface), onClick = onConfirm) { Text(confirmLabel) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+            TextButton(colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface), onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
         }
     )
 }

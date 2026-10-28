@@ -1,39 +1,37 @@
 # Stock File Explorer
 
-A CX-inspired Android file manager in our own style. Shows **every file in every
-folder** - including documents that other file managers hide from the Downloads
-folder.
-
-## Why
-
-Some file managers filter the Download folder through the media database, so
-PDFs, Word files and other documents simply do not appear. Stock File Explorer
-reads folders directly from the filesystem (with Android's "All files access"
-permission), so nothing is missing.
+An offline Android file manager with a compact yellow-and-white dashboard. It reads shared-storage folders directly, including documents in Download, subject to Android's access restrictions. All-files access does not unlock another app's private data or bypass protected Android/data and Android/obb locations.
 
 ## Features
 
-- Storage dashboard: usage ring, per-category sizes (images, videos, audio,
-  documents, apps, archives)
-- File browser: list/grid view, breadcrumbs, sorting (name/date/size/type),
-  hidden-files toggle, image thumbnails, multi-select
-- File actions: open, share, rename, delete, new folder
-- Library view: all files of a category across the whole storage
-- English and German, follows the system language
-- No ads, no tracking, no network permission - fully offline
-- Tabs for Local / Library / Network (network storage is planned)
+- Compact storage dashboard and category shortcuts; decimal storage units based on the user-data partition.
+- Folder browser: list/grid, breadcrumbs, sorting, hidden-files toggle, thumbnails and multi-select.
+- Full-filename rename, including an editable extension. Unsafe paths and existing destination files are rejected. Rename does not alter source bytes.
+- ZIP and RAR4/RAR5 contents and extraction into a new sibling folder. Existing files are never replaced. No password-protected or split archives in this build. Maximum 10,000 entries, 10 GB extracted data and 64 MiB RAR dictionary.
+- Internal picture viewer: pinch zoom and display-only rotation. Android-decodable still images; animated GIF/WebP show a still frame. Decoded image size is bounded to 2048 pixels on the longest edge.
+- Internal PDF reader: page navigation and pinch zoom. No editing, text search or password-protected PDF support.
+- Internal video player: always-visible play/pause and seek controls. MP4/H.264/AAC is tested; other containers and codecs depend on the device. Playback pauses when leaving the foreground.
+- Library categories and the 200 most recently modified shared-storage files.
+- English and German; white/yellow appearance in both system light and dark mode.
+- No ads, tracking, network permission or cloud conversion. Network tab remains a placeholder.
+- Other file types, such as Word documents, still use an installed external app when opened.
 
 ## Install
 
-1. Download `app-debug.apk` from the latest successful
-   [Actions](../../actions) run (artifact `StockFileExplorer-Debug-APK`).
-2. Allow installs from unknown sources when Android asks.
-3. On first start, grant "All files access" so every file type shows up.
+Download the APK from the repository's Releases page, allow installation from your browser when Android asks, then grant All files access when the app opens.
 
-## Build
+Earlier 0.1.0 and 0.1.1 preview APKs were signed with different temporary debug keys. Switching from either to 0.2.0 requires one reinstall of Stock File Explorer. App-specific data/settings and access grants reset; shared Downloads, documents and photos outside app-specific storage remain. From 0.2.0 the private repository Actions secrets restore the same persistent key for each build. The APK still has a debug build configuration.
+
+## Build and validation
+
+Requires JDK 17 and Android SDK platform 35.
 
 ```
-./gradlew assembleDebug
+./gradlew assembleDebug testDebugUnitTest
 ```
 
-Requires JDK 17 and the Android SDK (platform android-35).
+Local builds without repository signing secrets use a local debug key. Do not expect them to upgrade a published build. Never commit a private key or password. CI signs through private repository Actions secrets and removes its temporary runner copy afterward.
+
+CI runs unit tests and Android 15 emulator tests in system light and night modes. Tests use real generated JPEG/PNG, a two-page PDF, H.264/AAC video, ZIP, stored RAR4/RAR5 and compressed solid RAR4/RAR5 fixtures. They exercise folder/Library/Recent opening, rendering, zoom, video controls, extraction output bytes, unsafe-path/corruption/duplicate rejection, cancellation cleanup, repeat extraction without overwrite and full-name/extension rename. Emulator validation does not establish compatibility with every device, codec or archive.
+
+See THIRD_PARTY_NOTICES.md for licenses, signing fingerprint and limits.

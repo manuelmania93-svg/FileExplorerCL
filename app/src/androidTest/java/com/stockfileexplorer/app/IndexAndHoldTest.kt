@@ -107,6 +107,7 @@ class IndexAndHoldTest {
         File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),"sfe-index-benchmark.txt").writeText(result)
         // Remove the large synthetic set before screenshots and existing visual suites.
         root.deleteRecursively()
+        Unit
     }
 
     @Test fun b_actualHoldAcrossAllViewsAndSelect() = runBlocking {

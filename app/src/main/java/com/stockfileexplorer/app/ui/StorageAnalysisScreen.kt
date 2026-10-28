@@ -126,6 +126,20 @@ fun StorageAnalysisScreen(onBack: () -> Unit) {
                     }
                 }
 
+                item { SectionTitle(stringResource(R.string.redundant_files)) }
+                item {
+                    Text(
+                        stringResource(R.string.redundant_files_note),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                if (value.redundantFiles.isEmpty()) {
+                    item { Text(stringResource(R.string.no_redundant_files)) }
+                } else {
+                    items(value.redundantFiles.take(10)) { file -> FileAnalysisLine(file) }
+                }
+
                 item { SectionTitle(stringResource(R.string.duplicate_files)) }
                 if (value.duplicates.isEmpty()) {
                     item { Text(stringResource(R.string.no_duplicate_files)) }
@@ -152,6 +166,26 @@ fun StorageAnalysisScreen(onBack: () -> Unit) {
                         }
                     }
                 }
+
+                item { SectionTitle(stringResource(R.string.recycle_bin_folders)) }
+                item {
+                    Text(
+                        stringResource(R.string.recycle_bin_note),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                if (value.recycleBins.isEmpty()) {
+                    item { Text(stringResource(R.string.no_recycle_bin_folders)) }
+                } else {
+                    items(value.recycleBins) { folder ->
+                        AnalysisLine(
+                            folder.name,
+                            stringResource(R.string.analysis_folder_value, FileLogic.formatSize(folder.sizeBytes), folder.fileCount),
+                            subtitle = folder.path,
+                        )
+                    }
+                }
             }
         }
     }
@@ -162,7 +196,9 @@ private fun analysisStageLabel(stage: AnalysisStage): String = when (stage) {
     AnalysisStage.CATEGORIES -> stringResource(R.string.analysis_stage_categories)
     AnalysisStage.FOLDERS -> stringResource(R.string.analysis_stage_folders)
     AnalysisStage.EMPTY_FOLDERS -> stringResource(R.string.analysis_stage_empty)
+    AnalysisStage.REDUNDANT_FILES -> stringResource(R.string.analysis_stage_redundant)
     AnalysisStage.DUPLICATES -> stringResource(R.string.analysis_stage_duplicates)
+    AnalysisStage.RECYCLE_BIN -> stringResource(R.string.analysis_stage_recycle)
 }
 
 @Composable

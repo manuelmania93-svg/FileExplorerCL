@@ -20,7 +20,9 @@ object StorageAnalyzer {
         val largeFiles: List<FileItem>,
         val recentFiles: List<FileItem>,
         val emptyFolders: List<File>,
+        val redundantFiles: List<FileItem>,
         val duplicates: List<DuplicateGroup>,
+        val recycleBins: List<FolderUsage>,
         val incomplete: Boolean,
     )
 
@@ -34,12 +36,16 @@ object StorageAnalyzer {
         val base = buildRowsReport(rows, root, stat.totalBytes, stat.availableBytes, status.incomplete)
         onStage(AnalysisStage.EMPTY_FOLDERS)
         val empty = findEmptyFolders(root)
+        onStage(AnalysisStage.REDUNDANT_FILES)
         onStage(AnalysisStage.DUPLICATES)
         val duplicates = findDuplicates(rows)
+        onStage(AnalysisStage.RECYCLE_BIN)
+        val recycle = findRecycleBins(root)
         base.copy(
             emptyFolders = empty.folders,
             duplicates = duplicates.groups,
-            incomplete = base.incomplete || empty.incomplete || duplicates.incomplete,
+            recycleBins = recycle.folders,
+            incomplete = base.incomplete || empty.incomplete || duplicates.incomplete || recycle.incomplete,
         )
     }
 
@@ -72,13 +78,84 @@ object StorageAnalyzer {
             largeFiles = rows.sortedWith(compareByDescending<FileItem> { it.size }.thenBy { it.name }).take(20),
             recentFiles = rows.sortedWith(compareByDescending<FileItem> { it.lastModified }.thenBy { it.name }).take(20),
             emptyFolders = emptyList(),
+            redundantFiles = findRedundantCandidates(rows),
             duplicates = emptyList(),
+            recycleBins = emptyList(),
             incomplete = indexIncomplete,
         )
     }
 
     private data class EmptyResult(val folders: List<File>, val incomplete: Boolean)
     private data class DuplicateResult(val groups: List<DuplicateGroup>, val incomplete: Boolean)
+    private data class RecycleResult(val folders: List<FolderUsage>, val incomplete: Boolean)
+
+    private fun findRedundantCandidates(rows: List<FileItem>): List<FileItem> {
+        val extensions = setOf("log", "tmp", "temp", "bak", "old", "cache")
+        return rows
+            .filter { it.name.substringAfterLast('.', "").lowercase() in extensions }
+            .sortedByDescending { it.size }
+            .take(50)
+    }
+
+    private fun findRecycleBins(root: File): RecycleResult {
+        val names = setOf(
+            ".recycle_bin", ".recyclebin", "recycle_bin", "recyclebin",
+            ".trash", ".trash-1000", "bd_file_recycle_content"
+        )
+        val matches = LinkedHashMap<String, File>()
+        var incomplete = false
+        val queue = ArrayDeque<Pair<File, Int>>()
+        queue.add(root to 0)
+        var visited = 0
+        while (queue.isNotEmpty() && visited < 10_000) {
+            val (directory, depth) = queue.removeFirst()
+            visited++
+            if (Files.isSymbolicLink(directory.toPath())) continue
+            val children = directory.listFiles()
+            if (children == null) {
+                incomplete = true
+                continue
+            }
+            if (depth >= 3) continue
+            children.forEach { child ->
+                if (!child.isDirectory || Files.isSymbolicLink(child.toPath())) return@forEach
+                val lower = child.name.lowercase()
+                if (lower in names) {
+                    matches[child.absolutePath] = child
+                } else if (child.absolutePath !in setOf("${root.absolutePath}/Android/data", "${root.absolutePath}/Android/obb")) {
+                    queue.add(child to depth + 1)
+                }
+            }
+        }
+        if (queue.isNotEmpty()) incomplete = true
+        val usages = matches.values.map { folder ->
+            var size = 0L
+            var count = 0
+            val nested = ArrayDeque<File>()
+            nested.add(folder)
+            var scanned = 0
+            while (nested.isNotEmpty() && scanned < 10_000) {
+                val current = nested.removeFirst()
+                scanned++
+                if (Files.isSymbolicLink(current.toPath())) continue
+                val children = current.listFiles()
+                if (children == null) {
+                    incomplete = true
+                    continue
+                }
+                children.forEach { child ->
+                    if (child.isDirectory && !Files.isSymbolicLink(child.toPath())) nested.add(child)
+                    else if (child.isFile) {
+                        count++
+                        size += child.length()
+                    }
+                }
+            }
+            if (nested.isNotEmpty()) incomplete = true
+            FolderUsage(folder.absolutePath, folder.name, size, count)
+        }.sortedByDescending { it.sizeBytes }
+        return RecycleResult(usages, incomplete)
+    }
 
     private fun findEmptyFolders(root: File): EmptyResult {
         val result = ArrayList<File>()
@@ -151,5 +228,7 @@ enum class AnalysisStage {
     CATEGORIES,
     FOLDERS,
     EMPTY_FOLDERS,
+    REDUNDANT_FILES,
     DUPLICATES,
+    RECYCLE_BIN,
 }

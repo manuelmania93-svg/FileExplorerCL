@@ -106,4 +106,12 @@
     <string name="analysis_stage_folders">Ranking folders…</string>
     <string name="analysis_stage_empty">Finding empty folders…</string>
     <string name="analysis_stage_duplicates">Finding duplicate files…</string>
+    <string name="redundant_files">Redundant files</string>
+    <string name="redundant_files_note">Name-based log, temporary, backup, and cache candidates only. Review before deleting anything.</string>
+    <string name="no_redundant_files">No redundant-file candidates found</string>
+    <string name="recycle_bin_folders">Recycle bin folders</string>
+    <string name="recycle_bin_note">Only recognized folders in shared storage are listed. This is not a system-wide or cross-app recycle-bin guarantee.</string>
+    <string name="no_recycle_bin_folders">No shared-storage recycle bin folders found</string>
+    <string name="analysis_stage_redundant">Finding redundant files…</string>
+    <string name="analysis_stage_recycle">Checking recycle bin folders…</string>
 </resources>

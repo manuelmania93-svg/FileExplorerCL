@@ -106,4 +106,12 @@
     <string name="analysis_stage_folders">Ordner werden sortiert…</string>
     <string name="analysis_stage_empty">Leere Ordner werden gesucht…</string>
     <string name="analysis_stage_duplicates">Doppelte Dateien werden gesucht…</string>
+    <string name="redundant_files">Redundante Dateien</string>
+    <string name="redundant_files_note">Nur namensbasierte Log-, temporäre, Backup- und Cache-Kandidaten. Vor dem Löschen prüfen.</string>
+    <string name="no_redundant_files">Keine Kandidaten für redundante Dateien gefunden</string>
+    <string name="recycle_bin_folders">Papierkorb-Ordner</string>
+    <string name="recycle_bin_note">Nur erkannte Ordner im gemeinsamen Speicher werden angezeigt. Dies ist keine systemweite oder appübergreifende Papierkorb-Garantie.</string>
+    <string name="no_recycle_bin_folders">Keine Papierkorb-Ordner im gemeinsamen Speicher gefunden</string>
+    <string name="analysis_stage_redundant">Redundante Dateien werden gesucht…</string>
+    <string name="analysis_stage_recycle">Papierkorb-Ordner werden geprüft…</string>
 </resources>

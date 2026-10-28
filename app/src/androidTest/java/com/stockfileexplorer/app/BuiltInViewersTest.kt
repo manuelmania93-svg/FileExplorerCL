@@ -103,7 +103,11 @@ class BuiltInViewersTest {
         open("sample-picture.jpg");waitText("Rotate");screenshot("recent-picture-route");device.pressBack()
         // Category route from the compact dashboard into Library.
         context.startActivity(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
-        waitText("Images");device.findObject(By.text("Images")).click()
+        waitText("Images")
+        // The storage summary repeats the category label as plain text above
+        // the tiles; the clickable Images tile is the lower match.
+        (device.findObjects(By.text("Images")).maxByOrNull { it.visibleBounds.centerY() }
+            ?: throw AssertionError("Images category tile missing on dashboard")).click()
         open("sample-picture.jpg");waitText("Rotate");screenshot("library-picture-route");device.pressBack()
     }
     @Test fun wholeFilenameIncludingExtensionRename() {

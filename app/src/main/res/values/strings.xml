@@ -6,7 +6,7 @@
     <string name="tab_network">Network</string>
     <string name="network_coming_soon">Network storage (SMB, FTP, cloud) is coming in a later version.</string>
     <string name="perm_title">All-files access needed</string>
-    <string name="perm_body">Stock File Explorer shows every file in every folder, including documents other file managers hide. Android only allows that with "All files access". On the next screen, allow access for Stock File Explorer.</string>
+    <string name="perm_body">To show the files in your shared storage, including documents in folders like Download, Stock File Explorer needs the "All files access" permission. On the next screen, allow access for Stock File Explorer.</string>
     <string name="perm_grant">Open settings</string>
     <string name="internal_storage">Internal storage</string>
     <string name="used_of">%1$s used of %2$s</string>

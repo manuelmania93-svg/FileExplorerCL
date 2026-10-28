@@ -7,7 +7,7 @@ permissions:
   contents: read
 jobs:
   build:
-    timeout-minutes: 35
+    timeout-minutes: 55
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
@@ -26,7 +26,7 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: Android 15 launch + Download document visibility test
+      - name: Android 15 launch + Download document visibility test (light and dark)
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -37,14 +37,23 @@ jobs:
             mkdir -p app/build/reports/device
             ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.GateFlowTest -Pandroid.testInstrumentationRunnerArguments.capture=gate
             adb pull /sdcard/Download/ app/build/reports/device/
+            adb shell cmd uimode night yes
+            ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.GateFlowTest -Pandroid.testInstrumentationRunnerArguments.capture=gate-night
+            adb shell cmd uimode night no
             adb shell am force-stop com.stockfileexplorer.app || true
             ./gradlew installDebug
             adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
-            printf 'PDFFIXTURE' > fixture.pdf && adb push fixture.pdf /sdcard/Download/sfe-fixture-report.pdf
-            printf 'DOCXFIXTURE' > fixture.docx && adb push fixture.docx /sdcard/Download/sfe-fixture-notes.docx
-            printf 'TXTFIXTURE' > fixture.txt && adb push fixture.txt /sdcard/Download/sfe-fixture-todo.txt
+            adb push app/src/androidTest/assets/fixtures/sfe-fixture-report.pdf /sdcard/Download/sfe-fixture-report.pdf
+            adb push app/src/androidTest/assets/fixtures/sfe-fixture-notes.docx /sdcard/Download/sfe-fixture-notes.docx
+            adb push app/src/androidTest/assets/fixtures/sfe-fixture-todo.txt /sdcard/Download/sfe-fixture-todo.txt
             adb shell ls -la /sdcard/Download
             ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.DocumentVisibilitySmokeTest -Pandroid.testInstrumentationRunnerArguments.capture=portrait
+            adb pull /sdcard/Download/ app/build/reports/device/
+            adb shell cmd uimode night yes
+            ./gradlew installDebug
+            adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
+            ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.DocumentVisibilitySmokeTest -Pandroid.testInstrumentationRunnerArguments.capture=night
+            adb shell cmd uimode night no
             adb pull /sdcard/Download/ app/build/reports/device/
       - uses: actions/upload-artifact@v4
         with:

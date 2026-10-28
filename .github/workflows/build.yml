@@ -35,9 +35,13 @@ jobs:
           disable-animations: true
           script: |
             mkdir -p app/build/reports/device
-            ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.capture=portrait; result=$?
+            ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.GateFlowTest -Pandroid.testInstrumentationRunnerArguments.capture=gate; r1=$?
             adb pull /sdcard/Download/ app/build/reports/device/
-            test "$result" -eq 0
+            adb shell am force-stop com.stockfileexplorer.app
+            adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
+            ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.DocumentVisibilitySmokeTest -Pandroid.testInstrumentationRunnerArguments.capture=portrait; r2=$?
+            adb pull /sdcard/Download/ app/build/reports/device/
+            test "$r1" -eq 0 -a "$r2" -eq 0
       - uses: actions/upload-artifact@v4
         with:
           name: StockFileExplorer-Debug-APK

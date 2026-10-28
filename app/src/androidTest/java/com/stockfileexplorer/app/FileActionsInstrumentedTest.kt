@@ -31,6 +31,7 @@ class FileActionsInstrumentedTest {
     private val root = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "SfeActions")
     private val target = File(root, "actions-target.txt")
     private val categoryImage = File(root, "actions-image.jpg")
+    private val categoryDestination = File(root, "category-destination")
 
     private fun waitText(value: String, timeout: Long = 15_000) = device.wait(Until.findObject(By.text(value)), timeout)
         ?: throw AssertionError("Missing UI text: $value")
@@ -108,6 +109,7 @@ class FileActionsInstrumentedTest {
         root.mkdirs()
         target.writeText("menu fixture")
         categoryImage.writeBytes(byteArrayOf(1, 2, 3, 4))
+        categoryDestination.mkdirs()
         FileActionPreferences.setVisibleActions(context, FileMenuAction.entries.toSet())
         if (FileActionPreferences.isFavorite(context, target.absolutePath)) {
             FileActionPreferences.toggleFavorite(context, target.absolutePath)
@@ -122,6 +124,15 @@ class FileActionsInstrumentedTest {
         waitText("Open with")
         waitText("Customize menu")
         screenshot("sfe-file-actions-default")
+
+        clickText("Properties")
+        waitText("Name: ${target.name}")
+        waitText("Path: ${target.absolutePath}")
+        waitText("Modified:")
+        waitText("Favorite: No")
+        screenshot("sfe-file-actions-properties")
+        clickText("Done")
+        openMenu()
 
         clickText("Customize menu")
         waitText("Customize context menu")
@@ -161,8 +172,25 @@ class FileActionsInstrumentedTest {
         waitText("Open with")
         waitText("Customize menu")
         screenshot("sfe-file-actions-category")
-        device.pressBack()
 
+        clickText("Copy")
+        waitText("Choose copy destination")
+        clickText("Download")
+        clickText("SfeActions")
+        clickText(categoryDestination.name)
+        clickText("Copy here")
+        val categoryCopy = File(categoryDestination, categoryImage.name)
+        assertTrue("category copy did not create the destination", waitForFile(categoryCopy))
+        assertTrue("category copy removed the original", categoryImage.exists())
+        screenshot("sfe-file-actions-category-transfer")
+
+        longClickText(categoryImage.name)
+        clickText("Favorite")
+        waitDescription("Favorite")
+
+        if (FileActionPreferences.isFavorite(context, categoryImage.absolutePath)) {
+            FileActionPreferences.toggleFavorite(context, categoryImage.absolutePath)
+        }
         FileActionPreferences.setVisibleActions(context, FileMenuAction.entries.toSet())
         root.deleteRecursively()
     }

@@ -31,6 +31,7 @@ class CategoryTest {
     @Test
     fun sizeFormatting() {
         assertEquals("512 B", FileLogic.formatSize(512))
-        assertEquals("1.5 MB", FileLogic.formatSize(1536 * 1024))
+        assertEquals("1.5 MB", FileLogic.formatSize(1500 * 1000))
+        assertEquals("44.0 GB", FileLogic.formatSize(44000L * 1000 * 1000))
     }
 }

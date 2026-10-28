@@ -34,15 +34,15 @@ class IndexAndHoldTest {
     private fun waitTextContains(value: String): UiObject2 = device.wait(Until.findObject(By.textContains(value)), 15000)
         ?: throw AssertionError("Missing UI text containing: $value")
     private fun clickTile(value: String) {
+        assertTrue("Tile present: $value", device.wait(Until.hasObject(By.text(value)),15000))
         repeat(3) {
             try {
-                val tile = waitText(value)
-                val bounds = tile.visibleBounds
+                val bounds = device.findObjects(By.text(value)).maxBy { it.visibleBounds.centerY() }.visibleBounds
                 device.click(bounds.centerX(), bounds.centerY())
                 return
             } catch (_: StaleObjectException) { device.waitForIdle() }
         }
-        throw AssertionError("Unstable tile: $value")
+        throw AssertionError("Tile not clickable: $value")
     }
     private fun screenshot(name: String) {
         device.takeScreenshot(File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "sfe-index-${if(german) "de" else "en"}-$name.png"))

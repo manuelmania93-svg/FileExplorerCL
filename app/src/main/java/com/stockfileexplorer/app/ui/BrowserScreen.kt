@@ -1,0 +1,580 @@
+package com.stockfileexplorer.app.ui
+
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.graphics.BitmapFactory
+import android.os.Environment
+import android.webkit.MimeTypeMap
+import android.widget.Toast
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckBox
+import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.CreateNewFolder
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.ViewList
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
+import com.stockfileexplorer.app.R
+import com.stockfileexplorer.app.data.FileItem
+import com.stockfileexplorer.app.data.FileLogic
+import com.stockfileexplorer.app.data.FileRepository
+import com.stockfileexplorer.app.data.SortMode
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
+
+private val FolderYellow = Color(0xFFFFC107)
+private val thumbnailCache = android.util.LruCache<String, ImageBitmap>(120)
+
+private fun loadThumbnail(file: File, reqSize: Int): ImageBitmap? {
+    thumbnailCache.get(file.absolutePath)?.let { return it }
+    return try {
+        val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(file.absolutePath, opts)
+        if (opts.outWidth <= 0) return null
+        var sample = 1
+        while (opts.outWidth / (sample * 2) >= reqSize && opts.outHeight / (sample * 2) >= reqSize) {
+            sample *= 2
+        }
+        val decodeOpts = BitmapFactory.Options().apply { inSampleSize = sample }
+        val bmp = BitmapFactory.decodeFile(file.absolutePath, decodeOpts) ?: return null
+        val result = bmp.asImageBitmap()
+        thumbnailCache.put(file.absolutePath, result)
+        result
+    } catch (e: Exception) {
+        null
+    }
+}
+
+private fun mimeTypeFor(file: File): String {
+    val ext = MimeTypeMap.getFileExtensionFromUrl(file.name)
+    val mime = MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext.lowercase())
+    return mime ?: "*/*"
+}
+
+private fun uriFor(context: android.content.Context, file: File) =
+    FileProvider.getUriForFile(context, context.packageName + ".fileprovider", file)
+
+fun openFile(context: android.content.Context, file: File, noAppMessage: String) {
+    try {
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uriFor(context, file), mimeTypeFor(file))
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(intent)
+    } catch (e: ActivityNotFoundException) {
+        Toast.makeText(context, noAppMessage, Toast.LENGTH_SHORT).show()
+    }
+}
+
+fun shareFiles(context: android.content.Context, files: List<File>) {
+    try {
+        val uris = ArrayList(files.map { uriFor(context, it) })
+        val intent = if (uris.size == 1) {
+            Intent(Intent.ACTION_SEND).apply {
+                type = mimeTypeFor(files.first())
+                putExtra(Intent.EXTRA_STREAM, uris.first())
+            }
+        } else {
+            Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+                type = "*/*"
+                putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+            }
+        }
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        context.startActivity(Intent.createChooser(intent, null))
+    } catch (e: Exception) {
+        // no share target available
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun BrowserScreen(
+    startPath: String,
+    onNavigateUp: () -> Unit
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val rootPath = remember { Environment.getExternalStorageDirectory().absolutePath }
+
+    var currentPath by remember { mutableStateOf(startPath) }
+    var items by remember { mutableStateOf<List<FileItem>>(emptyList()) }
+    var loading by remember { mutableStateOf(true) }
+    var sortMode by remember { mutableStateOf(SortMode.NAME) }
+    var showHidden by remember { mutableStateOf(false) }
+    var gridView by remember { mutableStateOf(false) }
+    var refreshTick by remember { mutableIntStateOf(0) }
+    var selection by remember { mutableStateOf(setOf<String>()) }
+    var menuOpen by remember { mutableStateOf(false) }
+    var showNewFolder by remember { mutableStateOf(false) }
+    var renameTarget by remember { mutableStateOf<FileItem?>(null) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
+    val noAppMessage = stringResource(R.string.no_app_to_open)
+
+    LaunchedEffect(currentPath, sortMode, showHidden, refreshTick) {
+        loading = true
+        selection = emptySet()
+        items = withContext(Dispatchers.IO) {
+            FileRepository.listDir(File(currentPath), showHidden, sortMode)
+        }
+        loading = false
+    }
+
+    fun navigateTo(path: String) {
+        if (path != currentPath) currentPath = path
+    }
+
+    fun toggleSelection(path: String) {
+        selection = if (selection.contains(path)) selection - path else selection + path
+    }
+
+    val selecting = selection.isNotEmpty()
+
+    Column(Modifier.fillMaxSize()) {
+        if (selecting) {
+            TopAppBar(
+                title = { Text(stringResource(R.string.selected_count, selection.size)) },
+                navigationIcon = {
+                    IconButton(onClick = { selection = emptySet() }) {
+                        Icon(Icons.Filled.Close, contentDescription = null)
+                    }
+                },
+                actions = {
+                    if (selection.size == 1) {
+                        IconButton(onClick = {
+                            val target = items.firstOrNull { it.file.absolutePath == selection.first() }
+                            if (target != null) renameTarget = target
+                        }) {
+                            Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.rename))
+                        }
+                    }
+                    IconButton(onClick = {
+                        val files = selection.map { File(it) }
+                        shareFiles(context, files)
+                    }) {
+                        Icon(Icons.Filled.Share, contentDescription = stringResource(R.string.share))
+                    }
+                    IconButton(onClick = { showDeleteConfirm = true }) {
+                        Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.delete))
+                    }
+                }
+            )
+        } else {
+            TopAppBar(
+                navigationIcon = {
+                    IconButton(onClick = {
+                        if (currentPath == rootPath) onNavigateUp()
+                        else File(currentPath).parent?.let { navigateTo(it) } ?: onNavigateUp()
+                    }) {
+                        Icon(Icons.Filled.ArrowBack, contentDescription = null)
+                    }
+                },
+                title = {
+                    Breadcrumb(
+                        currentPath = currentPath,
+                        rootPath = rootPath,
+                        onNavigate = { navigateTo(it) }
+                    )
+                },
+                actions = {
+                    IconButton(onClick = { gridView = !gridView }) {
+                        Icon(
+                            if (gridView) Icons.Filled.ViewList else Icons.Filled.GridView,
+                            contentDescription = stringResource(
+                                if (gridView) R.string.view_list else R.string.view_grid
+                            )
+                        )
+                    }
+                    Box {
+                        IconButton(onClick = { menuOpen = true }) {
+                            Icon(Icons.Filled.MoreVert, contentDescription = null)
+                        }
+                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            Text(
+                                text = stringResource(R.string.sort_by),
+                                style = MaterialTheme.typography.labelSmall,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                            )
+                            SortMode.entries.forEach { mode ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            when (mode) {
+                                                SortMode.NAME -> stringResource(R.string.sort_name)
+                                                SortMode.DATE -> stringResource(R.string.sort_date)
+                                                SortMode.SIZE -> stringResource(R.string.sort_size)
+                                                SortMode.TYPE -> stringResource(R.string.sort_type)
+                                            }
+                                        )
+                                    },
+                                    onClick = { sortMode = mode; menuOpen = false }
+                                )
+                            }
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        stringResource(
+                                            if (showHidden) R.string.hide_hidden else R.string.show_hidden
+                                        )
+                                    )
+                                },
+                                onClick = { showHidden = !showHidden; menuOpen = false }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.new_folder)) },
+                                leadingIcon = { Icon(Icons.Filled.CreateNewFolder, null) },
+                                onClick = { showNewFolder = true; menuOpen = false }
+                            )
+                        }
+                    }
+                }
+            )
+        }
+
+        when {
+            loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+            items.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(
+                    stringResource(R.string.empty_folder),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            gridView -> LazyVerticalGrid(
+                columns = GridCells.Adaptive(100.dp),
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(8.dp)
+            ) {
+                items(items.size, key = { items[it].file.absolutePath }) { index ->
+                    val item = items[index]
+                    FileGridCell(
+                        item = item,
+                        selected = selection.contains(item.file.absolutePath),
+                        selecting = selecting,
+                        onClick = {
+                            if (selecting) toggleSelection(item.file.absolutePath)
+                            else if (item.isDirectory) navigateTo(item.file.absolutePath)
+                            else openFile(context, item.file, noAppMessage)
+                        },
+                        onLongClick = { toggleSelection(item.file.absolutePath) }
+                    )
+                }
+            }
+            else -> LazyColumn(Modifier.fillMaxSize()) {
+                items(items.size, key = { items[it].file.absolutePath }) { index ->
+                    val item = items[index]
+                    FileListRow(
+                        item = item,
+                        selected = selection.contains(item.file.absolutePath),
+                        selecting = selecting,
+                        onClick = {
+                            if (selecting) toggleSelection(item.file.absolutePath)
+                            else if (item.isDirectory) navigateTo(item.file.absolutePath)
+                            else openFile(context, item.file, noAppMessage)
+                        },
+                        onLongClick = { toggleSelection(item.file.absolutePath) }
+                    )
+                }
+            }
+        }
+    }
+
+    if (showNewFolder) {
+        TextInputDialog(
+            title = stringResource(R.string.new_folder),
+            initialValue = "",
+            confirmLabel = stringResource(R.string.create),
+            onConfirm = { name ->
+                showNewFolder = false
+                scope.launch {
+                    val ok = withContext(Dispatchers.IO) { File(currentPath, name).mkdirs() }
+                    Toast.makeText(
+                        context,
+                        if (ok) context.getString(R.string.folder_created)
+                        else context.getString(R.string.folder_create_failed),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    if (ok) refreshTick++
+                }
+            },
+            onDismiss = { showNewFolder = false }
+        )
+    }
+
+    renameTarget?.let { target ->
+        TextInputDialog(
+            title = stringResource(R.string.rename),
+            initialValue = target.name,
+            confirmLabel = stringResource(R.string.rename),
+            onConfirm = { newName ->
+                renameTarget = null
+                selection = emptySet()
+                scope.launch {
+                    val ok = withContext(Dispatchers.IO) {
+                        target.file.renameTo(File(target.file.parentFile, newName))
+                    }
+                    if (!ok) {
+                        Toast.makeText(
+                            context,
+                            context.getString(R.string.rename_failed),
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                    refreshTick++
+                }
+            },
+            onDismiss = { renameTarget = null }
+        )
+    }
+
+    if (showDeleteConfirm) {
+        ConfirmDialog(
+            title = stringResource(R.string.delete_confirm_title, selection.size),
+            body = stringResource(R.string.delete_confirm_body),
+            confirmLabel = stringResource(R.string.delete),
+            onConfirm = {
+                showDeleteConfirm = false
+                val toDelete = selection
+                selection = emptySet()
+                scope.launch {
+                    val allOk = withContext(Dispatchers.IO) {
+                        toDelete.all { File(it).deleteRecursively() }
+                    }
+                    Toast.makeText(
+                        context,
+                        if (allOk) context.getString(R.string.deleted_ok)
+                        else context.getString(R.string.delete_failed),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    refreshTick++
+                }
+            },
+            onDismiss = { showDeleteConfirm = false }
+        )
+    }
+}
+
+@Composable
+fun Breadcrumb(currentPath: String, rootPath: String, onNavigate: (String) -> Unit) {
+    val segments = remember(currentPath, rootPath) {
+        val list = mutableListOf<Pair<String, String>>()
+        var f: File? = File(currentPath)
+        while (f != null) {
+            val label = if (f.absolutePath == rootPath) "/" else f.name
+            list.add(0, label to f.absolutePath)
+            if (f.absolutePath == rootPath) break
+            f = f.parentFile
+        }
+        list
+    }
+    LazyRow(verticalAlignment = Alignment.CenterVertically) {
+        items(segments.size) { index ->
+            val (label, path) = segments[index]
+            val isLast = index == segments.size - 1
+            TextButton(onClick = { if (!isLast) onNavigate(path) }) {
+                Text(
+                    text = label,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    fontWeight = if (isLast) androidx.compose.ui.text.font.FontWeight.Bold
+                    else androidx.compose.ui.text.font.FontWeight.Normal
+                )
+            }
+            if (!isLast) {
+                Text(">", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun FileListRow(
+    item: FileItem,
+    selected: Boolean,
+    selecting: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit
+) {
+    val background = if (selected) MaterialTheme.colorScheme.secondaryContainer
+    else Color.Transparent
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(background)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (selecting) {
+            Checkbox(checked = selected, onCheckedChange = { onClick() })
+            Spacer(Modifier.width(4.dp))
+        }
+        FileIcon(item = item, size = 40)
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(item.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                text = if (item.isDirectory)
+                    stringResource(if (item.childCount == 1) R.string.one_item else R.string.items_count, item.childCount) +
+                            " • " + FileLogic.formatDate(item.lastModified)
+                else FileLogic.formatSize(item.size) + " • " + FileLogic.formatDate(item.lastModified),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+    androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun FileGridCell(
+    item: FileItem,
+    selected: Boolean,
+    selecting: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .padding(4.dp)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
+        colors = CardDefaults.cardColors(
+            containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer
+            else MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box {
+                FileIcon(item = item, size = 56)
+                if (selecting) {
+                    Icon(
+                        imageVector = if (selected) Icons.Filled.CheckBox else Icons.Filled.CheckBoxOutlineBlank,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.align(Alignment.TopEnd).size(18.dp)
+                    )
+                }
+            }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                item.name,
+                style = MaterialTheme.typography.bodySmall,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = if (item.isDirectory)
+                    stringResource(if (item.childCount == 1) R.string.one_item else R.string.items_count, item.childCount)
+                else FileLogic.formatSize(item.size),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+fun FileIcon(item: FileItem, size: Int) {
+    if (item.isDirectory) {
+        Icon(
+            imageVector = Icons.Filled.Folder,
+            contentDescription = null,
+            tint = FolderYellow,
+            modifier = Modifier.size(size.dp)
+        )
+    } else if (FileLogic.isImage(item.name)) {
+        val thumb = produceState<ImageBitmap?>(null, item.file.absolutePath) {
+            value = withContext(Dispatchers.IO) { loadThumbnail(item.file, 128) }
+        }.value
+        if (thumb != null) {
+            Image(
+                bitmap = thumb,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.size(size.dp)
+            )
+        } else {
+            Icon(
+                imageVector = categoryIcon(item.category),
+                contentDescription = null,
+                tint = categoryColor(item.category),
+                modifier = Modifier.size(size.dp)
+            )
+        }
+    } else {
+        Icon(
+            imageVector = categoryIcon(item.category),
+            contentDescription = null,
+            tint = categoryColor(item.category),
+            modifier = Modifier.size(size.dp)
+        )
+    }
+}

@@ -1,0 +1,167 @@
+package com.stockfileexplorer.app
+
+import android.os.Bundle
+import android.os.Environment
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CloudQueue
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import com.stockfileexplorer.app.data.FileCategory
+import com.stockfileexplorer.app.theme.AppTheme
+import com.stockfileexplorer.app.ui.BrowserScreen
+import com.stockfileexplorer.app.ui.DashboardScreen
+import com.stockfileexplorer.app.ui.LibraryScreen
+import com.stockfileexplorer.app.ui.PermissionScreen
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent {
+            AppTheme {
+                Root()
+            }
+        }
+    }
+}
+
+private const val TAB_LOCAL = 0
+private const val TAB_LIBRARY = 1
+private const val TAB_NETWORK = 2
+
+@Composable
+fun Root() {
+    var hasAccess by remember { mutableStateOf(Environment.isExternalStorageManager()) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                hasAccess = Environment.isExternalStorageManager()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    if (!hasAccess) {
+        PermissionScreen()
+    } else {
+        MainScaffold()
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MainScaffold() {
+    var tab by remember { mutableIntStateOf(TAB_LOCAL) }
+    var browsePath by remember { mutableStateOf<String?>(null) }
+    var libraryCategory by remember { mutableStateOf<FileCategory?>(null) }
+    val storageRoot = remember { Environment.getExternalStorageDirectory().absolutePath }
+
+    BackHandler(enabled = browsePath != null) {
+        browsePath = null
+    }
+
+    Scaffold(
+        bottomBar = {
+            NavigationBar {
+                NavigationBarItem(
+                    selected = tab == TAB_LOCAL,
+                    onClick = { tab = TAB_LOCAL; browsePath = null },
+                    icon = { Icon(Icons.Filled.Home, contentDescription = null) },
+                    label = { Text(stringResource(R.string.tab_local)) }
+                )
+                NavigationBarItem(
+                    selected = tab == TAB_LIBRARY,
+                    onClick = { tab = TAB_LIBRARY },
+                    icon = { Icon(Icons.Filled.PhotoLibrary, contentDescription = null) },
+                    label = { Text(stringResource(R.string.tab_library)) }
+                )
+                NavigationBarItem(
+                    selected = tab == TAB_NETWORK,
+                    onClick = { tab = TAB_NETWORK },
+                    icon = { Icon(Icons.Filled.CloudQueue, contentDescription = null) },
+                    label = { Text(stringResource(R.string.tab_network)) }
+                )
+            }
+        }
+    ) { padding ->
+        when (tab) {
+            TAB_LOCAL -> {
+                val path = browsePath
+                if (path == null) {
+                    Column(Modifier.fillMaxSize().padding(padding)) {
+                        TopAppBar(title = { Text(stringResource(R.string.app_name)) })
+                        DashboardScreen(
+                            onOpenStorage = { browsePath = storageRoot },
+                            onOpenCategory = { cat ->
+                                libraryCategory = cat
+                                tab = TAB_LIBRARY
+                            }
+                        )
+                    }
+                } else {
+                    Column(Modifier.fillMaxSize().padding(padding)) {
+                        BrowserScreen(
+                            startPath = path,
+                            onNavigateUp = { browsePath = null }
+                        )
+                    }
+                }
+            }
+            TAB_LIBRARY -> Column(Modifier.fillMaxSize().padding(padding)) {
+                LibraryScreen(
+                    initialCategory = libraryCategory,
+                    onConsumedInitial = { libraryCategory = null }
+                )
+            }
+            else -> Column(
+                modifier = Modifier.fillMaxSize().padding(padding),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(
+                    Icons.Filled.Folder,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = stringResource(R.string.network_coming_soon),
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(32.dp)
+                )
+            }
+        }
+    }
+}

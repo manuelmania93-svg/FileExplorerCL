@@ -46,7 +46,14 @@ jobs:
           script: |
             mkdir -p app/build/reports/device
             adb install -r app/build/outputs/apk/debug/app-debug.apk
+            # Grant only after a first launch: on this emulator image a grant
+            # on a never-launched package was not honored (gate still showed).
+            # The main workflow always grants after the app has run.
+            adb shell am start -n com.stockfileexplorer.app/.MainActivity >/dev/null
+            sleep 3
+            adb shell am force-stop com.stockfileexplorer.app
             adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
+            adb shell dumpsys appops --op MANAGE_EXTERNAL_STORAGE | grep -i -A1 stockfileexplorer || true
             adb push app/src/androidTest/assets/fixtures/sfe-fixture-report.pdf /sdcard/Download/sfe-fixture-report.pdf
             adb push app/src/androidTest/assets/fixtures/sfe-fixture-notes.docx /sdcard/Download/sfe-fixture-notes.docx
             adb push app/src/androidTest/assets/fixtures/sfe-fixture-todo.txt /sdcard/Download/sfe-fixture-todo.txt

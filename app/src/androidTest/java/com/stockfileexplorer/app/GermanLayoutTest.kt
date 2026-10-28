@@ -25,7 +25,7 @@ class GermanLayoutTest {
     // LazyColumn only composes visible rows; accumulated screenshots make the
     // image category longer than one screen, so scroll until the row appears.
     private fun scrollToText(device: UiDevice, text: String): Boolean {
-        repeat(14) {
+        repeat(40) {
             if (device.hasObject(By.textContains(text))) return true
             device.swipe(300, 900, 300, 300, 20)
             Thread.sleep(250)

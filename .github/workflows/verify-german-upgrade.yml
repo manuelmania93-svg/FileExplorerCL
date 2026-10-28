@@ -1,0 +1,75 @@
+name: Focused German + upgrade verification
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    timeout-minutes: 30
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools platforms;android-35 build-tools;35.0.0
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Restore permanent private signing key
+        env:
+          SFE_KEYSTORE_BASE64: ${{ secrets.SFE_KEYSTORE_BASE64 }}
+          SFE_KEYSTORE_PASSWORD: ${{ secrets.SFE_KEYSTORE_PASSWORD }}
+          SFE_KEY_ALIAS: ${{ secrets.SFE_KEY_ALIAS }}
+        run: |
+          test -n "$SFE_KEYSTORE_BASE64" && test -n "$SFE_KEYSTORE_PASSWORD" && test -n "$SFE_KEY_ALIAS"
+          umask 077
+          printf '%s' "$SFE_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/sfe-signing.p12"
+          echo "SFE_KEYSTORE_PATH=$RUNNER_TEMP/sfe-signing.p12" >> "$GITHUB_ENV"
+          printf 'SFE_KEYSTORE_PASSWORD=%s\n' "$SFE_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+          printf 'SFE_KEY_ALIAS=%s\n' "$SFE_KEY_ALIAS" >> "$GITHUB_ENV"
+      - name: Build APKs
+        run: ./gradlew assembleDebug assembleDebugAndroidTest
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: German layout + upgrade proof
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          script: |
+            mkdir -p app/build/reports/device
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
+            adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
+            adb push app/src/androidTest/assets/fixtures/sfe-fixture-report.pdf /sdcard/Download/sfe-fixture-report.pdf
+            adb push app/src/androidTest/assets/fixtures/sfe-fixture-notes.docx /sdcard/Download/sfe-fixture-notes.docx
+            adb push app/src/androidTest/assets/fixtures/sfe-fixture-todo.txt /sdcard/Download/sfe-fixture-todo.txt
+            adb push app/src/androidTest/assets/viewers/sample-picture.jpg /sdcard/Download/sfe-sample-picture.jpg
+            echo "packages: $(adb shell pm list packages | grep -i stockfileexplorer | tr -d '\r')"
+            adb shell cmd locale set-app-locales com.stockfileexplorer.app --locales de-AT
+            adb shell am force-stop com.stockfileexplorer.app
+            echo "app locales: $(adb shell cmd locale get-app-locales com.stockfileexplorer.app | tr -d '\r')"
+            ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.GermanLayoutTest -Pandroid.testInstrumentationRunnerArguments.capture=german || (adb pull /sdcard/Download/ app/build/reports/device/; exit 1)
+            adb shell cmd locale set-app-locales com.stockfileexplorer.app --locales "" || true
+            adb pull /sdcard/Download/ app/build/reports/device/
+            # Upgrade path proof: install the actually released 0.2.0 APK, then
+            # upgrade-install this build over it (fails if the signer differs).
+            curl -fL --retry 3 -o "$RUNNER_TEMP/sfe-0.2.0.apk" https://github.com/manuelmania93-svg/StockFileExplorer/releases/download/v0.2.0/StockFileExplorer-0.2.0.apk
+            out=$(adb install -r -d "$RUNNER_TEMP/sfe-0.2.0.apk"); echo "$out"; echo "$out" | grep -q Success
+            out=$(adb install -r app/build/outputs/apk/debug/app-debug.apk); echo "$out"; echo "$out" | grep -q Success
+            adb shell dumpsys package com.stockfileexplorer.app | grep -E 'versionCode|versionName'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Focused-verification-reports
+          path: app/build/reports/
+          if-no-files-found: ignore
+      - name: Remove runner signing-key copy
+        if: always()
+        run: rm -f "$RUNNER_TEMP/sfe-signing.p12"

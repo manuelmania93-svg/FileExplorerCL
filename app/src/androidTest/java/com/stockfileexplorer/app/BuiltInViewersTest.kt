@@ -50,10 +50,12 @@ class BuiltInViewersTest {
         fixtures();mainAndDownload()
         open("sample-picture.jpg");waitText("Rotate");assertTrue(device.wait(Until.hasObject(By.desc("Picture preview")),15000))
         screenshot("picture")
+        device.findObject(By.desc("Picture preview")).pinchOpen(0.5f)
+        screenshot("picture-zoomed")
         device.findObject(By.text("Rotate")).click();screenshot("picture-rotated")
         device.pressBack()
         open("sample-reader.pdf");waitText("1 / 2");assertTrue(device.wait(Until.hasObject(By.desc("PDF page 1")),15000));screenshot("pdf-page1")
-        device.findObject(By.text("Next")).click();waitText("2 / 2");assertTrue(device.wait(Until.hasObject(By.desc("PDF page 2")),15000));screenshot("pdf-page2")
+        device.findObject(By.text("Next")).click();waitText("2 / 2");assertTrue(device.wait(Until.hasObject(By.desc("PDF page 2")),15000));screenshot("pdf-page2");device.findObject(By.desc("PDF page 2")).pinchOpen(0.5f);screenshot("pdf-page2-zoomed")
         device.pressBack()
         open("sample-video.mp4");waitText("Playing");Thread.sleep(800);screenshot("video-playing")
         // Test actual pause/seek/resume using Media3 view accessibility controls.
@@ -113,6 +115,12 @@ class BuiltInViewersTest {
         var calls = 0
         try { Archives.extract(zip, { if (++calls > 2) throw java.util.concurrent.CancellationException() });fail("Cancellation ignored") }
         catch (_: java.util.concurrent.CancellationException) {}
+        for (name in listOf("compressed-solid-rar4.rar", "compressed-solid-rar5.rar")) {
+            val out = Archives.extract(File(root,name))
+            assertEquals(9, out.listFiles()!!.size)
+            for (i in 1..9) assertEquals("file$i\n", File(out,"file$i.txt").readText())
+        }
+        try { Archives.extract(File(root,"encrypted-rar5.rar"));fail("Encrypted RAR was accepted") } catch (_: Exception) {}
         for (path in listOf("/absolute", "C:/escape", "a/../../escape", "..\\escape")) {
             try { Archives.safeTarget(root,path);fail("Unsafe path $path accepted") } catch (_: IllegalArgumentException) {}
         }

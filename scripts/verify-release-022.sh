@@ -23,8 +23,9 @@ adb shell am force-stop com.stockfileexplorer.app
 adb install -r -d "$RUNNER_TEMP/sfe-021.apk" | tee app/build/reports/device/upgrade-021.txt
 adb shell am start -n com.stockfileexplorer.app/.MainActivity
 adb shell appops set --uid com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
-adb shell run-as com.stockfileexplorer.app sh -c 'echo upgrade-kept > files/upgrade-proof.txt'
+adb shell run-as com.stockfileexplorer.app mkdir -p files
+adb shell run-as com.stockfileexplorer.app touch files/upgrade-proof.txt
 adb install -r app/build/outputs/apk/debug/app-debug.apk | tee -a app/build/reports/device/upgrade-021.txt
-adb shell run-as com.stockfileexplorer.app cat files/upgrade-proof.txt | tee -a app/build/reports/device/upgrade-021.txt
+adb shell run-as com.stockfileexplorer.app ls files/upgrade-proof.txt | tee -a app/build/reports/device/upgrade-021.txt
 adb shell dumpsys package com.stockfileexplorer.app | grep -E 'versionCode|versionName' | tee -a app/build/reports/device/upgrade-021.txt
 run_test com.stockfileexplorer.app.IndexAndHoldTest#c_productionColdRestartUsesPersistedRows

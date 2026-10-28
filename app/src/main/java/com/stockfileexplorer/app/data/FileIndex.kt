@@ -22,6 +22,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 object FileIndex {
     data class State(val revision: Long = 0, val refreshing: Boolean = true,
                      val checked: Int = 0, val incomplete: Boolean = false)
+    data class DirectoryStats(val fileCount: Long, val totalBytes: Long)
     data class Page(val items: List<FileItem>, val hasMore: Boolean)
     private class Database(context: Context) : SQLiteOpenHelper(context, "file-index.db", null, 1) {
         override fun onCreate(db: SQLiteDatabase) {
@@ -229,6 +230,38 @@ object FileIndex {
         }
         publish(true, mutable.value.checked, mutable.value.incomplete, true)
         invalidate()
+    }
+
+    /**
+     * Recursive totals from rows already in the index. This intentionally uses one
+     * database scan per refresh boundary rather than one whole-index query per row.
+     */
+    suspend fun directoryStats(directoryPaths: List<String>): Map<String, DirectoryStats> = withContext(Dispatchers.IO) {
+        val targets = directoryPaths
+            .map { it.trimEnd('/') }
+            .filter { it.isNotEmpty() }
+            .distinct()
+        if (targets.isEmpty()) return@withContext emptyMap()
+        val totals = targets.associateWith { longArrayOf(0L, 0L) }
+        val db = helper?.readableDatabase ?: return@withContext targets.associateWith { DirectoryStats(0L, 0L) }
+        db.rawQuery("SELECT path,size FROM files", null).use { cursor ->
+            while (cursor.moveToNext()) {
+                val path = cursor.getString(0)
+                val size = cursor.getLong(1)
+                var slash = path.indexOf('/', 1)
+                while (slash >= 0) {
+                    totals[path.substring(0, slash)]?.let { total ->
+                        total[0] += 1L
+                        total[1] += size
+                    }
+                    slash = path.indexOf('/', slash + 1)
+                }
+            }
+        }
+        targets.associateWith { path ->
+            val total = totals.getValue(path)
+            DirectoryStats(total[0], total[1])
+        }
     }
 
     suspend fun page(category: FileCategory?, limit: Int): Page = withContext(Dispatchers.IO) {

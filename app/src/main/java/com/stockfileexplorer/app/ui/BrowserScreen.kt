@@ -47,6 +47,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -66,6 +67,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import com.stockfileexplorer.app.R
+import com.stockfileexplorer.app.data.FileIndex
 import com.stockfileexplorer.app.data.FileItem
 import com.stockfileexplorer.app.data.FileLogic
 import com.stockfileexplorer.app.data.FileRepository
@@ -165,6 +167,8 @@ fun BrowserScreen(
     var renameTarget by remember { mutableStateOf<FileItem?>(null) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var menuTarget by remember { mutableStateOf<FileItem?>(null) }
+    var folderStats by remember { mutableStateOf<Map<String, FileIndex.DirectoryStats>>(emptyMap()) }
+    val indexStatus by FileIndex.state.collectAsState()
 
     val noAppMessage = stringResource(R.string.no_app_to_open)
 
@@ -175,6 +179,17 @@ fun BrowserScreen(
             FileRepository.listDir(File(currentPath), showHidden, sortMode)
         }
         loading = false
+    }
+
+    // Query once when the visible folders or refresh boundary changes, not on every
+    // indexed batch. In-progress results stay visibly provisional until completion.
+    LaunchedEffect(items, indexStatus.refreshing) {
+        val directoryPaths = items.filter { it.isDirectory }.map { it.file.absolutePath }
+        if (directoryPaths.isEmpty()) {
+            folderStats = emptyMap()
+        } else {
+            folderStats = FileIndex.directoryStats(directoryPaths)
+        }
     }
 
     fun navigateTo(path: String) {
@@ -309,6 +324,9 @@ fun BrowserScreen(
                         item = item,
                         selected = selection.contains(item.file.absolutePath),
                         selecting = selecting,
+                        directoryStats = folderStats[item.file.absolutePath],
+                        statsProvisional = indexStatus.refreshing || indexStatus.incomplete ||
+                                knownIncompleteFolder(item.file.absolutePath, rootPath),
                         onClick = {
                             if (selecting) toggleSelection(item.file.absolutePath)
                             else if (item.isDirectory) navigateTo(item.file.absolutePath)
@@ -325,6 +343,9 @@ fun BrowserScreen(
                         item = item,
                         selected = selection.contains(item.file.absolutePath),
                         selecting = selecting,
+                        directoryStats = folderStats[item.file.absolutePath],
+                        statsProvisional = indexStatus.refreshing || indexStatus.incomplete ||
+                                knownIncompleteFolder(item.file.absolutePath, rootPath),
                         onClick = {
                             if (selecting) toggleSelection(item.file.absolutePath)
                             else if (item.isDirectory) navigateTo(item.file.absolutePath)
@@ -481,6 +502,8 @@ fun FileListRow(
     item: FileItem,
     selected: Boolean,
     selecting: Boolean,
+    directoryStats: FileIndex.DirectoryStats?,
+    statsProvisional: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     trailing: (@Composable () -> Unit)? = null
@@ -505,12 +528,11 @@ fun FileListRow(
             Text(item.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
                 text = if (item.isDirectory)
-                    stringResource(R.string.folder) +
-                            " • " + FileLogic.formatDate(item.lastModified)
+                    folderMetadata(item, directoryStats, statsProvisional)
                 else FileLogic.formatSize(item.size) + " • " + FileLogic.formatDate(item.lastModified),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
+                maxLines = if (item.isDirectory) 2 else 1,
                 overflow = TextOverflow.Ellipsis
             )
         }
@@ -525,6 +547,8 @@ fun FileGridCell(
     item: FileItem,
     selected: Boolean,
     selecting: Boolean,
+    directoryStats: FileIndex.DirectoryStats?,
+    statsProvisional: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit
 ) {
@@ -561,12 +585,45 @@ fun FileGridCell(
             )
             Text(
                 text = if (item.isDirectory)
-                    stringResource(R.string.folder)
+                    folderMetadata(item, directoryStats, statsProvisional)
                 else FileLogic.formatSize(item.size),
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
         }
+    }
+}
+
+private fun knownIncompleteFolder(path: String, rootPath: String): Boolean {
+    val androidRoot = "$rootPath/Android"
+    return path == androidRoot ||
+            path.startsWith("$androidRoot/data/") || path == "$androidRoot/data" ||
+            path.startsWith("$androidRoot/obb/") || path == "$androidRoot/obb"
+}
+
+@Composable
+private fun folderMetadata(
+    item: FileItem,
+    stats: FileIndex.DirectoryStats?,
+    provisional: Boolean
+): String {
+    val date = FileLogic.formatDate(item.lastModified)
+    return when {
+        stats == null -> stringResource(R.string.folder_stats_pending, date)
+        provisional -> stringResource(
+            R.string.folder_stats_partial,
+            stats.fileCount,
+            FileLogic.formatSize(stats.totalBytes),
+            date
+        )
+        else -> stringResource(
+            R.string.folder_stats,
+            stats.fileCount,
+            FileLogic.formatSize(stats.totalBytes),
+            date
+        )
     }
 }
 

@@ -13,12 +13,15 @@ import com.stockfileexplorer.app.data.*
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
+import org.junit.FixMethodOrder
+import org.junit.runners.MethodSorters
 import org.junit.runner.RunWith
 import java.io.File
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 @RunWith(AndroidJUnit4::class)
+@FixMethodOrder(MethodSorters.NAME_ASCENDING)
 class IndexAndHoldTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val context = instrumentation.targetContext
@@ -28,6 +31,17 @@ class IndexAndHoldTest {
     private fun label(en: String, de: String) = if (german) de else en
     private fun waitText(value: String): UiObject2 = device.wait(Until.findObject(By.text(value)), 15000)
         ?: throw AssertionError("Missing UI text: $value")
+    private fun clickTile(value: String) {
+        assertTrue("Tile present: $value", device.wait(Until.hasObject(By.text(value)),15000))
+        repeat(3) {
+            try {
+                val bounds = device.findObjects(By.text(value)).maxBy { it.visibleBounds.centerY() }.visibleBounds
+                device.click(bounds.centerX(), bounds.centerY())
+                return
+            } catch (_: StaleObjectException) { device.waitForIdle() }
+        }
+        throw AssertionError("Unstable tile: $value")
+    }
     private fun screenshot(name: String) {
         device.takeScreenshot(File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "sfe-index-${if(german) "de" else "en"}-$name.png"))
     }
@@ -50,7 +64,7 @@ class IndexAndHoldTest {
     }
 
     @Test fun a_largeIndexFirstBenchmarkAndPersistence() = runBlocking {
-        permission(); root.mkdirs()
+        permission(); root.deleteRecursively(); root.mkdirs()
         val fixtureStart = SystemClock.elapsedRealtime()
         val indexed = (0 until 220).map { n -> File(root, "indexed-${n.toString().padStart(4,'0')}.txt").apply { writeText("indexed real file $n") } }
         // Include >5,000 images and unindexed non-media nested under .nomedia.
@@ -67,6 +81,7 @@ class IndexAndHoldTest {
         val start = SystemClock.elapsedRealtime()
         var first = 0L
         var indexedCount = 0
+        var uiCheckMs = 0L
         FileIndex.verifyFixture(context, root, clear = true) {
             val page = runBlocking { FileIndex.page(FileCategory.DOCUMENTS, 100) }
             first = SystemClock.elapsedRealtime() - start
@@ -74,14 +89,16 @@ class IndexAndHoldTest {
             assertEquals("100 actual indexed results before filesystem traversal",100,indexedCount)
             assertTrue("Not falsely complete", FileIndex.state.value.refreshing)
             assertTrue("Real row opens before walk", page.items.first().file.readText().startsWith("indexed real file"))
+            val uiStart = SystemClock.elapsedRealtime()
             launch()
-            device.findObjects(By.text(label("Documents","Dokumente"))).maxBy { it.visibleBounds.centerY() }.click()
+            clickTile(label("Documents","Dokumente"))
             assertTrue("UI is usable before filesystem traversal", device.wait(Until.hasObject(By.textStartsWith("indexed-")),10000))
             screenshot("indexed-before-walk")
             device.findObject(By.textStartsWith("indexed-")).longClick()
             waitText(label("Rename","Umbenennen"))
             screenshot("hold-during-reconciliation")
             device.pressBack()
+            uiCheckMs = SystemClock.elapsedRealtime() - uiStart
         }
         val complete = SystemClock.elapsedRealtime() - start
         val images = FileIndex.page(FileCategory.IMAGES, 7000)
@@ -102,7 +119,7 @@ class IndexAndHoldTest {
         FileIndex.verifyFixture(context, root)
         assertEquals(1001,FileIndex.page(FileCategory.ARCHIVES,2000).items.size)
         assertFalse(FileIndex.page(null,20000).items.any { it.file == indexed.first() || it.file == indexed[1] })
-        val result = "fixtures=10222 oldBlockingWalkMs=$baseline indexedFirstRows=$indexedCount first100Ms=$first fullReconcileMs=$complete persisted100Ms=$warm fixtureSetupMs=${start-fixtureStart}"
+        val result = "fixtures=10222 oldBlockingWalkMs=$baseline indexedFirstRows=$indexedCount first100Ms=$first fullReconcileExcludingUiCheckMs=${complete-uiCheckMs} uiCheckMs=$uiCheckMs persisted100Ms=$warm fixtureSetupMs=${start-fixtureStart}"
         Log.i("SfeBenchmark",result)
         File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),"sfe-index-benchmark.txt").writeText(result)
         // Remove the large synthetic set before screenshots and existing visual suites.
@@ -131,10 +148,11 @@ class IndexAndHoldTest {
         assertPopup("hold-one.txt","hold-browser-grid")
         // Overflow reaches the same popup.
         device.findObject(By.desc(label("List view","Listenansicht"))).click()
-        device.findObjects(By.desc(label("File actions","Dateiaktionen"))).first().click()
+        assertTrue(device.wait(Until.hasObject(By.desc(label("File actions","Dateiaktionen"))),5000))
+        device.findObject(By.desc(label("File actions","Dateiaktionen"))).click()
         waitText(label("Rename","Umbenennen")); waitText(label("Select","Auswählen")); device.pressBack()
         launch()
-        device.findObjects(By.text(label("Images","Bilder"))).maxBy { it.visibleBounds.centerY() }.click()
+        clickTile(label("Images","Bilder"))
         assertPopup("hold-picture.jpg","hold-category")
         waitText("hold-picture.jpg").click()
         waitText(label("Rotate","Drehen"))

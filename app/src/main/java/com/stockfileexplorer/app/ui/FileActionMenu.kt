@@ -24,11 +24,11 @@ fun FileActionMenu(name: String, directory: Boolean, onDismiss: () -> Unit,
                     style = MaterialTheme.typography.titleSmall,
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
                 fun done(action: () -> Unit): () -> Unit = { onDismiss(); action() }
-                TextButton(onClick = done(onOpen), modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.menu_open)) }
-                TextButton(onClick = done(onRename), modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.rename)) }
-                if (!directory) TextButton(onClick = done(onShare), modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.share)) }
-                TextButton(onClick = done(onDelete), modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.delete)) }
-                TextButton(onClick = done(onSelect), modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.select)) }
+                TextButton(colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface), onClick = done(onOpen), modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.menu_open)) }
+                TextButton(colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface), onClick = done(onRename), modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.rename)) }
+                if (!directory) TextButton(colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface), onClick = done(onShare), modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.share)) }
+                TextButton(colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface), onClick = done(onDelete), modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.delete)) }
+                TextButton(colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface), onClick = done(onSelect), modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.select)) }
             }
         }
     }

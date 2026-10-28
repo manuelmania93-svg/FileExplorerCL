@@ -114,7 +114,10 @@ class BuiltInViewersTest {
         assertEquals("rename-me.mp4", input.text)
         screenshot("rename-whole-name")
         input.text = "renamed.txt"
-        device.findObject(By.text("Rename").clickable(true)).click()
+        device.wait(Until.hasObject(By.text("Rename")), 5000)
+        val button = device.findObjects(By.text("Rename")).maxBy { it.visibleBounds.centerY() }
+        val bounds = button.visibleBounds
+        device.click(bounds.centerX(), bounds.centerY())
         waitText("renamed.txt")
         assertFalse(File(root,"rename-me.mp4").exists())
         assertEquals("rename fixture", File(root,"renamed.txt").readText())

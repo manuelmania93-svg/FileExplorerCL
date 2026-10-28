@@ -194,6 +194,8 @@ private fun VideoViewer(file: File) {
                 useController = true
                 controllerAutoShow = true
                 controllerShowTimeoutMs = 0
+                controllerHideOnTouch = false
+                showController()
                 layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
             }
         }, modifier = Modifier.fillMaxSize())

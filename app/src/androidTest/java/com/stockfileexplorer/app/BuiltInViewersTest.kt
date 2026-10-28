@@ -67,7 +67,10 @@ class BuiltInViewersTest {
         device.pressBack()
         open("sample-video.mp4");waitText("Playing");Thread.sleep(800);screenshot("video-playing")
         // Test actual pause/seek/resume using Media3 view accessibility controls.
-        val pause = device.findObject(By.descContains("Pause"))
+        if (!device.wait(Until.hasObject(By.descContains("Pause")), 3000)) {
+            device.click(400, 700)
+        }
+        val pause = device.wait(Until.findObject(By.descContains("Pause")), 5000)
         assertNotNull("Media3 pause control", pause);pause.click();waitText("Paused");screenshot("video-paused")
         val seek = device.findObject(By.res("com.stockfileexplorer.app:id/exo_progress"))
         if (seek != null) {

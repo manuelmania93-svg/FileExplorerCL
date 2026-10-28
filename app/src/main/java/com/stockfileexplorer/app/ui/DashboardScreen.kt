@@ -46,7 +46,7 @@ import androidx.compose.ui.unit.dp
 import com.stockfileexplorer.app.R
 import com.stockfileexplorer.app.data.FileCategory
 import com.stockfileexplorer.app.data.FileLogic
-import com.stockfileexplorer.app.data.StorageScanner
+import com.stockfileexplorer.app.data.ScanStore
 import com.stockfileexplorer.app.theme.AmberDark
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -65,15 +65,22 @@ fun DashboardScreen(
     var counts by remember { mutableStateOf(IntArray(FileCategory.entries.size)) }
 
     LaunchedEffect(Unit) {
-        withContext(Dispatchers.IO) {
+        val (total, free) = withContext(Dispatchers.IO) {
             val stat = StatFs(root.absolutePath)
-            totalBytes = stat.totalBytes
-            freeBytes = stat.availableBytes
-            val result = StorageScanner.scan(root, null, isCancelled = { false }, onProgress = {})
-            sizes = result.sizes
-            counts = result.counts
+            stat.totalBytes to stat.availableBytes
+        }
+        totalBytes = total
+        freeBytes = free
+        // Show the last completed scan immediately; rescan only when it is stale.
+        ScanStore.current()?.let { cached ->
+            sizes = cached.sizes
+            counts = cached.counts
             scanning = false
         }
+        val snapshot = ScanStore.snapshot(root)
+        sizes = snapshot.sizes
+        counts = snapshot.counts
+        scanning = false
     }
 
     val usedBytes = (totalBytes - freeBytes).coerceAtLeast(0L)
@@ -129,12 +136,15 @@ fun DashboardScreen(
                             Text(
                                 text = stringResource(R.string.internal_storage),
                                 style = MaterialTheme.typography.labelSmall,
-                                textAlign = TextAlign.Center
+                                textAlign = TextAlign.Center,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(horizontal = 10.dp)
                             )
                         }
                     }
-                    Spacer(Modifier.width(20.dp))
-                    Column {
+                    Spacer(Modifier.width(16.dp))
+                    Column(Modifier.weight(1f)) {
                         Text(
                             text = stringResource(
                                 R.string.used_of,
@@ -142,7 +152,9 @@ fun DashboardScreen(
                                 FileLogic.formatSize(totalBytes)
                             ),
                             style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Text(
                             text = stringResource(R.string.free_space, FileLogic.formatSize(freeBytes)),
@@ -150,16 +162,40 @@ fun DashboardScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(Modifier.height(8.dp))
-                        for (cat in listOf(FileCategory.IMAGES, FileCategory.VIDEOS, FileCategory.AUDIO)) {
-                            Text(
-                                text = categoryLabel(cat) + "  " +
+                        Row(Modifier.fillMaxWidth()) {
+                            Column(Modifier.weight(1f)) {
+                                CategorySizeLine(
+                                    categoryLabel(FileCategory.IMAGES),
+                                    categorySizeText(FileCategory.IMAGES, sizes, scanning)
+                                )
+                                CategorySizeLine(
+                                    categoryLabel(FileCategory.VIDEOS),
+                                    categorySizeText(FileCategory.VIDEOS, sizes, scanning)
+                                )
+                                CategorySizeLine(
+                                    categoryLabel(FileCategory.AUDIO),
+                                    categorySizeText(FileCategory.AUDIO, sizes, scanning)
+                                )
+                            }
+                            Spacer(Modifier.width(16.dp))
+                            Column(Modifier.weight(1f)) {
+                                CategorySizeLine(
+                                    categoryLabel(FileCategory.DOCUMENTS),
+                                    categorySizeText(FileCategory.DOCUMENTS, sizes, scanning)
+                                )
+                                CategorySizeLine(
+                                    categoryLabel(FileCategory.APPS),
+                                    categorySizeText(FileCategory.APPS, sizes, scanning)
+                                )
+                                CategorySizeLine(
+                                    stringResource(R.string.cat_etc),
                                     if (scanning) stringResource(R.string.scanning)
-                                    else FileLogic.formatSize(sizes[cat.ordinal]),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                                    else FileLogic.formatSize(
+                                        sizes[FileCategory.ARCHIVES.ordinal] +
+                                            sizes[FileCategory.OTHER.ordinal]
+                                    )
+                                )
+                            }
                         }
                     }
                 }
@@ -184,6 +220,31 @@ fun DashboardScreen(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun categorySizeText(category: FileCategory, sizes: LongArray, scanning: Boolean): String =
+    if (scanning) stringResource(R.string.scanning)
+    else FileLogic.formatSize(sizes[category.ordinal])
+
+@Composable
+private fun CategorySizeLine(label: String, sizeText: String) {
+    Row(Modifier.fillMaxWidth()) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            text = sizeText,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1
+        )
     }
 }
 

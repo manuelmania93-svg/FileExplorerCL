@@ -1,6 +1,7 @@
 package com.stockfileexplorer.app.ui
 
 import android.os.Environment
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,7 +15,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -23,12 +27,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,9 +42,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.stockfileexplorer.app.R
 import com.stockfileexplorer.app.data.FileCategory
+import com.stockfileexplorer.app.data.FileItem
 import com.stockfileexplorer.app.data.FileLogic
-import com.stockfileexplorer.app.data.StorageScanner
+import com.stockfileexplorer.app.data.Rename
+import com.stockfileexplorer.app.data.ScanStore
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
@@ -109,26 +116,26 @@ fun CategoryFilesScreen(
     onBack: () -> Unit,
     onOpenFile: (File) -> Unit
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var files by remember { mutableStateOf<List<File>>(emptyList()) }
     var scanning by remember { mutableStateOf(true) }
     var scannedCount by remember { mutableIntStateOf(0) }
-    var cancelled by remember { mutableStateOf(false) }
+    var refreshTick by remember { mutableIntStateOf(0) }
+    var menuFor by remember { mutableStateOf<File?>(null) }
+    var renameTarget by remember { mutableStateOf<File?>(null) }
+    var deleteTarget by remember { mutableStateOf<File?>(null) }
 
-    LaunchedEffect(category) {
+    LaunchedEffect(category, refreshTick) {
         val root = Environment.getExternalStorageDirectory()
-        val result = withContext(Dispatchers.IO) {
-            StorageScanner.scan(
-                root = root,
-                collect = category,
-                isCancelled = { cancelled },
-                onProgress = { n -> scannedCount = n }
-            )
+        // Show the last completed scan immediately; rescan only when it is stale.
+        ScanStore.current()?.let { cached ->
+            files = cached.files(category).sortedByDescending { it.lastModified() }
+            scanning = false
         }
-        files = result.matched.sortedByDescending { it.lastModified() }
+        val snapshot = ScanStore.snapshot(root, onProgress = { n -> scannedCount = n })
+        files = snapshot.files(category).sortedByDescending { it.lastModified() }
         scanning = false
-    }
-    DisposableEffect(Unit) {
-        onDispose { cancelled = true }
     }
 
     Column(Modifier.fillMaxSize()) {
@@ -169,17 +176,23 @@ fun CategoryFilesScreen(
                             .padding(horizontal = 12.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = categoryIcon(category),
-                            contentDescription = null,
-                            tint = categoryColor(category),
-                            modifier = Modifier.size(32.dp)
+                        FileIcon(
+                            item = FileItem(
+                                file = f,
+                                name = f.name,
+                                isDirectory = false,
+                                size = f.length(),
+                                lastModified = f.lastModified(),
+                                childCount = 0,
+                                category = category
+                            ),
+                            size = 40
                         )
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
                             Text(f.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text(
-                                text = FileLogic.formatSize(f.length()) + " • " +
+                                text = FileLogic.formatSize(f.length()) + " \u2022 " +
                                         FileLogic.formatDate(f.lastModified()),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -192,10 +205,91 @@ fun CategoryFilesScreen(
                                 overflow = TextOverflow.Ellipsis
                             )
                         }
+                        Box {
+                            IconButton(onClick = { menuFor = f }) {
+                                Icon(
+                                    Icons.Filled.MoreVert,
+                                    contentDescription = stringResource(R.string.file_actions)
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = menuFor == f,
+                                onDismissRequest = { menuFor = null }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.menu_open)) },
+                                    onClick = { menuFor = null; onOpenFile(f) }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.rename)) },
+                                    onClick = { menuFor = null; renameTarget = f }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.share)) },
+                                    onClick = { menuFor = null; shareFiles(context, listOf(f)) }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.delete)) },
+                                    onClick = { menuFor = null; deleteTarget = f }
+                                )
+                            }
+                        }
                     }
                     HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
                 }
             }
         }
+    }
+
+    renameTarget?.let { target ->
+        TextInputDialog(
+            title = stringResource(R.string.rename),
+            initialValue = target.name,
+            helperText = stringResource(R.string.rename_whole_name),
+            validate = { Rename.validName(it) },
+            confirmLabel = stringResource(R.string.rename),
+            onConfirm = { newName ->
+                renameTarget = null
+                scope.launch {
+                    val ok = withContext(Dispatchers.IO) { Rename.move(target, newName) }
+                    if (!ok) {
+                        Toast.makeText(
+                            context,
+                            context.getString(R.string.rename_failed),
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    } else {
+                        ScanStore.invalidate()
+                        refreshTick++
+                    }
+                }
+            },
+            onDismiss = { renameTarget = null }
+        )
+    }
+
+    deleteTarget?.let { target ->
+        ConfirmDialog(
+            title = stringResource(R.string.delete_confirm_title, 1),
+            body = stringResource(R.string.delete_confirm_body),
+            confirmLabel = stringResource(R.string.delete),
+            onConfirm = {
+                deleteTarget = null
+                scope.launch {
+                    val ok = withContext(Dispatchers.IO) { target.deleteRecursively() }
+                    Toast.makeText(
+                        context,
+                        if (ok) context.getString(R.string.deleted_ok)
+                        else context.getString(R.string.delete_failed),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    if (ok) {
+                        ScanStore.invalidate()
+                        refreshTick++
+                    }
+                }
+            },
+            onDismiss = { deleteTarget = null }
+        )
     }
 }

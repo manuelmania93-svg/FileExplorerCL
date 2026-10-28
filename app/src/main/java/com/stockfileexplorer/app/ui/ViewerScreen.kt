@@ -247,6 +247,7 @@ private fun ArchiveViewer(file: File) {
                     extracted = withContext(Dispatchers.IO) {
                         Archives.extract(file, { jobContext.ensureActive() }, { name -> current = name })
                     }
+                    com.stockfileexplorer.app.data.ScanStore.invalidate()
                 } catch (e: Exception) { error = failed + "\n" + (e.message ?: "") }
                 finally { busy = false }
             }

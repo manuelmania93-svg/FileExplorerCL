@@ -53,6 +53,12 @@ class DocumentVisibilitySmokeTest {
             "Dashboard storage card visible after grant",
             device.wait(Until.hasObject(By.text("Internal storage")), 10000)
         )
+        assertTrue(
+            "Combined remaining-category size row visible on dashboard",
+            device.wait(Until.hasObject(By.text("etc.")), 10000)
+        )
+        // Let the storage scan finish so the captured dashboard shows real sizes.
+        device.wait(Until.gone(By.textContains("Scanning")), 30000)
         device.takeScreenshot(File("/sdcard/Download/sfe-$suffix-1-dashboard.png"))
 
         // Open internal storage -> root listing.
@@ -80,6 +86,17 @@ class DocumentVisibilitySmokeTest {
             "TXT fixture visible in Download",
             device.hasObject(By.textContains("sfe-fixture-todo.txt"))
         )
+
+        // Every file row must expose its action menu through the overflow button.
+        val actionButtons = device.findObjects(By.desc("File actions"))
+        assertTrue("File rows expose an action menu button", actionButtons.isNotEmpty())
+        actionButtons[0].click()
+        assertTrue(
+            "File action menu opens from overflow button",
+            device.wait(Until.hasObject(By.text("Rename")), 5000)
+        )
+        device.takeScreenshot(File("/sdcard/Download/sfe-$suffix-4-file-menu.png"))
+        device.pressBack()
         device.pressBack()
     }
 }

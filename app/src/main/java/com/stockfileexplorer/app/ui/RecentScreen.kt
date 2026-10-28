@@ -23,7 +23,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -38,9 +37,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.stockfileexplorer.app.R
 import com.stockfileexplorer.app.data.FileLogic
-import com.stockfileexplorer.app.data.StorageScanner
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import com.stockfileexplorer.app.data.ScanStore
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -51,24 +48,16 @@ fun RecentFilesScreen(onBack: () -> Unit) {
     var files by remember { mutableStateOf<List<File>>(emptyList()) }
     var scanning by remember { mutableStateOf(true) }
     var scannedCount by remember { mutableIntStateOf(0) }
-    var cancelled by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         val root = Environment.getExternalStorageDirectory()
-        val result = withContext(Dispatchers.IO) {
-            StorageScanner.scan(
-                root = root,
-                collect = null,
-                collectRecent = 200,
-                isCancelled = { cancelled },
-                onProgress = { n -> scannedCount = n }
-            )
+        ScanStore.current()?.let { cached ->
+            files = cached.recent
+            scanning = false
         }
-        files = result.recent
+        val snapshot = ScanStore.snapshot(root, onProgress = { n -> scannedCount = n })
+        files = snapshot.recent
         scanning = false
-    }
-    DisposableEffect(Unit) {
-        onDispose { cancelled = true }
     }
 
     Column(Modifier.fillMaxSize()) {

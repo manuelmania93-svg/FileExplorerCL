@@ -101,6 +101,7 @@ class ScanResult(
     val sizes: LongArray = LongArray(FileCategory.entries.size),
     val counts: IntArray = IntArray(FileCategory.entries.size),
     val matched: MutableList<File> = mutableListOf(),
+    val matchedByCategory: MutableMap<FileCategory, MutableList<File>> = mutableMapOf(),
     val recent: MutableList<File> = mutableListOf()
 )
 
@@ -111,6 +112,7 @@ object StorageScanner {
         collect: FileCategory?,
         maxMatches: Int = 5000,
         collectRecent: Int = 0,
+        collectAll: Boolean = false,
         isCancelled: () -> Boolean,
         onProgress: (filesSeen: Int) -> Unit
     ): ScanResult {
@@ -135,6 +137,10 @@ object StorageScanner {
                     result.counts[cat.ordinal] += 1
                     if (collect != null && cat == collect && result.matched.size < maxMatches) {
                         result.matched.add(f)
+                    }
+                    if (collectAll) {
+                        val bucket = result.matchedByCategory.getOrPut(cat) { mutableListOf() }
+                        if (bucket.size < maxMatches) bucket.add(f)
                     }
                     if (recentHeap != null) {
                         recentHeap.add(f)

@@ -18,6 +18,9 @@
     <string name="cat_apps">Apps</string>
     <string name="cat_archives">Archives</string>
     <string name="cat_recent">Recent files</string>
+    <string name="cat_etc">etc.</string>
+    <string name="menu_open">Open</string>
+    <string name="file_actions">File actions</string>
     <string name="recent_subtitle">Last modified across shared storage</string>
     <string name="cat_other">Other</string>
     <string name="scanning">Scanning…</string>

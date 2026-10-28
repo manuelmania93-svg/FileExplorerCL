@@ -69,6 +69,7 @@ import com.stockfileexplorer.app.R
 import com.stockfileexplorer.app.data.FileItem
 import com.stockfileexplorer.app.data.FileLogic
 import com.stockfileexplorer.app.data.FileRepository
+import com.stockfileexplorer.app.data.ScanStore
 import com.stockfileexplorer.app.data.SortMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -163,6 +164,7 @@ fun BrowserScreen(
     var showNewFolder by remember { mutableStateOf(false) }
     var renameTarget by remember { mutableStateOf<FileItem?>(null) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var menuTarget by remember { mutableStateOf<FileItem?>(null) }
 
     val noAppMessage = stringResource(R.string.no_app_to_open)
 
@@ -328,7 +330,51 @@ fun BrowserScreen(
                             else if (item.isDirectory) navigateTo(item.file.absolutePath)
                             else openFile(context, item.file, noAppMessage)
                         },
-                        onLongClick = { toggleSelection(item.file.absolutePath) }
+                        onLongClick = { toggleSelection(item.file.absolutePath) },
+                        trailing = {
+                            Box {
+                                IconButton(onClick = { menuTarget = item }) {
+                                    Icon(
+                                        Icons.Filled.MoreVert,
+                                        contentDescription = stringResource(R.string.file_actions)
+                                    )
+                                }
+                                DropdownMenu(
+                                    expanded = menuTarget == item,
+                                    onDismissRequest = { menuTarget = null }
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.menu_open)) },
+                                        onClick = {
+                                            menuTarget = null
+                                            if (item.isDirectory) navigateTo(item.file.absolutePath)
+                                            else openFile(context, item.file, noAppMessage)
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.rename)) },
+                                        onClick = { menuTarget = null; renameTarget = item }
+                                    )
+                                    if (!item.isDirectory) {
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(R.string.share)) },
+                                            onClick = {
+                                                menuTarget = null
+                                                shareFiles(context, listOf(item.file))
+                                            }
+                                        )
+                                    }
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.delete)) },
+                                        onClick = {
+                                            menuTarget = null
+                                            selection = setOf(item.file.absolutePath)
+                                            showDeleteConfirm = true
+                                        }
+                                    )
+                                }
+                            }
+                        }
                     )
                 }
             }
@@ -350,7 +396,10 @@ fun BrowserScreen(
                         else context.getString(R.string.folder_create_failed),
                         Toast.LENGTH_SHORT
                     ).show()
-                    if (ok) refreshTick++
+                    if (ok) {
+                        ScanStore.invalidate()
+                        refreshTick++
+                    }
                 }
             },
             onDismiss = { showNewFolder = false }
@@ -377,6 +426,8 @@ fun BrowserScreen(
                             context.getString(R.string.rename_failed),
                             Toast.LENGTH_SHORT
                         ).show()
+                    } else {
+                        ScanStore.invalidate()
                     }
                     refreshTick++
                 }
@@ -404,6 +455,7 @@ fun BrowserScreen(
                         else context.getString(R.string.delete_failed),
                         Toast.LENGTH_SHORT
                     ).show()
+                    ScanStore.invalidate()
                     refreshTick++
                 }
             },
@@ -452,7 +504,8 @@ fun FileListRow(
     selected: Boolean,
     selecting: Boolean,
     onClick: () -> Unit,
-    onLongClick: () -> Unit
+    onLongClick: () -> Unit,
+    trailing: (@Composable () -> Unit)? = null
 ) {
     val background = if (selected) MaterialTheme.colorScheme.secondaryContainer
     else Color.Transparent
@@ -483,6 +536,7 @@ fun FileListRow(
                 overflow = TextOverflow.Ellipsis
             )
         }
+        trailing?.invoke()
     }
     androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
 }

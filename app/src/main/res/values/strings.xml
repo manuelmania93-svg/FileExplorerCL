@@ -85,4 +85,5 @@
     <string name="index_updating">Updating files. You can open files while remaining folders are checked.</string>
     <string name="index_incomplete">Some folders could not be checked. Results may be incomplete.</string>
     <string name="index_no_results_yet">No files found yet. Remaining folders are still being checked.</string>
+    <string name="index_partial">Partial</string>
 </resources>

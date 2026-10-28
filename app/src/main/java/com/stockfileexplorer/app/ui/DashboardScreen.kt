@@ -92,6 +92,12 @@ fun DashboardScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item(span = { GridItemSpan(3) }) {
+            if (status.refreshing || status.incomplete) Text(
+                stringResource(if (status.refreshing) R.string.index_updating else R.string.index_incomplete),
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+        item(span = { GridItemSpan(3) }) {
             Card(
                 modifier = Modifier.fillMaxWidth().clickable { onOpenStorage() },
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
@@ -158,30 +164,30 @@ fun DashboardScreen(
                             Column(Modifier.weight(1f)) {
                                 CategorySizeLine(
                                     categoryLabel(FileCategory.IMAGES),
-                                    categorySizeText(FileCategory.IMAGES, sizes, scanning)
+                                    categorySizeText(FileCategory.IMAGES, sizes, scanning, status.incomplete && !status.refreshing)
                                 )
                                 CategorySizeLine(
                                     categoryLabel(FileCategory.VIDEOS),
-                                    categorySizeText(FileCategory.VIDEOS, sizes, scanning)
+                                    categorySizeText(FileCategory.VIDEOS, sizes, scanning, status.incomplete && !status.refreshing)
                                 )
                                 CategorySizeLine(
                                     categoryLabel(FileCategory.AUDIO),
-                                    categorySizeText(FileCategory.AUDIO, sizes, scanning)
+                                    categorySizeText(FileCategory.AUDIO, sizes, scanning, status.incomplete && !status.refreshing)
                                 )
                             }
                             Spacer(Modifier.width(10.dp))
                             Column(Modifier.weight(1f)) {
                                 CategorySizeLine(
                                     categoryLabel(FileCategory.DOCUMENTS),
-                                    categorySizeText(FileCategory.DOCUMENTS, sizes, scanning)
+                                    categorySizeText(FileCategory.DOCUMENTS, sizes, scanning, status.incomplete && !status.refreshing)
                                 )
                                 CategorySizeLine(
                                     categoryLabel(FileCategory.APPS),
-                                    categorySizeText(FileCategory.APPS, sizes, scanning)
+                                    categorySizeText(FileCategory.APPS, sizes, scanning, status.incomplete && !status.refreshing)
                                 )
                                 CategorySizeLine(
                                     stringResource(R.string.cat_etc),
-                                    if (scanning) stringResource(R.string.scanning)
+                                    if (scanning) stringResource(if (status.incomplete && !status.refreshing) R.string.index_partial else R.string.scanning)
                                     else FileLogic.formatSize(
                                         // All remaining used space: archives and uncategorized
                                         // files, plus Android/data, Android/obb and app-private
@@ -225,8 +231,9 @@ fun DashboardScreen(
 }
 
 @Composable
-private fun categorySizeText(category: FileCategory, sizes: LongArray, scanning: Boolean): String =
-    if (scanning) stringResource(R.string.scanning)
+private fun categorySizeText(category: FileCategory, sizes: LongArray, scanning: Boolean, incomplete: Boolean = false): String =
+    if (incomplete) stringResource(R.string.index_partial)
+    else if (scanning) stringResource(R.string.scanning)
     else FileLogic.formatSize(sizes[category.ordinal])
 
 @Composable

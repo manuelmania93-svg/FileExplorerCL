@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
 import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicBoolean
 
 /** Disk-backed metadata, not an in-memory File list. Readers never wait for the walk. */
 object FileIndex {
@@ -40,6 +41,7 @@ object FileIndex {
     private var refreshJob: Job? = null
     private val requested = AtomicLong(0)
     private var verifying = false
+    private val running = AtomicBoolean(false)
     private var lastPublished = 0L
     private var lastResumeCheck = 0L
 
@@ -69,14 +71,19 @@ object FileIndex {
         if (now - lastResumeCheck > 60_000) { lastResumeCheck = now; invalidate() }
     }
 
-    private suspend fun runRefreshes() {
-        synchronized(this) {
-            if (job?.isActive == true) return
-            job = scope.launch {
+    private fun runRefreshes() {
+        if (!running.compareAndSet(false, true)) return
+        job = scope.launch {
+            var version = -1L
+            try {
                 do {
-                    val version = requested.get()
+                    version = requested.get()
                     refresh()
                 } while (requested.get() != version)
+            } finally {
+                running.set(false)
+                // Close the tiny race between final comparison and completion.
+                if (!verifying && requested.get() != version) runRefreshes()
             }
         }
     }

@@ -77,9 +77,14 @@ jobs:
             # German-locale layout run via per-app language: no reboot and no
             # root, so the installed package and the all-files grant stay in
             # place (the previous reboot-based approach lost the package).
+            # Diagnose package visibility, then guarantee it: the package
+            # intermittently disappears from PackageManager after the test
+            # classes finish (cause undetermined), so reinstall idempotently.
+            echo "packages before locale step: $(adb shell pm list packages | grep -i stockfileexplorer | tr -d '\r')"
+            ./gradlew installDebug
+            adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
             adb shell cmd locale set-app-locales com.stockfileexplorer.app --locales de-AT
             adb shell am force-stop com.stockfileexplorer.app
-            adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
             echo "app locales: $(adb shell cmd locale get-app-locales com.stockfileexplorer.app | tr -d '\r')"
             ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.GermanLayoutTest -Pandroid.testInstrumentationRunnerArguments.capture=german || (adb pull /sdcard/Download/ app/build/reports/device/; exit 1)
             adb pull /sdcard/Download/ app/build/reports/device/

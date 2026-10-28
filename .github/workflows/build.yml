@@ -75,6 +75,9 @@ jobs:
             adb pull /sdcard/Download/ app/build/reports/device/
             adb shell cmd uimode night no
             # German-locale layout run on the narrow display (reboot applies locale).
+            # persist.sys.locale is a system property, so adbd needs root first.
+            adb root
+            adb wait-for-device
             adb shell setprop persist.sys.locale de-AT
             adb reboot
             adb wait-for-device

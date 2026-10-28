@@ -79,7 +79,7 @@ class BuiltInViewersTest {
         inst.startActivitySync(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         mainAndDownload()
         for (name in listOf("sample-bundle.zip", "sample-rar4.rar", "sample-rar5.rar")) {
-            open(name);assertTrue(device.wait(Until.hasObject(By.textMatches("[0-9]+ entries")),15000));screenshot(name.substringBeforeLast('.') + "-contents")
+            open(name);assertTrue(device.wait(Until.hasObject(By.text(java.util.regex.Pattern.compile("[0-9]+ entries"))),15000));screenshot(name.substringBeforeLast('.') + "-contents")
             device.findObject(By.text("Extract all")).click();waitText("Extracted to")
             screenshot(name.substringBeforeLast('.') + "-extracted")
             val output = root.listFiles()!!.filter { it.isDirectory && it.name.startsWith(name.substringBeforeLast('.')+"_extracted") }.maxBy { it.lastModified() }

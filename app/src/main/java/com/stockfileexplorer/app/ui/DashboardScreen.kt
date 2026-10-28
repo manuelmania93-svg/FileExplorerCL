@@ -26,6 +26,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -60,10 +61,10 @@ fun DashboardScreen(
     val root = remember { Environment.getExternalStorageDirectory() }
     var totalBytes by remember { mutableStateOf(0L) }
     var freeBytes by remember { mutableStateOf(0L) }
-    val cachedScan = remember { ScanStore.current() }
-    var scanning by remember { mutableStateOf(cachedScan == null) }
-    var sizes by remember { mutableStateOf(cachedScan?.sizes ?: LongArray(FileCategory.entries.size)) }
-    var counts by remember { mutableStateOf(cachedScan?.counts ?: IntArray(FileCategory.entries.size)) }
+    val status by com.stockfileexplorer.app.data.FileIndex.state.collectAsState()
+    val scanning = status.refreshing || status.incomplete
+    var sizes by remember { mutableStateOf(LongArray(FileCategory.entries.size)) }
+    LaunchedEffect(status.revision) { sizes = com.stockfileexplorer.app.data.FileIndex.sizes() }
 
     LaunchedEffect(Unit) {
         val (total, free) = withContext(Dispatchers.IO) {
@@ -72,11 +73,6 @@ fun DashboardScreen(
         }
         totalBytes = total
         freeBytes = free
-        // Shared snapshot: instant when fresh, one silent rescan when stale.
-        val snapshot = ScanStore.snapshot(root)
-        sizes = snapshot.sizes
-        counts = snapshot.counts
-        scanning = false
     }
 
     val usedBytes = (totalBytes - freeBytes).coerceAtLeast(0L)

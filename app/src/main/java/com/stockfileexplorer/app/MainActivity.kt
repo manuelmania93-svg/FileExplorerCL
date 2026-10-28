@@ -68,10 +68,12 @@ private const val TAB_NETWORK = 2
 fun Root(initialBrowsePath: String? = null) {
     var hasAccess by remember { mutableStateOf(Environment.isExternalStorageManager()) }
     val lifecycleOwner = LocalLifecycleOwner.current
+    val context = androidx.compose.ui.platform.LocalContext.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 hasAccess = Environment.isExternalStorageManager()
+                if (hasAccess) com.stockfileexplorer.app.data.FileIndex.onResume(context)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -81,6 +83,7 @@ fun Root(initialBrowsePath: String? = null) {
     if (!hasAccess) {
         PermissionScreen()
     } else {
+        androidx.compose.runtime.LaunchedEffect(Unit) { com.stockfileexplorer.app.data.FileIndex.start(context) }
         MainScaffold(initialBrowsePath)
     }
 }

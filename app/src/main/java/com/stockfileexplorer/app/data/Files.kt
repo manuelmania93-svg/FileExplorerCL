@@ -78,7 +78,7 @@ object FileRepository {
                     isDirectory = isDir,
                     size = if (isDir) 0L else f.length(),
                     lastModified = f.lastModified(),
-                    childCount = if (isDir) f.list()?.size ?: 0 else 0,
+                    childCount = if (isDir) -1 else 0,
                     category = if (isDir) FileCategory.OTHER else FileLogic.categoryOf(f.name)
                 )
             }
@@ -110,7 +110,7 @@ object StorageScanner {
     fun scan(
         root: File,
         collect: FileCategory?,
-        maxMatches: Int = 5000,
+        maxMatches: Int = Int.MAX_VALUE,
         collectRecent: Int = 0,
         collectAll: Boolean = false,
         isCancelled: () -> Boolean,

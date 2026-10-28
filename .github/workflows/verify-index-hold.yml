@@ -1,0 +1,55 @@
+name: Verify index-first and hold actions
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    timeout-minutes: 35
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools platforms;android-35 build-tools;35.0.0
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build and unit tests
+        run: ./gradlew assembleDebug testDebugUnitTest assembleDebugAndroidTest
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Real holds and large mixed-file benchmark, Android 15
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          script: |
+            mkdir -p app/build/reports/device
+            ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.IndexAndHoldTest || (adb pull /sdcard/Download/ app/build/reports/device/; exit 1)
+            adb pull /sdcard/Download/ app/build/reports/device/
+            ./gradlew installDebug
+            adb shell cmd locale set-app-locales com.stockfileexplorer.app --locales de-AT
+            ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.IndexAndHoldTest#b_actualHoldAcrossAllViewsAndSelect || (adb pull /sdcard/Download/ app/build/reports/device/; exit 1)
+            adb pull /sdcard/Download/ app/build/reports/device/
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Index-hold-validation
+          path: |
+            app/build/reports/
+            app/build/outputs/androidTest-results/
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: File-Explorer-Control-PR-only-APK
+          path: app/build/outputs/apk/debug/app-debug.apk

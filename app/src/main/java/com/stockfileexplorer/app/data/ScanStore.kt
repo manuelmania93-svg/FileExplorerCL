@@ -40,6 +40,7 @@ object ScanStore {
     /** Drops the stored snapshot so the next request scans again. */
     fun invalidate() {
         snapshot = null
+
     }
 
     /**

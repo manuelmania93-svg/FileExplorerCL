@@ -113,8 +113,8 @@ class BuiltInViewersTest {
     @Test fun wholeFilenameIncludingExtensionRename() {
         fixtures();mainAndDownload()
         openInList("rename-me.mp4").longClick()
-        val renameAction = device.wait(Until.findObject(By.desc("Rename")), 5000)
-        assertNotNull("Rename action after selection", renameAction)
+        val renameAction = device.wait(Until.findObject(By.text("Rename")), 5000)
+        assertNotNull("Rename action after long press", renameAction)
         renameAction.click()
         val input = device.wait(Until.findObject(By.clazz("android.widget.EditText")), 5000)
         assertEquals("rename-me.mp4", input.text)

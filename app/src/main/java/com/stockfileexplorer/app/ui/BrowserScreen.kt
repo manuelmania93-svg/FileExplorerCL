@@ -314,7 +314,7 @@ fun BrowserScreen(
                             else if (item.isDirectory) navigateTo(item.file.absolutePath)
                             else openFile(context, item.file, noAppMessage)
                         },
-                        onLongClick = { toggleSelection(item.file.absolutePath) }
+                        onLongClick = { if (selecting) toggleSelection(item.file.absolutePath) else menuTarget = item }
                     )
                 }
             }
@@ -330,7 +330,7 @@ fun BrowserScreen(
                             else if (item.isDirectory) navigateTo(item.file.absolutePath)
                             else openFile(context, item.file, noAppMessage)
                         },
-                        onLongClick = { toggleSelection(item.file.absolutePath) },
+                        onLongClick = { if (selecting) toggleSelection(item.file.absolutePath) else menuTarget = item },
                         trailing = {
                             Box {
                                 IconButton(onClick = { menuTarget = item }) {
@@ -339,46 +339,21 @@ fun BrowserScreen(
                                         contentDescription = stringResource(R.string.file_actions)
                                     )
                                 }
-                                DropdownMenu(
-                                    expanded = menuTarget == item,
-                                    onDismissRequest = { menuTarget = null }
-                                ) {
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.menu_open)) },
-                                        onClick = {
-                                            menuTarget = null
-                                            if (item.isDirectory) navigateTo(item.file.absolutePath)
-                                            else openFile(context, item.file, noAppMessage)
-                                        }
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.rename)) },
-                                        onClick = { menuTarget = null; renameTarget = item }
-                                    )
-                                    if (!item.isDirectory) {
-                                        DropdownMenuItem(
-                                            text = { Text(stringResource(R.string.share)) },
-                                            onClick = {
-                                                menuTarget = null
-                                                shareFiles(context, listOf(item.file))
-                                            }
-                                        )
-                                    }
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.delete)) },
-                                        onClick = {
-                                            menuTarget = null
-                                            selection = setOf(item.file.absolutePath)
-                                            showDeleteConfirm = true
-                                        }
-                                    )
-                                }
+
                             }
                         }
                     )
                 }
             }
         }
+    }
+
+    menuTarget?.let { item ->
+        FileActionMenu(item.name, item.isDirectory, { menuTarget = null },
+            { if (item.isDirectory) navigateTo(item.file.absolutePath) else openFile(context, item.file, noAppMessage) },
+            { renameTarget = item }, { shareFiles(context, listOf(item.file)) },
+            { selection = setOf(item.file.absolutePath); showDeleteConfirm = true },
+            { selection = setOf(item.file.absolutePath) })
     }
 
     if (showNewFolder) {
@@ -397,7 +372,7 @@ fun BrowserScreen(
                         Toast.LENGTH_SHORT
                     ).show()
                     if (ok) {
-                        ScanStore.invalidate()
+                        com.stockfileexplorer.app.data.FileIndex.invalidate()
                         refreshTick++
                     }
                 }
@@ -427,7 +402,7 @@ fun BrowserScreen(
                             Toast.LENGTH_SHORT
                         ).show()
                     } else {
-                        ScanStore.invalidate()
+                        com.stockfileexplorer.app.data.FileIndex.invalidate()
                     }
                     refreshTick++
                 }
@@ -455,7 +430,7 @@ fun BrowserScreen(
                         else context.getString(R.string.delete_failed),
                         Toast.LENGTH_SHORT
                     ).show()
-                    ScanStore.invalidate()
+                    com.stockfileexplorer.app.data.FileIndex.invalidate()
                     refreshTick++
                 }
             },
@@ -527,7 +502,7 @@ fun FileListRow(
             Text(item.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
                 text = if (item.isDirectory)
-                    stringResource(if (item.childCount == 1) R.string.one_item else R.string.items_count, item.childCount) +
+                    stringResource(R.string.folder) +
                             " • " + FileLogic.formatDate(item.lastModified)
                 else FileLogic.formatSize(item.size) + " • " + FileLogic.formatDate(item.lastModified),
                 style = MaterialTheme.typography.bodySmall,
@@ -583,7 +558,7 @@ fun FileGridCell(
             )
             Text(
                 text = if (item.isDirectory)
-                    stringResource(if (item.childCount == 1) R.string.one_item else R.string.items_count, item.childCount)
+                    stringResource(R.string.folder)
                 else FileLogic.formatSize(item.size),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant

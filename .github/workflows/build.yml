@@ -79,10 +79,17 @@ jobs:
             adb root
             adb wait-for-device
             adb shell setprop persist.sys.locale de-AT
+            adb shell settings put system system_locales de-AT || true
             adb reboot
             adb wait-for-device
             while [ "$(adb shell getprop sys.boot_completed | tr -d '\r')" != "1" ]; do sleep 2; done
             sleep 5
+            # Locale/grant evidence for diagnosing the German run itself.
+            echo "persist.sys.locale: $(adb shell getprop persist.sys.locale | tr -d '\r')"
+            echo "system_locales: $(adb shell settings get system system_locales | tr -d '\r')"
+            adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
+            adb shell appops get com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE || true
+            adb shell screencap -p /sdcard/Download/sfe-german-0-postboot.png
             ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.GermanLayoutTest -Pandroid.testInstrumentationRunnerArguments.capture=german || (adb pull /sdcard/Download/ app/build/reports/device/; exit 1)
             adb pull /sdcard/Download/ app/build/reports/device/
             # Upgrade path proof: install the actually released 0.2.0 APK, then

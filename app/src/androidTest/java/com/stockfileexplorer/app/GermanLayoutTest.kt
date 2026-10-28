@@ -43,6 +43,9 @@ class GermanLayoutTest {
             Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         )
         val device = UiDevice.getInstance(instrumentation)
+        // Evidence for locale/grant diagnosis before the first German assertion.
+        android.util.Log.i("SfeTest", "Locale at German test start: " + java.util.Locale.getDefault())
+        device.takeScreenshot(File("/sdcard/Download/sfe-$suffix-0-preassert.png"))
         assertTrue(device.wait(Until.hasObject(By.text("Interner Speicher")), 10000))
         device.wait(Until.gone(By.textContains("Suche läuft")), 30000)
         device.takeScreenshot(File("/sdcard/Download/sfe-$suffix-1-dashboard.png"))

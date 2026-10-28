@@ -86,4 +86,5 @@
     <string name="index_incomplete">Some folders could not be checked. Results may be incomplete.</string>
     <string name="index_no_results_yet">No files available yet. The file list is not complete.</string>
     <string name="index_partial">Partial</string>
+    <string name="picture_thumbnail">Picture thumbnail: %1$s</string>
 </resources>

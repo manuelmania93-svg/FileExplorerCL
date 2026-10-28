@@ -79,8 +79,8 @@ import java.io.File
 private val FolderYellow = Color(0xFFFFC107)
 private val thumbnailCache = android.util.LruCache<String, ImageBitmap>(120)
 
-private fun loadThumbnail(file: File, reqSize: Int): ImageBitmap? {
-    thumbnailCache.get(file.absolutePath)?.let { return it }
+private fun loadThumbnail(file: File, reqSize: Int, cacheKey: String): ImageBitmap? {
+    thumbnailCache.get(cacheKey)?.let { return it }
     return try {
         val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeFile(file.absolutePath, opts)
@@ -92,7 +92,7 @@ private fun loadThumbnail(file: File, reqSize: Int): ImageBitmap? {
         val decodeOpts = BitmapFactory.Options().apply { inSampleSize = sample }
         val bmp = BitmapFactory.decodeFile(file.absolutePath, decodeOpts) ?: return null
         val result = bmp.asImageBitmap()
-        thumbnailCache.put(file.absolutePath, result)
+        thumbnailCache.put(cacheKey, result)
         result
     } catch (e: Exception) {
         null
@@ -580,13 +580,14 @@ fun FileIcon(item: FileItem, size: Int) {
             modifier = Modifier.size(size.dp)
         )
     } else if (FileLogic.isImage(item.name)) {
-        val thumb = produceState<ImageBitmap?>(null, item.file.absolutePath) {
-            value = withContext(Dispatchers.IO) { loadThumbnail(item.file, 128) }
+        val cacheKey = "${item.file.absolutePath}:${item.size}:${item.lastModified}"
+        val thumb = produceState<ImageBitmap?>(null, cacheKey) {
+            value = withContext(Dispatchers.IO) { loadThumbnail(item.file, 128, cacheKey) }
         }.value
         if (thumb != null) {
             Image(
                 bitmap = thumb,
-                contentDescription = null,
+                contentDescription = stringResource(R.string.picture_thumbnail, item.name),
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.size(size.dp)
             )

@@ -86,4 +86,5 @@
     <string name="index_incomplete">Einige Ordner konnten nicht geprüft werden. Ergebnisse sind möglicherweise unvollständig.</string>
     <string name="index_no_results_yet">Noch keine Dateien verfügbar. Die Dateiliste ist nicht vollständig.</string>
     <string name="index_partial">Unvollständig</string>
+    <string name="picture_thumbnail">Bildvorschau: %1$s</string>
 </resources>

@@ -81,6 +81,20 @@ class BuiltInViewersTest {
             device.pressBack()
         }
     }
+    @Test fun libraryAndRecentOpenInternallyAndErrorsStayInApp() {
+        fixtures()
+        mainAndDownload()
+        open("broken.pdf");waitText("Cannot open this file");screenshot("broken-pdf-error");device.pressBack()
+        open("unsafe.zip");waitText("Cannot open this file");screenshot("unsafe-zip-error");device.pressBack()
+        inst.startActivitySync(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
+        waitText("Recent files")
+        device.findObject(By.text("Recent files")).click()
+        open("sample-picture.jpg");waitText("Rotate");screenshot("recent-picture-route");device.pressBack()
+        // Category route from the compact dashboard into Library.
+        inst.startActivitySync(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
+        waitText("Images");device.findObject(By.text("Images")).click()
+        open("sample-picture.jpg");waitText("Rotate");screenshot("library-picture-route");device.pressBack()
+    }
     @Test fun archiveSafetyAndRepeatExtraction() {
         fixtures()
         val zip = File(root,"sample-bundle.zip")
@@ -94,5 +108,13 @@ class BuiltInViewersTest {
         assertFalse(File(root,"escaped.txt").exists())
         try { Archives.extract(File(root,"duplicate.zip"));fail("Duplicate path was accepted") } catch (_: IllegalStateException) {}
         assertFalse(File(root,"duplicate_extracted").exists())
+        try { Archives.extract(File(root,"corrupt.zip"));fail("Corrupt ZIP was accepted") } catch (_: IllegalArgumentException) {}
+        assertFalse(File(root,"corrupt_extracted").exists())
+        var calls = 0
+        try { Archives.extract(zip, { if (++calls > 2) throw java.util.concurrent.CancellationException() });fail("Cancellation ignored") }
+        catch (_: java.util.concurrent.CancellationException) {}
+        for (path in listOf("/absolute", "C:/escape", "a/../../escape", "..\\escape")) {
+            try { Archives.safeTarget(root,path);fail("Unsafe path $path accepted") } catch (_: IllegalArgumentException) {}
+        }
     }
 }

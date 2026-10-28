@@ -64,7 +64,7 @@ object Archives {
         do {
             root = File(file.parentFile, base + "_extracted" + if (n == 0) "" else " ($n)")
             n++
-            require(n <= 10000) { "Cannot create destination folder" }
+            require(n <= 100) { "Cannot create destination folder" }
         } while (!root.mkdir())
         var written = 0L
         fun output(name: String): OutputStream {
@@ -95,7 +95,21 @@ object Archives {
                     if (e.isDirectory) {
                         val dir = safeTarget(root, e.name)
                         check(dir.isDirectory || dir.mkdirs()) { "Cannot create folder" }
-                    } else output(e.name).use { out -> zip.getInputStream(e).use { it.copyTo(out) } }
+                    } else {
+                        val crc = java.util.zip.CRC32()
+                        output(e.name).use { out ->
+                            zip.getInputStream(e).use { input ->
+                                val buffer = ByteArray(32768)
+                                while (true) {
+                                    val count = input.read(buffer)
+                                    if (count < 0) break
+                                    crc.update(buffer, 0, count)
+                                    out.write(buffer, 0, count)
+                                }
+                            }
+                        }
+                        require(e.crc == crc.value) { "ZIP checksum mismatch" }
+                    }
                 }
             } else rar(file).use { archive ->
                 for (e in archive.fileHeaders) {

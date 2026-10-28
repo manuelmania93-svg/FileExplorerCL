@@ -46,8 +46,8 @@ android {
 dependencies {
     implementation("com.github.junrar:junrar:8.0.0")
     implementation("org.slf4j:slf4j-nop:2.0.17")
-    implementation("androidx.media3:media3-exoplayer:1.4.1")
-    implementation("androidx.media3:media3-ui:1.4.1")
+    implementation("androidx.media3:media3-exoplayer:1.9.4")
+    implementation("androidx.media3:media3-ui:1.9.4")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 

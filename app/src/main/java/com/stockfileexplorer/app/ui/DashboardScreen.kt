@@ -56,7 +56,8 @@ import kotlinx.coroutines.withContext
 fun DashboardScreen(
     onOpenStorage: () -> Unit,
     onOpenCategory: (FileCategory) -> Unit,
-    onOpenRecent: () -> Unit
+    onOpenRecent: () -> Unit,
+    onOpenStorageAnalysis: () -> Unit
 ) {
     val root = remember { Environment.getExternalStorageDirectory() }
     var totalBytes by remember { mutableStateOf(0L) }
@@ -81,7 +82,7 @@ fun DashboardScreen(
     // null marks the Neue Dateien entry, which is not a scanned FileCategory.
     val entries = listOf<FileCategory?>(
         FileCategory.IMAGES, FileCategory.AUDIO, FileCategory.VIDEOS,
-        FileCategory.DOCUMENTS, null, FileCategory.APPS, FileCategory.ARCHIVES
+        FileCategory.DOCUMENTS, null, FileCategory.APPS, FileCategory.ARCHIVES, null
     )
 
     LazyVerticalGrid(
@@ -212,12 +213,21 @@ fun DashboardScreen(
         items(entries.size) { index ->
             val cat = entries[index]
             if (cat == null) {
-                CategoryCircle(
-                    icon = SfeIcons.Schedule,
-                    tint = AmberDark,
-                    label = stringResource(R.string.cat_recent),
-                    onClick = onOpenRecent
-                )
+                if (index == 4) {
+                    CategoryCircle(
+                        icon = SfeIcons.Schedule,
+                        tint = AmberDark,
+                        label = stringResource(R.string.cat_recent),
+                        onClick = onOpenRecent
+                    )
+                } else {
+                    CategoryCircle(
+                        icon = SfeIcons.Analytics,
+                        tint = MaterialTheme.colorScheme.primary,
+                        label = stringResource(R.string.storage_analysis),
+                        onClick = onOpenStorageAnalysis
+                    )
+                }
             } else {
                 CategoryCircle(
                     icon = categoryIcon(cat),

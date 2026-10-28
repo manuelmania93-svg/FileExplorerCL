@@ -90,4 +90,20 @@
     <string name="folder_stats">%1$d files total | %2$s • %3$s</string>
     <string name="folder_stats_partial">%1$d+ files total | %2$s+ • %3$s</string>
     <string name="folder_stats_pending">Counting files… • %1$s</string>
+    <string name="storage_analysis">Storage analysis</string>
+    <string name="analysis_partial">Some folders could not be fully analyzed.</string>
+    <string name="categories">Categories</string>
+    <string name="largest_folders">Largest folders</string>
+    <string name="analysis_folder_value">%1$s • %2$d files</string>
+    <string name="large_files">Large files</string>
+    <string name="recent_files">Recent files</string>
+    <string name="empty_folders">Empty folders</string>
+    <string name="no_empty_folders">No empty folders found</string>
+    <string name="duplicate_files">Duplicate files</string>
+    <string name="no_duplicate_files">No duplicate files found</string>
+    <string name="duplicate_group">%1$s × %2$d files</string>
+    <string name="analysis_stage_categories">Scanning categories…</string>
+    <string name="analysis_stage_folders">Ranking folders…</string>
+    <string name="analysis_stage_empty">Finding empty folders…</string>
+    <string name="analysis_stage_duplicates">Finding duplicate files…</string>
 </resources>

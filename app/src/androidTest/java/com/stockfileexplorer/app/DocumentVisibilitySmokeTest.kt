@@ -1,6 +1,7 @@
 package com.stockfileexplorer.app
 
 import android.content.Intent
+import android.util.Log
 import android.os.ParcelFileDescriptor
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -37,6 +38,7 @@ class DocumentVisibilitySmokeTest {
         shell("echo PDFFIXTURE > /sdcard/Download/sfe-fixture-report.pdf")
         shell("echo DOCXFIXTURE > /sdcard/Download/sfe-fixture-notes.docx")
         shell("echo TXTFIXTURE > /sdcard/Download/sfe-fixture-todo.txt")
+        Log.i("SfeTest", "Download contents after fixture creation: " + shell("ls -la /sdcard/Download"))
 
         val suffix = InstrumentationRegistry.getArguments().getString("capture", "device")
         instrumentation.startActivitySync(
@@ -67,6 +69,9 @@ class DocumentVisibilitySmokeTest {
 
         // Open Download -> document fixtures must be listed.
         device.findObject(By.text("Download")).click()
+        Thread.sleep(1500)
+        device.takeScreenshot(File("/sdcard/Download/sfe-$suffix-3-download.png"))
+        Log.i("SfeTest", "Download contents at assertion time: " + shell("ls -la /sdcard/Download"))
         assertTrue(
             "PDF fixture visible in Download",
             device.wait(Until.hasObject(By.textContains("sfe-fixture-report.pdf")), 8000)
@@ -79,7 +84,6 @@ class DocumentVisibilitySmokeTest {
             "TXT fixture visible in Download",
             device.hasObject(By.textContains("sfe-fixture-todo.txt"))
         )
-        device.takeScreenshot(File("/sdcard/Download/sfe-$suffix-3-download.png"))
         device.pressBack()
     }
 }

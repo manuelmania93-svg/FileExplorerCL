@@ -6,6 +6,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
 import com.stockfileexplorer.app.data.FileIndex
 import kotlinx.coroutines.runBlocking
@@ -27,11 +28,24 @@ class StorageAnalysisInstrumentedTest {
         device.takeScreenshot(File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "$name.png"))
     }
 
-    @Test fun storageAnalysisShowsRankedResults() = runBlocking {
+    private fun revealText(value: String): UiObject2 {
+        repeat(12) {
+            device.wait(Until.findObject(By.text(value)), 500)?.let { return it }
+            device.swipe(device.displayWidth / 2, device.displayHeight * 3 / 4, device.displayWidth / 2, device.displayHeight / 4, 12)
+            device.waitForIdle()
+        }
+        throw AssertionError("Missing UI text after scrolling: $value")
+    }
+
+    @Test fun storageAnalysisShowsRankedResults() {
+        runBlocking {
         root.deleteRecursively()
         val photos = File(root, "Photos").apply { mkdirs() }
         val docs = File(root, "Documents").apply { mkdirs() }
         File(root, "Empty").mkdirs()
+        File(root, "analysis-debug.log").writeText("redundant candidate")
+        File(root, ".recycle_bin").mkdirs()
+        File(root, ".recycle_bin/trash.tmp").writeText("visible recycle fixture")
         File(photos, "analysis-big.bin").writeBytes(ByteArray(128))
         File(photos, "analysis-recent.txt").writeText("recent")
         File(docs, "duplicate-a.txt").writeText("same duplicate content")
@@ -52,6 +66,14 @@ class StorageAnalysisInstrumentedTest {
         waitText("Large files")
         waitText("analysis-big.bin")
         screenshot("sfe-storage-analysis")
+        revealText("Redundant files")
+        revealText("analysis-debug.log")
+        revealText("Duplicate files")
+        revealText("duplicate-a.txt")
+        revealText("Recycle bin folders")
+        revealText(".recycle_bin")
+        screenshot("sfe-storage-analysis-redundant-recycle")
         root.deleteRecursively()
+        }
     }
 }

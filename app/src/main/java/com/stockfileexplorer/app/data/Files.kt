@@ -39,13 +39,14 @@ object FileLogic {
 
     fun isImage(fileName: String): Boolean = categoryOf(fileName) == FileCategory.IMAGES
 
+    // Decimal units (1 KB = 1000 B), matching Android Settings conventions.
     fun formatSize(bytes: Long): String {
-        if (bytes < 1024) return "$bytes B"
-        val kb = bytes / 1024.0
-        if (kb < 1024) return String.format(Locale.US, "%.1f KB", kb)
-        val mb = kb / 1024.0
-        if (mb < 1024) return String.format(Locale.US, "%.1f MB", mb)
-        val gb = mb / 1024.0
+        if (bytes < 1000) return "$bytes B"
+        val kb = bytes / 1000.0
+        if (kb < 1000) return String.format(Locale.US, "%.1f KB", kb)
+        val mb = kb / 1000.0
+        if (mb < 1000) return String.format(Locale.US, "%.1f MB", mb)
+        val gb = mb / 1000.0
         return String.format(Locale.US, "%.1f GB", gb)
     }
 

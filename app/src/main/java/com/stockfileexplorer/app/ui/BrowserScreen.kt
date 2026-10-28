@@ -66,6 +66,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
+import com.stockfileexplorer.app.FileActionCallbacks
+import com.stockfileexplorer.app.FileActionMenu
+import com.stockfileexplorer.app.FileActionPreferences
+import com.stockfileexplorer.app.FileOperations
+import com.stockfileexplorer.app.MenuCustomizationDialog
 import com.stockfileexplorer.app.R
 import com.stockfileexplorer.app.data.FileIndex
 import com.stockfileexplorer.app.data.FileItem
@@ -123,6 +128,18 @@ fun openFile(context: android.content.Context, file: File, noAppMessage: String)
     }
 }
 
+fun openFileWithChooser(context: android.content.Context, file: File, chooserTitle: String, noAppMessage: String) {
+    try {
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uriFor(context, file), mimeTypeFor(file))
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(Intent.createChooser(intent, chooserTitle))
+    } catch (e: ActivityNotFoundException) {
+        Toast.makeText(context, noAppMessage, Toast.LENGTH_SHORT).show()
+    }
+}
+
 fun shareFiles(context: android.content.Context, files: List<File>) {
     try {
         val uris = ArrayList(files.map { uriFor(context, it) })
@@ -169,8 +186,14 @@ fun BrowserScreen(
     var menuTarget by remember { mutableStateOf<FileItem?>(null) }
     var folderStats by remember { mutableStateOf<Map<String, FileIndex.DirectoryStats>>(emptyMap()) }
     val indexStatus by FileIndex.state.collectAsState()
+    var propertiesTarget by remember { mutableStateOf<FileItem?>(null) }
+    var transferSources by remember { mutableStateOf<List<FileItem>>(emptyList()) }
+    var transferMove by remember { mutableStateOf(false) }
+    var showMenuCustomization by remember { mutableStateOf(false) }
+    var favoritePaths by remember { mutableStateOf(FileActionPreferences.favoritePaths(context)) }
 
     val noAppMessage = stringResource(R.string.no_app_to_open)
+    val openWithTitle = stringResource(R.string.open_with)
 
     LaunchedEffect(currentPath, sortMode, showHidden, refreshTick) {
         loading = true
@@ -322,6 +345,7 @@ fun BrowserScreen(
                     val item = items[index]
                     FileGridCell(
                         item = item,
+                        favorite = item.file.absolutePath in favoritePaths,
                         selected = selection.contains(item.file.absolutePath),
                         selecting = selecting,
                         directoryStats = folderStats[item.file.absolutePath],
@@ -341,6 +365,7 @@ fun BrowserScreen(
                     val item = items[index]
                     FileListRow(
                         item = item,
+                        favorite = item.file.absolutePath in favoritePaths,
                         selected = selection.contains(item.file.absolutePath),
                         selecting = selecting,
                         directoryStats = folderStats[item.file.absolutePath],
@@ -370,11 +395,96 @@ fun BrowserScreen(
     }
 
     menuTarget?.let { item ->
-        FileActionMenu(item.name, item.isDirectory, { menuTarget = null },
-            { if (item.isDirectory) navigateTo(item.file.absolutePath) else openFile(context, item.file, noAppMessage) },
-            { renameTarget = item }, { shareFiles(context, listOf(item.file)) },
-            { selection = setOf(item.file.absolutePath); showDeleteConfirm = true },
-            { selection = setOf(item.file.absolutePath) })
+        FileActionMenu(
+            name = item.name,
+            isDirectory = item.isDirectory,
+            isFavorite = item.file.absolutePath in favoritePaths,
+            onDismiss = { menuTarget = null },
+            callbacks = FileActionCallbacks(
+                onOpen = {
+                    if (item.isDirectory) navigateTo(item.file.absolutePath)
+                    else openFile(context, item.file, noAppMessage)
+                },
+                onCopy = {
+                    transferSources = listOf(item)
+                    transferMove = false
+                },
+                onMove = {
+                    transferSources = listOf(item)
+                    transferMove = true
+                },
+                onRename = { renameTarget = item },
+                onProperties = { propertiesTarget = item },
+                onFavorite = {
+                    val nowFavorite = FileActionPreferences.toggleFavorite(context, item.file.absolutePath)
+                    favoritePaths = FileActionPreferences.favoritePaths(context)
+                    Toast.makeText(
+                        context,
+                        if (nowFavorite) R.string.favorite_added else R.string.favorite_removed,
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                },
+                onShare = { shareFiles(context, listOf(item.file)) },
+                onOpenWith = { openFileWithChooser(context, item.file, openWithTitle, noAppMessage) },
+                onDelete = {
+                    selection = setOf(item.file.absolutePath)
+                    showDeleteConfirm = true
+                },
+                onSelect = { selection = setOf(item.file.absolutePath) },
+                onCustomize = { showMenuCustomization = true },
+            ),
+        )
+    }
+
+    if (transferSources.isNotEmpty()) {
+        FolderPickerDialog(
+            title = stringResource(
+                if (transferMove) R.string.choose_move_destination else R.string.choose_copy_destination
+            ),
+            confirmLabel = stringResource(if (transferMove) R.string.move_here else R.string.copy_here),
+            rootPath = rootPath,
+            blockedPaths = transferSources.filter { it.isDirectory }.map { it.file.absolutePath }.toSet(),
+            onDismiss = { transferSources = emptyList() },
+            onConfirm = { destination ->
+                val sources = transferSources
+                val move = transferMove
+                transferSources = emptyList()
+                scope.launch {
+                    val succeeded = withContext(Dispatchers.IO) {
+                        sources.filter { source ->
+                            FileOperations.transfer(source.file, destination, move)
+                        }
+                    }
+                    if (succeeded.isNotEmpty()) {
+                        Toast.makeText(
+                            context,
+                            if (move) R.string.moved_ok else R.string.copied_ok,
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                        com.stockfileexplorer.app.data.FileIndex.invalidate()
+                        refreshTick++
+                    } else {
+                        Toast.makeText(context, R.string.transfer_failed, Toast.LENGTH_SHORT).show()
+                    }
+                }
+            },
+        )
+    }
+
+    propertiesTarget?.let { item ->
+        PropertiesDialog(
+            name = item.name,
+            path = item.file.absolutePath,
+            isDirectory = item.isDirectory,
+            sizeBytes = item.size,
+            modified = item.lastModified,
+            favorite = item.file.absolutePath in favoritePaths,
+            onDismiss = { propertiesTarget = null },
+        )
+    }
+
+    if (showMenuCustomization) {
+        MenuCustomizationDialog(onDismiss = { showMenuCustomization = false })
     }
 
     if (showNewFolder) {
@@ -500,6 +610,7 @@ fun Breadcrumb(currentPath: String, rootPath: String, onNavigate: (String) -> Un
 @Composable
 fun FileListRow(
     item: FileItem,
+    favorite: Boolean = false,
     selected: Boolean,
     selecting: Boolean,
     directoryStats: FileIndex.DirectoryStats?,
@@ -525,7 +636,22 @@ fun FileListRow(
         FileIcon(item = item, size = 40)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(item.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    item.name,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                if (favorite) {
+                    Icon(
+                        imageVector = SfeIcons.Star,
+                        contentDescription = stringResource(R.string.favorite),
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(start = 4.dp).size(14.dp),
+                    )
+                }
+            }
             Text(
                 text = if (item.isDirectory)
                     folderMetadata(item, directoryStats, statsProvisional)
@@ -545,6 +671,7 @@ fun FileListRow(
 @Composable
 fun FileGridCell(
     item: FileItem,
+    favorite: Boolean = false,
     selected: Boolean,
     selecting: Boolean,
     directoryStats: FileIndex.DirectoryStats?,
@@ -567,6 +694,14 @@ fun FileGridCell(
         ) {
             Box {
                 FileIcon(item = item, size = 56)
+                if (favorite) {
+                    Icon(
+                        imageVector = SfeIcons.Star,
+                        contentDescription = stringResource(R.string.favorite),
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.align(Alignment.TopStart).size(18.dp),
+                    )
+                }
                 if (selecting) {
                     Icon(
                         imageVector = if (selected) SfeIcons.CheckBox else SfeIcons.CheckBoxOutlineBlank,

@@ -9,6 +9,7 @@ run_test() {
   grep -q 'OK (' app/build/reports/device/instrumentation-last.txt
 }
 run_test com.stockfileexplorer.app.IndexAndHoldTest#a_largeIndexFirstBenchmarkAndPersistence,com.stockfileexplorer.app.IndexAndHoldTest#b_actualHoldAcrossAllViewsAndSelect
+run_test com.stockfileexplorer.app.FileActionsInstrumentedTest#customizableMenuAddsRequestedActions
 adb pull /sdcard/Download/ app/build/reports/device/
 adb shell am force-stop com.stockfileexplorer.app
 run_test com.stockfileexplorer.app.IndexAndHoldTest#c_productionColdRestartUsesPersistedRows

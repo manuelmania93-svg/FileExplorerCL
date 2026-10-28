@@ -35,7 +35,7 @@ class BuiltInViewersTest {
         val fd = inst.uiAutomation.executeShellCommand("appops set ${context.packageName} MANAGE_EXTERNAL_STORAGE allow")
         android.os.ParcelFileDescriptor.AutoCloseInputStream(fd).use { it.readBytes() }
         device.pressHome()
-        inst.startActivitySync(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
+        context.startActivity(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
         if (!device.wait(Until.hasObject(By.text("Internal storage")), 15000)) {
             screenshot("dashboard-missing")
             throw AssertionError("Dashboard absent: " + device.currentPackageName)
@@ -71,9 +71,7 @@ class BuiltInViewersTest {
         val width = device.displayWidth
         device.click(width * 3 / 4, 170 * device.displayHeight / 640)
         waitText("Play");device.findObject(By.text("Play")).click();waitText("Playing");screenshot("video-resumed")
-        device.pressHome();Thread.sleep(500)
-        device.pressRecentApps();Thread.sleep(500);device.pressBack()
-        inst.startActivitySync(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        device.pressBack()
         mainAndDownload()
         for (name in listOf("sample-bundle.zip", "sample-rar4.rar", "sample-rar5.rar")) {
             open(name);assertTrue(device.wait(Until.hasObject(By.text(java.util.regex.Pattern.compile("[0-9]+ entries"))),15000));screenshot(name.substringBeforeLast('.') + "-contents")
@@ -96,12 +94,12 @@ class BuiltInViewersTest {
         open("sample-picture.png");waitText("Rotate");assertTrue(device.wait(Until.hasObject(By.desc("Picture preview")),15000));screenshot("png-picture");device.pressBack()
         open("broken.pdf");waitText("Cannot open this file");screenshot("broken-pdf-error");device.pressBack()
         open("unsafe.zip");waitText("Cannot open this file");screenshot("unsafe-zip-error");device.pressBack()
-        inst.startActivitySync(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
+        context.startActivity(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
         waitText("Recent files")
         device.findObject(By.text("Recent files")).click()
         open("sample-picture.jpg");waitText("Rotate");screenshot("recent-picture-route");device.pressBack()
         // Category route from the compact dashboard into Library.
-        inst.startActivitySync(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
+        context.startActivity(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
         waitText("Images");device.findObject(By.text("Images")).click()
         open("sample-picture.jpg");waitText("Rotate");screenshot("library-picture-route");device.pressBack()
     }

@@ -1,4 +1,4 @@
-# Stock File Explorer
+# File Explorer Control
 
 An offline Android file manager with a compact yellow-and-white dashboard. It reads shared-storage folders directly, including documents in Download, subject to Android's access restrictions. All-files access does not unlock another app's private data or bypass protected Android/data and Android/obb locations.
 
@@ -22,7 +22,7 @@ An offline Android file manager with a compact yellow-and-white dashboard. It re
 
 Download the APK from the repository's Releases page, allow installation from your browser when Android asks, then grant All files access when the app opens.
 
-Earlier 0.1.0 and 0.1.1 preview APKs were signed with different temporary debug keys. Switching from either to 0.2.0 requires one reinstall of Stock File Explorer. App-specific data/settings and access grants reset; shared Downloads, documents and photos outside app-specific storage remain. From 0.2.0 the private repository Actions secrets restore the same persistent key for each build. The APK still has a debug build configuration.
+Earlier 0.1.0 and 0.1.1 preview APKs were signed with different temporary debug keys. Switching from either to 0.2.0 requires one reinstall of the app (then named Stock File Explorer). App-specific data/settings and access grants reset; shared Downloads, documents and photos outside app-specific storage remain. From 0.2.0 the private repository Actions secrets restore the same persistent key for each build. The APK still has a debug build configuration.
 
 ## Build and validation
 

@@ -12,7 +12,7 @@ run_test com.stockfileexplorer.app.IndexAndHoldTest#a_largeIndexFirstBenchmarkAn
 adb pull /sdcard/Download/ app/build/reports/device/
 adb shell am force-stop com.stockfileexplorer.app
 run_test com.stockfileexplorer.app.IndexAndHoldTest#c_productionColdRestartUsesPersistedRows
-run_test com.stockfileexplorer.app.FileActionsInstrumentedTest#customizableMenuAddsRequestedActions
+run_test com.stockfileexplorer.app.FileActionsInstrumentedTest
 adb pull /sdcard/Download/ app/build/reports/device/
 if [ "$SFE_TEST_API" = "35" ]; then
 adb shell cmd locale set-app-locales com.stockfileexplorer.app --locales de-AT

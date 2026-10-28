@@ -1,6 +1,9 @@
 package com.stockfileexplorer.app
 
+import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
+import android.os.Build
 import android.os.Environment
 import android.os.SystemClock
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -10,7 +13,11 @@ import androidx.test.uiautomator.StaleObjectException
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
 import com.stockfileexplorer.app.data.FileIndex
+import com.stockfileexplorer.app.ui.openFileWithChooser
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import kotlinx.coroutines.runBlocking
@@ -27,6 +34,9 @@ class FileActionsInstrumentedTest {
 
     private fun waitText(value: String, timeout: Long = 15_000) = device.wait(Until.findObject(By.text(value)), timeout)
         ?: throw AssertionError("Missing UI text: $value")
+
+    private fun waitDescription(value: String, timeout: Long = 15_000) = device.wait(Until.findObject(By.desc(value)), timeout)
+        ?: throw AssertionError("Missing UI description: $value")
 
     private fun clickText(value: String, timeout: Long = 15_000) = tapText(value, timeout, long = false)
 
@@ -53,6 +63,22 @@ class FileActionsInstrumentedTest {
 
     private fun screenshot(name: String) {
         device.takeScreenshot(File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "$name.png"))
+    }
+
+    private fun waitForFile(file: File, shouldExist: Boolean = true, timeout: Long = 15_000): Boolean {
+        val deadline = SystemClock.uptimeMillis() + timeout
+        while (SystemClock.uptimeMillis() < deadline) {
+            if (file.exists() == shouldExist) return true
+            SystemClock.sleep(200)
+        }
+        return file.exists() == shouldExist
+    }
+
+    private class CapturingContext(base: Context) : ContextWrapper(base) {
+        var started: Intent? = null
+        override fun startActivity(intent: Intent) {
+            started = intent
+        }
     }
 
     private fun launch() {
@@ -140,4 +166,108 @@ class FileActionsInstrumentedTest {
         FileActionPreferences.setVisibleActions(context, FileMenuAction.entries.toSet())
         root.deleteRecursively()
     }
+
+    @Test fun transfersFilesFromMenuWithoutOverwriting() {
+        root.deleteRecursively()
+        root.mkdirs()
+        val destination = File(root, "destination").apply { mkdirs() }
+        val copySource = File(root, "copy-source.txt").apply { writeText("copy content") }
+        val moveSource = File(root, "move-source.txt").apply { writeText("move content") }
+        File(destination, copySource.name).writeText("existing content")
+        FileActionPreferences.setVisibleActions(context, FileMenuAction.entries.toSet())
+
+        launch()
+        longClickText(copySource.name)
+        clickText("Copy")
+        waitText("Choose copy destination")
+        clickText("Download")
+        clickText("SfeActions")
+        clickText(destination.name)
+        clickText("Copy here")
+        val copied = File(destination, "copy-source (1).txt")
+        assertTrue("copy did not create a unique destination", waitForFile(copied))
+        assertEquals("copy content", copied.readText())
+        assertTrue("copy removed the original", copySource.exists())
+        assertEquals("existing content", File(destination, copySource.name).readText())
+
+        longClickText(moveSource.name)
+        clickText("Move to")
+        waitText("Choose move destination")
+        clickText("Download")
+        clickText("SfeActions")
+        clickText(destination.name)
+        clickText("Move here")
+        val moved = File(destination, moveSource.name)
+        assertTrue("move did not create the destination", waitForFile(moved))
+        assertTrue("move left the original behind", waitForFile(moveSource, shouldExist = false))
+        assertEquals("move content", moved.readText())
+        screenshot("sfe-file-actions-transfer")
+
+        root.deleteRecursively()
+    }
+
+    @Test fun favoriteAndCustomizationSurviveRelaunch() {
+        root.deleteRecursively()
+        root.mkdirs()
+        target.writeText("persistent fixture")
+        FileActionPreferences.setVisibleActions(context, FileMenuAction.entries.toSet())
+        if (FileActionPreferences.isFavorite(context, target.absolutePath)) {
+            FileActionPreferences.toggleFavorite(context, target.absolutePath)
+        }
+
+        launch()
+        openMenu()
+        clickText("Favorite")
+        waitDescription("Favorite")
+        openMenu()
+        clickText("Customize menu")
+        waitText("Customize context menu")
+        clickText("Copy")
+        clickText("Done")
+
+        launch()
+        waitText(target.name)
+        waitDescription("Favorite")
+        assertTrue(FileActionPreferences.isFavorite(context, target.absolutePath))
+        openMenu()
+        waitText("Remove favorite")
+        assertFalse("Copy is not persistent after relaunch", device.wait(Until.hasObject(By.text("Copy")), 1_000))
+        screenshot("sfe-file-actions-persistent-preferences")
+
+        FileActionPreferences.setVisibleActions(context, FileMenuAction.entries.toSet())
+        if (FileActionPreferences.isFavorite(context, target.absolutePath)) {
+            FileActionPreferences.toggleFavorite(context, target.absolutePath)
+        }
+        root.deleteRecursively()
+    }
+
+    @Test fun openWithBuildsReadGrantedChooser() {
+        root.deleteRecursively()
+        root.mkdirs()
+        target.writeText("open with content")
+        val capture = CapturingContext(context)
+
+        openFileWithChooser(capture, target, "Open with", "No app can open this file")
+
+        val chooser = capture.started
+        assertNotNull("Open with did not start a chooser", chooser)
+        chooser!!
+        assertEquals(Intent.ACTION_CHOOSER, chooser.action)
+        assertEquals("Open with", chooser.getStringExtra(Intent.EXTRA_TITLE))
+        val targetIntent = if (Build.VERSION.SDK_INT >= 33) {
+            chooser.getParcelableExtra(Intent.EXTRA_INTENT, Intent::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            chooser.getParcelableExtra(Intent.EXTRA_INTENT)
+        }
+        assertNotNull("Chooser did not contain a target intent", targetIntent)
+        targetIntent!!
+        assertEquals(Intent.ACTION_VIEW, targetIntent.action)
+        assertEquals("text/plain", targetIntent.type)
+        assertEquals("content", targetIntent.data?.scheme)
+        assertTrue(targetIntent.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION != 0)
+
+        root.deleteRecursively()
+    }
+
 }

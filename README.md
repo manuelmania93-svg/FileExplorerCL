@@ -4,7 +4,7 @@ An offline Android file manager with a compact yellow-and-white dashboard. It re
 
 ## Features
 
-- Compact storage dashboard with a per-group size summary (Images, Videos, Audio, Documents, Apps and a combined etc. row) and category shortcuts; decimal storage units based on the user-data partition.
+- Compact storage dashboard with a per-group size summary (Images, Videos, Audio, Documents, Apps and an etc. row covering all remaining used space, including Android/data, Android/obb and app-private data that cannot be itemized) and category shortcuts; decimal storage units based on the user-data partition.
 - Dashboard, library categories and recent files share one in-memory scan snapshot, so opening a category does not rescan all of storage each time. App-made changes (rename, delete, new folder, archive extraction) refresh the snapshot.
 - Every file row has an overflow action menu (open, rename, share, delete); long-press still starts multi-select in the folder browser. Image files show thumbnails in the folder browser and in the Images library category.
 - Folder browser: list/grid, breadcrumbs, sorting, hidden-files toggle, thumbnails and multi-select.

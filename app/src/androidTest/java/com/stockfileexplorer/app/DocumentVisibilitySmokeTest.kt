@@ -97,10 +97,10 @@ class DocumentVisibilitySmokeTest {
         )
         device.takeScreenshot(File("/sdcard/Download/sfe-$suffix-4-file-menu.png"))
         device.pressBack()
-        device.pressBack()
 
         // Returning to the dashboard must reuse the shared scan snapshot:
         // no second full scan ("Scanning" state) on re-entry.
+        // System back from the browser goes straight to the dashboard.
         device.pressBack()
         assertTrue(
             "Back on dashboard",

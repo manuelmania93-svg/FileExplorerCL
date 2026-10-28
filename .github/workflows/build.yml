@@ -74,6 +74,14 @@ jobs:
             ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.BuiltInViewersTest -Pandroid.testInstrumentationRunnerArguments.capture=viewers-night || (adb pull /sdcard/Download/ app/build/reports/device/; exit 1)
             adb pull /sdcard/Download/ app/build/reports/device/
             adb shell cmd uimode night no
+            # German-locale layout run on the narrow display (reboot applies locale).
+            adb shell setprop persist.sys.locale de-AT
+            adb reboot
+            adb wait-for-device
+            while [ "$(adb shell getprop sys.boot_completed | tr -d '\r')" != "1" ]; do sleep 2; done
+            sleep 5
+            ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.GermanLayoutTest -Pandroid.testInstrumentationRunnerArguments.capture=german || (adb pull /sdcard/Download/ app/build/reports/device/; exit 1)
+            adb pull /sdcard/Download/ app/build/reports/device/
             # Upgrade path proof: install the actually released 0.2.0 APK, then
             # upgrade-install this build over it (fails if the signer differs).
             curl -fL --retry 3 -o "$RUNNER_TEMP/sfe-0.2.0.apk" https://github.com/manuelmania93-svg/StockFileExplorer/releases/download/v0.2.0/StockFileExplorer-0.2.0.apk

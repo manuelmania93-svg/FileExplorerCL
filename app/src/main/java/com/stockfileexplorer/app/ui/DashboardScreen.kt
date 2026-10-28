@@ -101,13 +101,13 @@ fun DashboardScreen(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(120.dp)) {
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(96.dp)) {
                         val trackColor = MaterialTheme.colorScheme.surfaceVariant
                         val barColor = MaterialTheme.colorScheme.primary
-                        Canvas(Modifier.size(120.dp)) {
+                        Canvas(Modifier.size(96.dp)) {
                             drawArc(
                                 color = trackColor,
                                 startAngle = 0f,
@@ -139,7 +139,7 @@ fun DashboardScreen(
                             )
                         }
                     }
-                    Spacer(Modifier.width(16.dp))
+                    Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
                         Text(
                             text = stringResource(
@@ -173,7 +173,7 @@ fun DashboardScreen(
                                     categorySizeText(FileCategory.AUDIO, sizes, scanning)
                                 )
                             }
-                            Spacer(Modifier.width(16.dp))
+                            Spacer(Modifier.width(10.dp))
                             Column(Modifier.weight(1f)) {
                                 CategorySizeLine(
                                     categoryLabel(FileCategory.DOCUMENTS),
@@ -187,8 +187,17 @@ fun DashboardScreen(
                                     stringResource(R.string.cat_etc),
                                     if (scanning) stringResource(R.string.scanning)
                                     else FileLogic.formatSize(
-                                        sizes[FileCategory.ARCHIVES.ordinal] +
-                                            sizes[FileCategory.OTHER.ordinal]
+                                        // All remaining used space: archives and uncategorized
+                                        // files, plus Android/data, Android/obb and app-private
+                                        // data that all-files access cannot itemize, and system
+                                        // overhead on the user-data partition.
+                                        (usedBytes -
+                                            sizes[FileCategory.IMAGES.ordinal] -
+                                            sizes[FileCategory.VIDEOS.ordinal] -
+                                            sizes[FileCategory.AUDIO.ordinal] -
+                                            sizes[FileCategory.DOCUMENTS.ordinal] -
+                                            sizes[FileCategory.APPS.ordinal]
+                                            ).coerceAtLeast(0L)
                                     )
                                 )
                             }

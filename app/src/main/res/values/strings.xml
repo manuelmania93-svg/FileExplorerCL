@@ -73,4 +73,6 @@
     <string name="viewer_extracted">Extracted to %1$s</string>
     <string name="viewer_open_folder">Open extracted folder</string>
     <string name="viewer_entries">%1$d entries</string>
+    <string name="viewer_play">Play</string>
+    <string name="viewer_pause">Pause</string>
 </resources>

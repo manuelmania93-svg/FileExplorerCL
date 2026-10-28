@@ -38,6 +38,7 @@ import com.stockfileexplorer.app.R
 import com.stockfileexplorer.app.ViewerActivity
 import com.stockfileexplorer.app.data.Archives
 import com.stockfileexplorer.app.data.FileLogic
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
@@ -184,21 +185,41 @@ private fun VideoViewer(file: File) {
         owner.lifecycle.addObserver(observer)
         onDispose { owner.lifecycle.removeObserver(observer); player.removeListener(listener); player.release() }
     }
+    var position by remember(file.path) { mutableFloatStateOf(0f) }
+    var duration by remember(file.path) { mutableFloatStateOf(0f) }
+    LaunchedEffect(player) {
+        while (true) {
+            position = player.currentPosition.toFloat()
+            duration = player.duration.coerceAtLeast(0).toFloat()
+            delay(250)
+        }
+    }
     if (error) ViewerError(stringResource(R.string.viewer_video_error))
-    else {
+    else Column(Modifier.fillMaxSize()) {
         Text(stringResource(if (!rendered) R.string.viewer_video_loading else if (playing) R.string.viewer_video_playing else R.string.viewer_video_paused),
             Modifier.padding(horizontal = 16.dp, vertical = 4.dp), style = MaterialTheme.typography.labelMedium)
+        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Button(onClick = { if (player.isPlaying) player.pause() else player.play() }) {
+                Text(stringResource(if (playing) R.string.viewer_pause else R.string.viewer_play))
+            }
+            Spacer(Modifier.width(12.dp))
+            Text("${(position / 1000).toInt()} / ${(duration / 1000).toInt()} s", style = MaterialTheme.typography.labelMedium)
+        }
+        Slider(value = position.coerceIn(0f, duration.coerceAtLeast(1f)),
+            onValueChange = { player.seekTo(it.toLong()); position = it },
+            valueRange = 0f..duration.coerceAtLeast(1f), enabled = duration > 0,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
         AndroidView(factory = { ctx ->
             PlayerView(ctx).apply {
                 this.player = player
-                useController = true
+                useController = false
                 controllerAutoShow = true
                 controllerShowTimeoutMs = 0
                 controllerHideOnTouch = false
                 showController()
                 layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
             }
-        }, modifier = Modifier.fillMaxSize())
+        }, modifier = Modifier.fillMaxWidth().weight(1f))
     }
 }
 

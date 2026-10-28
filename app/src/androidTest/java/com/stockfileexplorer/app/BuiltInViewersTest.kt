@@ -66,17 +66,11 @@ class BuiltInViewersTest {
         device.findObject(By.text("Next")).click();waitText("2 / 2");assertTrue(device.wait(Until.hasObject(By.desc("PDF page 2")),15000));screenshot("pdf-page2");device.findObject(By.desc("PDF page 2")).pinchOpen(0.5f);screenshot("pdf-page2-zoomed")
         device.pressBack()
         open("sample-video.mp4");waitText("Playing");Thread.sleep(800);screenshot("video-playing")
-        // Test actual pause/seek/resume using Media3 view accessibility controls.
-        if (!device.wait(Until.hasObject(By.descContains("Pause")), 3000)) {
-            device.click(400, 700)
-        }
-        val pause = device.wait(Until.findObject(By.descContains("Pause")), 5000)
-        assertNotNull("Media3 pause control", pause);pause.click();waitText("Paused");screenshot("video-paused")
-        val seek = device.findObject(By.res("com.stockfileexplorer.app:id/exo_progress"))
-        if (seek != null) {
-            val b = seek.visibleBounds;device.click(b.centerX(), b.centerY())
-        }
-        device.findObject(By.descContains("Play")).click();waitText("Playing")
+        waitText("Pause");device.findObject(By.text("Pause")).click();waitText("Paused");screenshot("video-paused")
+        // Seek through the visible Compose slider, not a player test hook.
+        val width = device.displayWidth
+        device.click(width * 3 / 4, 170 * device.displayHeight / 640)
+        waitText("Play");device.findObject(By.text("Play")).click();waitText("Playing");screenshot("video-resumed")
         device.pressHome();Thread.sleep(500)
         device.pressRecentApps();Thread.sleep(500);device.pressBack()
         inst.startActivitySync(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))

@@ -73,4 +73,6 @@
     <string name="viewer_extracted">Entpackt nach %1$s</string>
     <string name="viewer_open_folder">Entpackten Ordner öffnen</string>
     <string name="viewer_entries">%1$d Einträge</string>
+    <string name="viewer_play">Abspielen</string>
+    <string name="viewer_pause">Pause</string>
 </resources>

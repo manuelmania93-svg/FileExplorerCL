@@ -87,4 +87,7 @@
     <string name="index_no_results_yet">No files available yet. The file list is not complete.</string>
     <string name="index_partial">Partial</string>
     <string name="picture_thumbnail">Picture thumbnail: %1$s</string>
+    <string name="folder_stats">%1$d files total | %2$s • %3$s</string>
+    <string name="folder_stats_partial">%1$d+ files total | %2$s+ • %3$s</string>
+    <string name="folder_stats_pending">Counting files… • %1$s</string>
 </resources>

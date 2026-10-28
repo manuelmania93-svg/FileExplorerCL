@@ -48,7 +48,8 @@ import kotlinx.coroutines.withContext
 @Composable
 fun DashboardScreen(
     onOpenStorage: () -> Unit,
-    onOpenCategory: (FileCategory) -> Unit
+    onOpenCategory: (FileCategory) -> Unit,
+    onOpenRecent: () -> Unit
 ) {
     val root = remember { Environment.getExternalStorageDirectory() }
     var totalBytes by remember { mutableStateOf(0L) }
@@ -126,6 +127,38 @@ fun DashboardScreen(
                     )
                     Text(
                         text = stringResource(R.string.free_space, FileLogic.formatSize(freeBytes)),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        Card(
+            modifier = Modifier.fillMaxWidth().clickable { onOpenRecent() },
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = SfeIcons.Schedule,
+                    contentDescription = null,
+                    tint = com.stockfileexplorer.app.theme.AmberDark,
+                    modifier = Modifier.size(32.dp)
+                )
+                Spacer(Modifier.width(16.dp))
+                Column {
+                    Text(
+                        text = stringResource(R.string.cat_recent),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = stringResource(R.string.recent_subtitle),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

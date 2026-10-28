@@ -17,6 +17,8 @@
     <string name="cat_documents">Documents</string>
     <string name="cat_apps">Apps</string>
     <string name="cat_archives">Archives</string>
+    <string name="cat_recent">Recent files</string>
+    <string name="recent_subtitle">Last modified across shared storage</string>
     <string name="cat_other">Other</string>
     <string name="scanning">Scanning…</string>
     <string name="items_count">%1$d items</string>

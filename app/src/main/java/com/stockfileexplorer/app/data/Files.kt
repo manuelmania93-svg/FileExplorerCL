@@ -99,7 +99,8 @@ object FileRepository {
 class ScanResult(
     val sizes: LongArray = LongArray(FileCategory.entries.size),
     val counts: IntArray = IntArray(FileCategory.entries.size),
-    val matched: MutableList<File> = mutableListOf()
+    val matched: MutableList<File> = mutableListOf(),
+    val recent: MutableList<File> = mutableListOf()
 )
 
 object StorageScanner {
@@ -108,10 +109,14 @@ object StorageScanner {
         root: File,
         collect: FileCategory?,
         maxMatches: Int = 5000,
+        collectRecent: Int = 0,
         isCancelled: () -> Boolean,
         onProgress: (filesSeen: Int) -> Unit
     ): ScanResult {
         val result = ScanResult()
+        // Min-heap by lastModified keeps only the K most recently modified files.
+        val recentHeap = if (collectRecent > 0)
+            java.util.PriorityQueue<File>(collectRecent, compareBy { it.lastModified() }) else null
         val stack = ArrayDeque<File>()
         stack.add(root)
         var seen = 0
@@ -130,12 +135,17 @@ object StorageScanner {
                     if (collect != null && cat == collect && result.matched.size < maxMatches) {
                         result.matched.add(f)
                     }
+                    if (recentHeap != null) {
+                        recentHeap.add(f)
+                        if (recentHeap.size > collectRecent) recentHeap.poll()
+                    }
                     seen++
                     if (seen % 250 == 0) onProgress(seen)
                 }
             }
         }
         onProgress(seen)
+        if (recentHeap != null) result.recent.addAll(recentHeap.sortedByDescending { it.lastModified() })
         return result
     }
 }

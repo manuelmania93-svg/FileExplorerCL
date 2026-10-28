@@ -42,6 +42,7 @@ import com.stockfileexplorer.app.ui.SfeIcons
 import com.stockfileexplorer.app.ui.DashboardScreen
 import com.stockfileexplorer.app.ui.LibraryScreen
 import com.stockfileexplorer.app.ui.PermissionScreen
+import com.stockfileexplorer.app.ui.RecentFilesScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -90,10 +91,11 @@ fun MainScaffold() {
     var tab by remember { mutableIntStateOf(TAB_LOCAL) }
     var browsePath by remember { mutableStateOf<String?>(null) }
     var libraryCategory by remember { mutableStateOf<FileCategory?>(null) }
+    var showRecent by remember { mutableStateOf(false) }
     val storageRoot = remember { Environment.getExternalStorageDirectory().absolutePath }
 
-    BackHandler(enabled = browsePath != null) {
-        browsePath = null
+    BackHandler(enabled = browsePath != null || showRecent) {
+        if (showRecent) showRecent = false else browsePath = null
     }
 
     Scaffold(
@@ -123,7 +125,11 @@ fun MainScaffold() {
         when (tab) {
             TAB_LOCAL -> {
                 val path = browsePath
-                if (path == null) {
+                if (showRecent && path == null) {
+                    Column(Modifier.fillMaxSize().padding(padding)) {
+                        RecentFilesScreen(onBack = { showRecent = false })
+                    }
+                } else if (path == null) {
                     Column(Modifier.fillMaxSize().padding(padding)) {
                         TopAppBar(title = { Text(stringResource(R.string.app_name)) })
                         DashboardScreen(
@@ -131,7 +137,8 @@ fun MainScaffold() {
                             onOpenCategory = { cat ->
                                 libraryCategory = cat
                                 tab = TAB_LIBRARY
-                            }
+                            },
+                            onOpenRecent = { showRecent = true }
                         )
                     }
                 } else {

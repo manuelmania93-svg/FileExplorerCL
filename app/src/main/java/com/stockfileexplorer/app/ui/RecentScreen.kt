@@ -45,16 +45,14 @@ import java.io.File
 fun RecentFilesScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val noAppMessage = stringResource(R.string.no_app_to_open)
-    var files by remember { mutableStateOf<List<File>>(emptyList()) }
-    var scanning by remember { mutableStateOf(true) }
+    val cachedScan = remember { ScanStore.current() }
+    var files by remember { mutableStateOf(cachedScan?.recent ?: emptyList()) }
+    var scanning by remember { mutableStateOf(cachedScan == null) }
     var scannedCount by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(Unit) {
         val root = Environment.getExternalStorageDirectory()
-        ScanStore.current()?.let { cached ->
-            files = cached.recent
-            scanning = false
-        }
+        // Shared snapshot: instant when fresh, one silent rescan when stale.
         val snapshot = ScanStore.snapshot(root, onProgress = { n -> scannedCount = n })
         files = snapshot.recent
         scanning = false

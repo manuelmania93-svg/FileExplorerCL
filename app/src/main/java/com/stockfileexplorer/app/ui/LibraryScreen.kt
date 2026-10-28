@@ -118,8 +118,13 @@ fun CategoryFilesScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var files by remember { mutableStateOf<List<File>>(emptyList()) }
-    var scanning by remember { mutableStateOf(true) }
+    val cachedScan = remember { ScanStore.current() }
+    var files by remember {
+        mutableStateOf(
+            cachedScan?.files(category)?.sortedByDescending { it.lastModified() } ?: emptyList()
+        )
+    }
+    var scanning by remember { mutableStateOf(cachedScan == null) }
     var scannedCount by remember { mutableIntStateOf(0) }
     var refreshTick by remember { mutableIntStateOf(0) }
     var menuFor by remember { mutableStateOf<File?>(null) }
@@ -128,11 +133,7 @@ fun CategoryFilesScreen(
 
     LaunchedEffect(category, refreshTick) {
         val root = Environment.getExternalStorageDirectory()
-        // Show the last completed scan immediately; rescan only when it is stale.
-        ScanStore.current()?.let { cached ->
-            files = cached.files(category).sortedByDescending { it.lastModified() }
-            scanning = false
-        }
+        // Shared snapshot: instant when fresh, one silent rescan when stale.
         val snapshot = ScanStore.snapshot(root, onProgress = { n -> scannedCount = n })
         files = snapshot.files(category).sortedByDescending { it.lastModified() }
         scanning = false

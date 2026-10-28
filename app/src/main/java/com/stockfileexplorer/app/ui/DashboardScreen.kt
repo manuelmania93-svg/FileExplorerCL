@@ -60,9 +60,10 @@ fun DashboardScreen(
     val root = remember { Environment.getExternalStorageDirectory() }
     var totalBytes by remember { mutableStateOf(0L) }
     var freeBytes by remember { mutableStateOf(0L) }
-    var scanning by remember { mutableStateOf(true) }
-    var sizes by remember { mutableStateOf(LongArray(FileCategory.entries.size)) }
-    var counts by remember { mutableStateOf(IntArray(FileCategory.entries.size)) }
+    val cachedScan = remember { ScanStore.current() }
+    var scanning by remember { mutableStateOf(cachedScan == null) }
+    var sizes by remember { mutableStateOf(cachedScan?.sizes ?: LongArray(FileCategory.entries.size)) }
+    var counts by remember { mutableStateOf(cachedScan?.counts ?: IntArray(FileCategory.entries.size)) }
 
     LaunchedEffect(Unit) {
         val (total, free) = withContext(Dispatchers.IO) {
@@ -71,12 +72,7 @@ fun DashboardScreen(
         }
         totalBytes = total
         freeBytes = free
-        // Show the last completed scan immediately; rescan only when it is stale.
-        ScanStore.current()?.let { cached ->
-            sizes = cached.sizes
-            counts = cached.counts
-            scanning = false
-        }
+        // Shared snapshot: instant when fresh, one silent rescan when stale.
         val snapshot = ScanStore.snapshot(root)
         sizes = snapshot.sizes
         counts = snapshot.counts

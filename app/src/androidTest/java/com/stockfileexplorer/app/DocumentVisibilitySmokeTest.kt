@@ -98,5 +98,32 @@ class DocumentVisibilitySmokeTest {
         device.takeScreenshot(File("/sdcard/Download/sfe-$suffix-4-file-menu.png"))
         device.pressBack()
         device.pressBack()
+
+        // Returning to the dashboard must reuse the shared scan snapshot:
+        // no second full scan ("Scanning" state) on re-entry.
+        device.pressBack()
+        assertTrue(
+            "Back on dashboard",
+            device.wait(Until.hasObject(By.text("Internal storage")), 5000)
+        )
+        assertFalse(
+            "Dashboard re-entry must reuse the shared scan, not rescan",
+            device.wait(Until.hasObject(By.textContains("Scanning")), 1500)
+        )
+
+        // Library category opens from the shared snapshot and lists images
+        // with real thumbnails (verified visually from the screenshot).
+        device.findObject(By.text("Library")).click()
+        assertTrue(device.wait(Until.hasObject(By.text("Images")), 5000))
+        device.findObject(By.text("Images")).click()
+        assertTrue(
+            "Sample image listed in Images category",
+            device.wait(Until.hasObject(By.textContains("sfe-sample-picture.jpg")), 5000)
+        )
+        assertFalse(
+            "Category opened from cached scan without a blocking rescan",
+            device.wait(Until.hasObject(By.textContains("Scanning")), 1500)
+        )
+        device.takeScreenshot(File("/sdcard/Download/sfe-$suffix-6-gallery.png"))
     }
 }

@@ -16,6 +16,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
@@ -51,7 +52,7 @@ fun ViewerScreen(file: File, onBack: () -> Unit) {
     val kind = ViewerActivity.kind(file)
     Scaffold(topBar = {
         TopAppBar(title = { Text(file.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-            navigationIcon = { TextButton(onClick = onBack) { Text(stringResource(R.string.viewer_back)) } })
+            navigationIcon = { TextButton(colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface), onClick = onBack) { Text(stringResource(R.string.viewer_back)) } })
     }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             when (kind) {
@@ -77,7 +78,7 @@ private fun ZoomImage(bitmap: Bitmap, description: String, rotation: Float = 0f,
     var zoom by remember(bitmap) { mutableFloatStateOf(1f) }
     var x by remember(bitmap) { mutableFloatStateOf(0f) }
     var y by remember(bitmap) { mutableFloatStateOf(0f) }
-    Box(modifier.background(Color(0xFFF3F1EA)), contentAlignment = Alignment.Center) {
+    Box(modifier.clipToBounds().background(Color(0xFFF3F1EA)), contentAlignment = Alignment.Center) {
         Image(bitmap.asImageBitmap(), description, modifier = Modifier.fillMaxSize()
             .pointerInput(bitmap) {
                 detectTransformGestures { _, pan, scale, _ ->
@@ -107,7 +108,7 @@ private fun PictureViewer(file: File) {
         } catch (e: Exception) { error = decodeError }
     }
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-        TextButton(onClick = { rotation = (rotation + 90) % 360 }) { Text(stringResource(R.string.viewer_rotate)) }
+        TextButton(colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface), onClick = { rotation = (rotation + 90) % 360 }) { Text(stringResource(R.string.viewer_rotate)) }
         Text(stringResource(R.string.viewer_pinch), modifier = Modifier.padding(12.dp), style = MaterialTheme.typography.labelMedium)
     }
     if (error != null) ViewerError(error!!) else if (bitmap == null) CircularProgressIndicator(Modifier.padding(24.dp))
@@ -146,9 +147,9 @@ private fun PdfViewer(file: File) {
         } catch (e: Exception) { error = pdfError }
     }
     Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        TextButton(onClick = { page-- }, enabled = page > 0 && bitmap != null) { Text(stringResource(R.string.viewer_previous)) }
+        TextButton(colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface), onClick = { page-- }, enabled = page > 0 && bitmap != null) { Text(stringResource(R.string.viewer_previous)) }
         Text(if (pages == 0) "…" else "${page + 1} / $pages", style = MaterialTheme.typography.labelLarge)
-        TextButton(onClick = { page++ }, enabled = page + 1 < pages && bitmap != null) { Text(stringResource(R.string.viewer_next)) }
+        TextButton(colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface), onClick = { page++ }, enabled = page + 1 < pages && bitmap != null) { Text(stringResource(R.string.viewer_next)) }
     }
     if (error != null) ViewerError(error!!) else if (bitmap == null) CircularProgressIndicator(Modifier.padding(24.dp))
     else ZoomImage(bitmap!!, stringResource(R.string.viewer_pdf_page, page + 1), modifier = Modifier.fillMaxSize())
@@ -231,7 +232,7 @@ private fun ArchiveViewer(file: File) {
         extracted?.let { folder ->
             Text(stringResource(R.string.viewer_extracted, folder.absolutePath), Modifier.padding(vertical = 8.dp), style = MaterialTheme.typography.bodyMedium)
             val context = LocalContext.current
-            TextButton(onClick = {
+            TextButton(colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface), onClick = {
                 context.startActivity(android.content.Intent(context, com.stockfileexplorer.app.MainActivity::class.java)
                     .putExtra("browse_path", folder.absolutePath)
                     .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK))

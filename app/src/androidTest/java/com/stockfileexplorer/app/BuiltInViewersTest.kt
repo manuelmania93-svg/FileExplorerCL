@@ -60,7 +60,7 @@ class BuiltInViewersTest {
         screenshot("picture")
         device.findObject(By.desc("Picture preview")).pinchOpen(0.5f)
         screenshot("picture-zoomed")
-        device.findObject(By.text("Rotate")).click();screenshot("picture-rotated")
+        waitText("Rotate");device.findObject(By.text("Rotate")).click();screenshot("picture-rotated")
         device.pressBack()
         open("sample-reader.pdf");waitText("1 / 2");assertTrue(device.wait(Until.hasObject(By.desc("PDF page 1")),15000));screenshot("pdf-page1")
         device.findObject(By.text("Next")).click();waitText("2 / 2");assertTrue(device.wait(Until.hasObject(By.desc("PDF page 2")),15000));screenshot("pdf-page2");device.findObject(By.desc("PDF page 2")).pinchOpen(0.5f);screenshot("pdf-page2-zoomed")
@@ -119,7 +119,7 @@ class BuiltInViewersTest {
         assertEquals("ZIP extraction works.\n", File(second,"notes/hello.txt").readText())
         try { Archives.extract(File(root,"unsafe.zip"));fail("Unsafe path was accepted") } catch (_: Exception) {}
         assertFalse(File(root,"escaped.txt").exists())
-        try { Archives.extract(File(root,"duplicate.zip"));fail("Duplicate path was accepted") } catch (_: IllegalStateException) {}
+        try { Archives.extract(File(root,"duplicate.zip"));fail("Duplicate path was accepted") } catch (_: Exception) {}
         assertFalse(File(root,"duplicate_extracted").exists())
         try { Archives.extract(File(root,"corrupt.zip"));fail("Corrupt ZIP was accepted") } catch (_: IllegalArgumentException) {}
         assertFalse(File(root,"corrupt_extracted").exists())

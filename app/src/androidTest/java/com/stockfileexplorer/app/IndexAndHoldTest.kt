@@ -6,22 +6,10 @@ import android.media.MediaScannerConnection
 import android.os.Environment
 import android.os.SystemClock
 import android.util.Log
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.*
 import com.stockfileexplorer.app.data.*
-import com.stockfileexplorer.app.theme.AppTheme
-import com.stockfileexplorer.app.ui.FileGridCell
-import com.stockfileexplorer.app.ui.FileListRow
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
@@ -31,40 +19,6 @@ import org.junit.runner.RunWith
 import java.io.File
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
-
-class FolderStatsVisualActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: android.os.Bundle?) {
-        super.onCreate(savedInstanceState)
-        val date = 1700000000000L
-        fun folder(name: String) = FileItem(
-            File("/storage/emulated/0/$name"), name, true, 0L, date, -1, FileCategory.OTHER
-        )
-        setContent {
-            AppTheme {
-                Column(Modifier.fillMaxSize().padding(8.dp)) {
-                    FileListRow(folder("pending-folder"), false, false, null, false, {}, {})
-                    FileListRow(folder("partial-folder"), false, false,
-                        FileIndex.DirectoryStats(1L, 2000L), true, {}, {})
-                    FileListRow(folder("complete-folder"), false, false,
-                        FileIndex.DirectoryStats(2L, 15L), false, {}, {})
-                    Row(Modifier.fillMaxWidth()) {
-                        Column(Modifier.weight(1f)) {
-                            FileGridCell(folder("grid-pending"), false, false, null, false, {}, {})
-                        }
-                        Column(Modifier.weight(1f)) {
-                            FileGridCell(folder("grid-partial"), false, false,
-                                FileIndex.DirectoryStats(1L, 2000L), true, {}, {})
-                        }
-                        Column(Modifier.weight(1f)) {
-                            FileGridCell(folder("grid-complete"), false, false,
-                                FileIndex.DirectoryStats(2L, 15L), false, {}, {})
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
 
 @RunWith(AndroidJUnit4::class)
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
@@ -206,7 +160,7 @@ class IndexAndHoldTest {
         waitTextContains(label("2 files total","2 Dateien gesamt"))
         screenshot("folder-stats-grid")
         assertPopup("hold-one.txt","hold-browser-grid")
-        val visualIntent = Intent(instrumentation.context, FolderStatsVisualActivity::class.java)
+        val visualIntent = Intent(context, FolderStatsVisualActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         instrumentation.startActivitySync(visualIntent)
         device.waitForIdle()

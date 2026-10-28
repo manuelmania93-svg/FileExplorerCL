@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -29,6 +30,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.stockfileexplorer.app.R
@@ -84,6 +86,12 @@ fun StorageAnalysisScreen(onBack: () -> Unit) {
                             Text(
                                 stringResource(R.string.free_space, FileLogic.formatSize(value.freeBytes)),
                                 style = MaterialTheme.typography.bodySmall,
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                stringResource(R.string.analysis_indexed_scope),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             if (value.incomplete) {
                                 Spacer(Modifier.height(6.dp))
@@ -208,20 +216,28 @@ private fun SectionTitle(title: String) {
 
 @Composable
 private fun AnalysisLine(label: String, value: String, subtitle: String? = null) {
-    Column(Modifier.fillMaxWidth()) {
-        Row(Modifier.fillMaxWidth()) {
-            Text(label, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(value, style = MaterialTheme.typography.bodySmall)
+    Row(Modifier.fillMaxWidth()) {
+        Column(Modifier.weight(1f)) {
+            Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            subtitle?.let {
+                Text(
+                    it,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
-        subtitle?.let {
-            Text(
-                it,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
+        Spacer(Modifier.widthIn(min = 12.dp))
+        Text(
+            value,
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.widthIn(max = 120.dp),
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.End,
+        )
     }
 }
 

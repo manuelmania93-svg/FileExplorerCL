@@ -92,6 +92,7 @@
     <string name="folder_stats_pending">Counting files… • %1$s</string>
     <string name="storage_analysis">Storage analysis</string>
     <string name="analysis_partial">Some folders could not be fully analyzed.</string>
+    <string name="analysis_indexed_scope">Categories count files visible in the app index. Remaining used space includes private app data, system data, and unindexed storage.</string>
     <string name="categories">Categories</string>
     <string name="largest_folders">Largest folders</string>
     <string name="analysis_folder_value">%1$s • %2$d files</string>

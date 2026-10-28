@@ -65,6 +65,7 @@ class StorageAnalysisInstrumentedTest {
         device.executeShellCommand("appops set --uid ${context.packageName} MANAGE_EXTERNAL_STORAGE allow")
 
         waitText("Storage analysis")
+        waitText("Categories count files visible in the app index. Remaining used space includes private app data, system data, and unindexed storage.")
         waitText("Categories")
         waitText("Largest folders")
         waitText("Download")

@@ -27,17 +27,11 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.CheckBox
-import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -239,7 +233,7 @@ fun BrowserScreen(
                 actions = {
                     IconButton(onClick = { gridView = !gridView }) {
                         Icon(
-                            if (gridView) Icons.Filled.ViewList else Icons.Filled.GridView,
+                            if (gridView) SfeIcons.ViewList else SfeIcons.GridView,
                             contentDescription = stringResource(
                                 if (gridView) R.string.view_list else R.string.view_grid
                             )
@@ -282,7 +276,7 @@ fun BrowserScreen(
                             )
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.new_folder)) },
-                                leadingIcon = { Icon(Icons.Filled.CreateNewFolder, null) },
+                                leadingIcon = { Icon(SfeIcons.CreateNewFolder, null) },
                                 onClick = { showNewFolder = true; menuOpen = false }
                             )
                         }
@@ -516,7 +510,7 @@ fun FileGridCell(
                 FileIcon(item = item, size = 56)
                 if (selecting) {
                     Icon(
-                        imageVector = if (selected) Icons.Filled.CheckBox else Icons.Filled.CheckBoxOutlineBlank,
+                        imageVector = if (selected) SfeIcons.CheckBox else SfeIcons.CheckBoxOutlineBlank,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.align(Alignment.TopEnd).size(18.dp)
@@ -545,7 +539,7 @@ fun FileGridCell(
 fun FileIcon(item: FileItem, size: Int) {
     if (item.isDirectory) {
         Icon(
-            imageVector = Icons.Filled.Folder,
+            imageVector = SfeIcons.Folder,
             contentDescription = null,
             tint = FolderYellow,
             modifier = Modifier.size(size.dp)

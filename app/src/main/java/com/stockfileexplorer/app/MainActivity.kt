@@ -10,10 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CloudQueue
-import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -40,6 +37,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import com.stockfileexplorer.app.data.FileCategory
 import com.stockfileexplorer.app.theme.AppTheme
 import com.stockfileexplorer.app.ui.BrowserScreen
+import com.stockfileexplorer.app.ui.SfeIcons
 import com.stockfileexplorer.app.ui.DashboardScreen
 import com.stockfileexplorer.app.ui.LibraryScreen
 import com.stockfileexplorer.app.ui.PermissionScreen
@@ -104,13 +102,13 @@ fun MainScaffold() {
                 NavigationBarItem(
                     selected = tab == TAB_LIBRARY,
                     onClick = { tab = TAB_LIBRARY },
-                    icon = { Icon(Icons.Filled.PhotoLibrary, contentDescription = null) },
+                    icon = { Icon(SfeIcons.PhotoLibrary, contentDescription = null) },
                     label = { Text(stringResource(R.string.tab_library)) }
                 )
                 NavigationBarItem(
                     selected = tab == TAB_NETWORK,
                     onClick = { tab = TAB_NETWORK },
-                    icon = { Icon(Icons.Filled.CloudQueue, contentDescription = null) },
+                    icon = { Icon(SfeIcons.Cloud, contentDescription = null) },
                     label = { Text(stringResource(R.string.tab_network)) }
                 )
             }
@@ -151,7 +149,7 @@ fun MainScaffold() {
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Icon(
-                    Icons.Filled.Folder,
+                    SfeIcons.Folder,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )

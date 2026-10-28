@@ -1,13 +1,5 @@
 package com.stockfileexplorer.app.ui
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Android
-import androidx.compose.material.icons.filled.Archive
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.InsertDriveFile
-import androidx.compose.material.icons.filled.Movie
-import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -15,13 +7,13 @@ import com.stockfileexplorer.app.R
 import com.stockfileexplorer.app.data.FileCategory
 
 fun categoryIcon(category: FileCategory): ImageVector = when (category) {
-    FileCategory.IMAGES -> Icons.Filled.Image
-    FileCategory.VIDEOS -> Icons.Filled.Movie
-    FileCategory.AUDIO -> Icons.Filled.MusicNote
-    FileCategory.DOCUMENTS -> Icons.Filled.Description
-    FileCategory.APPS -> Icons.Filled.Android
-    FileCategory.ARCHIVES -> Icons.Filled.Archive
-    FileCategory.OTHER -> Icons.Filled.InsertDriveFile
+    FileCategory.IMAGES -> SfeIcons.Image
+    FileCategory.VIDEOS -> SfeIcons.Movie
+    FileCategory.AUDIO -> SfeIcons.MusicNote
+    FileCategory.DOCUMENTS -> SfeIcons.Description
+    FileCategory.APPS -> SfeIcons.Android
+    FileCategory.ARCHIVES -> SfeIcons.Archive
+    FileCategory.OTHER -> SfeIcons.InsertDriveFile
 }
 
 @Composable

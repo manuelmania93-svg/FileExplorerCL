@@ -74,6 +74,14 @@ class IndexAndHoldTest {
             assertEquals("100 actual indexed results before filesystem traversal",100,indexedCount)
             assertTrue("Not falsely complete", FileIndex.state.value.refreshing)
             assertTrue("Real row opens before walk", page.items.first().file.readText().startsWith("indexed real file"))
+            launch()
+            device.findObjects(By.text(label("Documents","Dokumente"))).maxBy { it.visibleBounds.centerY() }.click()
+            assertTrue("UI is usable before filesystem traversal", device.wait(Until.hasObject(By.textStartsWith("indexed-")),10000))
+            screenshot("indexed-before-walk")
+            device.findObject(By.textStartsWith("indexed-")).longClick()
+            waitText(label("Rename","Umbenennen"))
+            screenshot("hold-during-reconciliation")
+            device.pressBack()
         }
         val complete = SystemClock.elapsedRealtime() - start
         val images = FileIndex.page(FileCategory.IMAGES, 7000)

@@ -84,6 +84,6 @@
     <string name="folder">Ordner</string>
     <string name="index_updating">Dateien werden aktualisiert. Du kannst Dateien schon öffnen, während weitere Ordner geprüft werden.</string>
     <string name="index_incomplete">Einige Ordner konnten nicht geprüft werden. Ergebnisse sind möglicherweise unvollständig.</string>
-    <string name="index_no_results_yet">Noch keine Dateien gefunden. Weitere Ordner werden noch geprüft.</string>
+    <string name="index_no_results_yet">Noch keine Dateien verfügbar. Die Dateiliste ist nicht vollständig.</string>
     <string name="index_partial">Unvollständig</string>
 </resources>

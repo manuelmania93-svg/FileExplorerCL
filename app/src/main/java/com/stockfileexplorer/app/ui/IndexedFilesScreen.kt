@@ -94,6 +94,7 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
                 scope.launch {
                     val ok = withContext(Dispatchers.IO) { Rename.move(item.file, name) }
                     if (!ok) Toast.makeText(context, R.string.rename_failed, Toast.LENGTH_SHORT).show()
+                    if (ok) FileIndex.renamed(item.file, java.io.File(item.file.parentFile, name))
                     FileIndex.invalidate()
                 }
             }, onDismiss = { rename = null })
@@ -103,7 +104,9 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
         onConfirm = {
             val targets = deletes; deletes = emptyList(); selection = emptySet()
             scope.launch {
-                val ok = withContext(Dispatchers.IO) { targets.map { it.deleteRecursively() }.all { it } }
+                val results = withContext(Dispatchers.IO) { targets.map { it to (it.exists() && it.deleteRecursively()) } }
+                FileIndex.removed(results.filter { it.second }.map { it.first })
+                val ok = results.all { it.second }
                 Toast.makeText(context, if (ok) R.string.deleted_ok else R.string.delete_failed, Toast.LENGTH_SHORT).show()
                 FileIndex.invalidate()
             }

@@ -395,6 +395,7 @@ fun BrowserScreen(
                     val ok = withContext(Dispatchers.IO) {
                         com.stockfileexplorer.app.data.Rename.move(target.file, newName)
                     }
+                    if (ok) com.stockfileexplorer.app.data.FileIndex.renamed(target.file, File(target.file.parentFile, newName))
                     if (!ok) {
                         Toast.makeText(
                             context,
@@ -421,9 +422,11 @@ fun BrowserScreen(
                 val toDelete = selection
                 selection = emptySet()
                 scope.launch {
-                    val allOk = withContext(Dispatchers.IO) {
-                        toDelete.all { File(it).deleteRecursively() }
+                    val results = withContext(Dispatchers.IO) {
+                        toDelete.map { File(it) }.map { it to (it.exists() && it.deleteRecursively()) }
                     }
+                    com.stockfileexplorer.app.data.FileIndex.removed(results.filter { it.second }.map { it.first })
+                    val allOk = results.all { it.second }
                     Toast.makeText(
                         context,
                         if (allOk) context.getString(R.string.deleted_ok)

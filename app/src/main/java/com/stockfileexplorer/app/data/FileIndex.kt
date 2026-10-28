@@ -205,6 +205,32 @@ object FileIndex {
         helper = Database(ctx).also { it.setWriteAheadLoggingEnabled(true) }
     }
 
+    /** Remove stale rows immediately after a successful user mutation. */
+    suspend fun removed(files: List<File>) = withContext(Dispatchers.IO) {
+        val db = helper?.writableDatabase ?: return@withContext
+        db.beginTransaction()
+        try {
+            files.forEach { f ->
+                // substr avoids SQL LIKE wildcard bugs in names containing % or _.
+                db.delete("files", "path=? OR substr(path,1,?)=?",
+                    arrayOf(f.absolutePath, (f.absolutePath.length + 1).toString(), f.absolutePath + "/"))
+            }
+            db.setTransactionSuccessful()
+        } finally { db.endTransaction() }
+        publish(true, mutable.value.checked, mutable.value.incomplete, true)
+    }
+
+    suspend fun renamed(old: File, new: File) = withContext(Dispatchers.IO) {
+        removed(listOf(old))
+        if (new.isFile) {
+            val stat = Os.lstat(new.absolutePath)
+            writeBatch(listOf(FileItem(new, new.name, false, stat.st_size, stat.st_mtime * 1000,
+                0, FileLogic.categoryOf(new.name))), 0)
+        }
+        publish(true, mutable.value.checked, mutable.value.incomplete, true)
+        invalidate()
+    }
+
     suspend fun page(category: FileCategory?, limit: Int): Page = withContext(Dispatchers.IO) {
         val db = helper?.readableDatabase ?: return@withContext Page(emptyList(), false)
         val rows = ArrayList<FileItem>()

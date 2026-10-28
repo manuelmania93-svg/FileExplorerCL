@@ -5,10 +5,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
@@ -59,9 +63,11 @@ fun FileActionMenu(
         ) {
             Column(Modifier.padding(16.dp)) {
             Text(name, style = MaterialTheme.typography.titleMedium)
-            LazyColumn(
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
                 modifier = Modifier.heightIn(max = 420.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 items(FileMenuAction.entries) { action ->
                     if (action !in visible || (action.filesOnly && isDirectory)) return@items
@@ -100,8 +106,8 @@ fun FileActionMenu(
 
 @Composable
 private fun MenuAction(label: String, onClick: () -> Unit) {
-    TextButton(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
-        Text(label, modifier = Modifier.fillMaxWidth())
+    TextButton(onClick = onClick, modifier = Modifier.fillMaxWidth().height(40.dp)) {
+        Text(label, modifier = Modifier.fillMaxWidth(), maxLines = 1)
     }
 }
 
@@ -114,8 +120,11 @@ fun MenuCustomizationDialog(onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.customize_menu_title)) },
         text = {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                items(FileMenuAction.entries) { action ->
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                FileMenuAction.entries.forEach { action ->
                     val checked = action in visible
                     Row(
                         modifier = Modifier

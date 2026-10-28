@@ -2,9 +2,11 @@ package com.stockfileexplorer.app
 
 import android.content.Intent
 import android.os.Environment
+import android.os.SystemClock
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
+import androidx.test.uiautomator.StaleObjectException
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
 import com.stockfileexplorer.app.data.FileIndex
@@ -25,6 +27,29 @@ class FileActionsInstrumentedTest {
 
     private fun waitText(value: String, timeout: Long = 15_000) = device.wait(Until.findObject(By.text(value)), timeout)
         ?: throw AssertionError("Missing UI text: $value")
+
+    private fun clickText(value: String, timeout: Long = 15_000) = tapText(value, timeout, long = false)
+
+    private fun longClickText(value: String, timeout: Long = 15_000) = tapText(value, timeout, long = true)
+
+    private fun tapText(value: String, timeout: Long, long: Boolean) {
+        val deadline = SystemClock.uptimeMillis() + timeout
+        var lastError: Throwable? = null
+        while (SystemClock.uptimeMillis() < deadline) {
+            val item = device.wait(Until.findObject(By.text(value)), 500)
+            if (item != null) {
+                try {
+                    if (long) item.longClick() else item.click()
+                    device.waitForIdle()
+                    return
+                } catch (error: StaleObjectException) {
+                    lastError = error
+                    SystemClock.sleep(150)
+                }
+            }
+        }
+        throw AssertionError("Unable to click UI text: $value", lastError)
+    }
 
     private fun screenshot(name: String) {
         device.takeScreenshot(File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "$name.png"))
@@ -48,7 +73,7 @@ class FileActionsInstrumentedTest {
     }
 
     private fun openMenu() {
-        waitText(target.name).longClick()
+        longClickText(target.name)
         device.waitForIdle()
     }
 
@@ -72,10 +97,10 @@ class FileActionsInstrumentedTest {
         waitText("Customize menu")
         screenshot("sfe-file-actions-default")
 
-        waitText("Customize menu").click()
+        clickText("Customize menu")
         waitText("Customize context menu")
-        waitText("Copy").click()
-        waitText("Done").click()
+        clickText("Copy")
+        clickText("Done")
         device.waitForIdle()
 
         openMenu()
@@ -86,7 +111,7 @@ class FileActionsInstrumentedTest {
         waitText("Open with")
         screenshot("sfe-file-actions-customized")
 
-        waitText("Favorite").click()
+        clickText("Favorite")
         device.waitForIdle()
         screenshot("sfe-file-actions-favorite-marker")
 
@@ -99,9 +124,9 @@ class FileActionsInstrumentedTest {
         // same actions as the browser, not retain the old fixed five-action dialog.
         runBlocking { FileIndex.verifyFixture(context, root, clear = true) }
         launchHome()
-        waitText("Library").click()
-        waitText("Images").click()
-        waitText(categoryImage.name).longClick()
+        clickText("Library")
+        clickText("Images")
+        longClickText(categoryImage.name)
         device.waitForIdle()
         waitText("Copy")
         waitText("Move to")

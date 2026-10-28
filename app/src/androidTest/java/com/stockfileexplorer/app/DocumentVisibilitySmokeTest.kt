@@ -1,6 +1,7 @@
 package com.stockfileexplorer.app
 
 import android.content.Intent
+import android.os.ParcelFileDescriptor
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
@@ -23,9 +24,7 @@ class DocumentVisibilitySmokeTest {
 
     private fun shell(command: String): String {
         val fd = InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(command)
-        val output = fd.inputStream.bufferedReader().readText()
-        fd.close()
-        return output
+        return ParcelFileDescriptor.AutoCloseInputStream(fd).bufferedReader().use { it.readText() }
     }
 
     @Test

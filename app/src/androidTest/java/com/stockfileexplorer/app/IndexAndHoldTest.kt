@@ -39,7 +39,6 @@ class IndexAndHoldTest {
     }
     private fun permission() {
         launch()
-        device.executeShellCommand("am force-stop ${context.packageName}")
         device.executeShellCommand("appops set --uid ${context.packageName} MANAGE_EXTERNAL_STORAGE allow")
         assertTrue(Environment.isExternalStorageManager())
     }
@@ -62,6 +61,9 @@ class IndexAndHoldTest {
         val latch = CountDownLatch(indexed.size)
         MediaScannerConnection.scanFile(context, indexed.map { it.absolutePath }.toTypedArray(), null) { _, _ -> latch.countDown() }
         assertTrue("System indexing finished", latch.await(60,TimeUnit.SECONDS))
+        val baselineStart = SystemClock.elapsedRealtime()
+        StorageScanner.scan(root, null, collectAll = true, collectRecent = 200, isCancelled = { false }, onProgress = {})
+        val baseline = SystemClock.elapsedRealtime() - baselineStart
         val start = SystemClock.elapsedRealtime()
         var first = 0L
         var indexedCount = 0
@@ -92,7 +94,7 @@ class IndexAndHoldTest {
         FileIndex.verifyFixture(context, root)
         assertEquals(1001,FileIndex.page(FileCategory.ARCHIVES,2000).items.size)
         assertFalse(FileIndex.page(null,20000).items.any { it.file == indexed.first() || it.file == indexed[1] })
-        val result = "fixtures=10222 indexedFirstRows=$indexedCount first100Ms=$first fullReconcileMs=$complete persisted100Ms=$warm fixtureSetupMs=${start-fixtureStart}"
+        val result = "fixtures=10222 oldBlockingWalkMs=$baseline indexedFirstRows=$indexedCount first100Ms=$first fullReconcileMs=$complete persisted100Ms=$warm fixtureSetupMs=${start-fixtureStart}"
         Log.i("SfeBenchmark",result)
         File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),"sfe-index-benchmark.txt").writeText(result)
         // Remove the large synthetic set before screenshots and existing visual suites.
@@ -125,6 +127,9 @@ class IndexAndHoldTest {
         launch()
         device.findObjects(By.text(label("Images","Bilder"))).maxBy { it.visibleBounds.centerY() }.click()
         assertPopup("hold-picture.jpg","hold-category")
+        waitText("hold-picture.jpg").click()
+        waitText(label("Rotate","Drehen"))
+        device.pressBack()
         launch()
         waitText(label("Recent files","Neue Dateien")).click()
         assertPopup("hold-one.txt","hold-recent")

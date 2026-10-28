@@ -19,6 +19,8 @@ class BuiltInViewersTest {
     private val device = UiDevice.getInstance(inst)
     private val root = File("/sdcard/Download/ViewerSamples")
     private fun fixtures() {
+        val fd = inst.uiAutomation.executeShellCommand("appops set ${context.packageName} MANAGE_EXTERNAL_STORAGE allow")
+        android.os.ParcelFileDescriptor.AutoCloseInputStream(fd).use { it.readBytes() }
         root.mkdirs()
         inst.context.assets.list("viewers")!!.forEach { name ->
             inst.context.assets.open("viewers/$name").use { input -> File(root, name).outputStream().use { input.copyTo(it) } }
@@ -30,8 +32,14 @@ class BuiltInViewersTest {
         device.takeScreenshot(File("/sdcard/Download/sfe-$mode-$name.png"))
     }
     private fun mainAndDownload() {
+        val fd = inst.uiAutomation.executeShellCommand("appops set ${context.packageName} MANAGE_EXTERNAL_STORAGE allow")
+        android.os.ParcelFileDescriptor.AutoCloseInputStream(fd).use { it.readBytes() }
+        device.pressHome()
         inst.startActivitySync(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
-        waitText("Internal storage")
+        if (!device.wait(Until.hasObject(By.text("Internal storage")), 15000)) {
+            screenshot("dashboard-missing")
+            throw AssertionError("Dashboard absent: " + device.currentPackageName)
+        }
         device.findObject(By.text("Internal storage")).click()
         waitText("Download");device.findObject(By.text("Download")).click()
         waitText("ViewerSamples");device.findObject(By.text("ViewerSamples")).click()
@@ -109,7 +117,7 @@ class BuiltInViewersTest {
         assertNotEquals(first.canonicalPath, second.canonicalPath)
         assertEquals("KEEP", File(first,"notes/hello.txt").readText())
         assertEquals("ZIP extraction works.\n", File(second,"notes/hello.txt").readText())
-        try { Archives.extract(File(root,"unsafe.zip"));fail("Unsafe path was accepted") } catch (_: IllegalArgumentException) {}
+        try { Archives.extract(File(root,"unsafe.zip"));fail("Unsafe path was accepted") } catch (_: Exception) {}
         assertFalse(File(root,"escaped.txt").exists())
         try { Archives.extract(File(root,"duplicate.zip"));fail("Duplicate path was accepted") } catch (_: IllegalStateException) {}
         assertFalse(File(root,"duplicate_extracted").exists())

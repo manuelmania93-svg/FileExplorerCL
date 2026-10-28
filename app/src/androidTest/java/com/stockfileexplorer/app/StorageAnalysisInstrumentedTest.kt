@@ -21,6 +21,8 @@ class StorageAnalysisInstrumentedTest {
     private val context = instrumentation.targetContext
     private val device = UiDevice.getInstance(instrumentation)
     private val root = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "SfeAnalysis")
+    private val german get() = context.resources.configuration.locales[0].language == "de"
+    private fun label(en: String, de: String) = if (german) de else en
 
     private fun waitText(value: String, timeout: Long = 20_000) = device.wait(Until.findObject(By.text(value)), timeout)
         ?: throw AssertionError("Missing UI text: $value")
@@ -64,22 +66,25 @@ class StorageAnalysisInstrumentedTest {
         device.waitForIdle()
         device.executeShellCommand("appops set --uid ${context.packageName} MANAGE_EXTERNAL_STORAGE allow")
 
-        waitText("Storage analysis")
-        waitText("Categories count files visible in the app index. Remaining used space includes private app data, system data, and unindexed storage.")
-        waitText("Categories")
-        waitText("Largest folders")
+        waitText(label("Storage analysis", "Speicheranalyse"))
+        waitText(label(
+            "Categories count files visible in the app index. Remaining used space includes private app data, system data, and unindexed storage.",
+            "Kategorien zählen Dateien aus dem App-Index. Der übrige belegte Speicher enthält private App-Daten, Systemdaten und nicht indexierten Speicher.",
+        ))
+        waitText(label("Categories", "Kategorien"))
+        waitText(label("Largest folders", "Größte Ordner"))
         waitText("Download")
-        screenshot("sfe-storage-analysis")
-        revealText("Large files")
+        screenshot("sfe-storage-analysis-${if (german) "de" else "en"}")
+        revealText(label("Large files", "Große Dateien"))
         revealText("analysis-big.bin")
-        revealText("Redundant files")
+        revealText(label("Redundant files", "Redundante Dateien"))
         revealText("analysis-debug.log")
-        revealText("Duplicate files")
+        revealText(label("Duplicate files", "Doppelte Dateien"))
         revealTextContains("duplicate-a.txt")
         revealTextContains("duplicate-b.txt")
-        revealText("Recycle bin folders")
+        revealText(label("Recycle bin folders", "Papierkorb-Ordner"))
         revealText(".recycle_bin")
-        screenshot("sfe-storage-analysis-redundant-recycle")
+        screenshot("sfe-storage-analysis-redundant-recycle-${if (german) "de" else "en"}")
         root.deleteRecursively()
         }
     }

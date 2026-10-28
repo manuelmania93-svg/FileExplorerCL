@@ -18,4 +18,6 @@ if [ "$SFE_TEST_API" = "35" ]; then
 adb shell cmd locale set-app-locales com.stockfileexplorer.app --locales de-AT
 run_test com.stockfileexplorer.app.IndexAndHoldTest#b_actualHoldAcrossAllViewsAndSelect
 adb pull /sdcard/Download/ app/build/reports/device/
+run_test com.stockfileexplorer.app.StorageAnalysisInstrumentedTest#storageAnalysisShowsRankedResults
+adb pull /sdcard/Download/ app/build/reports/device/
 fi

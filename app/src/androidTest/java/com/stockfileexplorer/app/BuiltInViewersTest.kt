@@ -118,6 +118,7 @@ class BuiltInViewersTest {
         val button = device.findObjects(By.text("Rename")).maxBy { it.visibleBounds.centerY() }
         val bounds = button.visibleBounds
         device.click(bounds.centerX(), bounds.centerY())
+        openInList("renamed.txt")
         waitText("renamed.txt")
         assertFalse(File(root,"rename-me.mp4").exists())
         assertEquals("rename fixture", File(root,"renamed.txt").readText())
@@ -128,6 +129,7 @@ class BuiltInViewersTest {
     }
     private fun openInList(name: String): androidx.test.uiautomator.UiObject2 {
         repeat(12) { if (!device.hasObject(By.text(name))) device.swipe(300,900,300,300,20) }
+        repeat(12) { if (!device.hasObject(By.text(name))) device.swipe(300,300,300,900,20) }
         return device.wait(Until.findObject(By.text(name)),5000) ?: throw AssertionError("Missing $name")
     }
     @Test fun archiveSafetyAndRepeatExtraction() {

@@ -14,3 +14,7 @@ Internal PDF reader has previous/next page controls and pinch zoom. It is a rend
 Video playback uses Media3 with Android device decoders, so a file extension alone does not guarantee playback. MP4/H.264/AAC is tested; other container/codec combinations require device support. Playback pauses when the app leaves the foreground. No network permission or streaming feature is added.
 
 RAR4/RAR5 test archives are the small two-text-file fixtures from Junrar 8.0.0 (src/test/resources/com/github/junrar/rar4.rar and rar5.rar), under its supplied license. Other image, PDF, video and ZIP test fixtures are generated for this project and contain no user data.
+
+## Build signing
+
+Published builds from 0.2.0 use one persistent Stock File Explorer signing certificate, restored only from private repository Actions secrets. Its SHA-256 fingerprint is `5837c9c96e17ecd864a8664d1422c01361423cbd945950043f8fecdd03429173`. No private key or password belongs in this repository, logs, artifacts or releases. GitHub-hosted runner copies are removed after the build. Debug artifacts retain a debug build configuration but use the persistent key, not a freshly generated debug key. Earlier 0.1.0 and 0.1.1 previews used different ephemeral debug certificates; switching from either requires one reinstall, not an in-place upgrade. Shared user files outside app-specific storage are not removed by uninstall.

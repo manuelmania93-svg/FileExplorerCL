@@ -19,6 +19,18 @@ jobs:
         with:
           packages: platform-tools platforms;android-35 build-tools;35.0.0
       - uses: gradle/actions/setup-gradle@v4
+      - name: Restore permanent private signing key
+        env:
+          SFE_KEYSTORE_BASE64: ${{ secrets.SFE_KEYSTORE_BASE64 }}
+          SFE_KEYSTORE_PASSWORD: ${{ secrets.SFE_KEYSTORE_PASSWORD }}
+          SFE_KEY_ALIAS: ${{ secrets.SFE_KEY_ALIAS }}
+        run: |
+          test -n "$SFE_KEYSTORE_BASE64" && test -n "$SFE_KEYSTORE_PASSWORD" && test -n "$SFE_KEY_ALIAS"
+          umask 077
+          printf '%s' "$SFE_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/sfe-signing.p12"
+          echo "SFE_KEYSTORE_PATH=$RUNNER_TEMP/sfe-signing.p12" >> "$GITHUB_ENV"
+          printf 'SFE_KEYSTORE_PASSWORD=%s\n' "$SFE_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+          printf 'SFE_KEY_ALIAS=%s\n' "$SFE_KEY_ALIAS" >> "$GITHUB_ENV"
       - name: Build and unit tests
         run: ./gradlew assembleDebug testDebugUnitTest
       - name: Enable KVM
@@ -76,3 +88,6 @@ jobs:
             app/build/reports/androidTests/
             app/build/outputs/androidTest-results/
             app/build/reports/device/
+      - name: Remove runner signing-key copy
+        if: always()
+        run: rm -f "$RUNNER_TEMP/sfe-signing.p12"

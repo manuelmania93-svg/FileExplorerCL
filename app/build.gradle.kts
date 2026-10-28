@@ -17,7 +17,22 @@ android {
         vectorDrawables { useSupportLibrary = true }
     }
 
+    signingConfigs {
+        if (!System.getenv("SFE_KEYSTORE_PATH").isNullOrBlank()) {
+            create("stable") {
+                storeFile = file(System.getenv("SFE_KEYSTORE_PATH"))
+                storePassword = System.getenv("SFE_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("SFE_KEY_ALIAS")
+                keyPassword = System.getenv("SFE_KEYSTORE_PASSWORD")
+            }
+        }
+    }
     buildTypes {
+        debug {
+            if (!System.getenv("SFE_KEYSTORE_PATH").isNullOrBlank()) {
+                signingConfig = signingConfigs.getByName("stable")
+            }
+        }
         release {
             isMinifyEnabled = false
         }

@@ -35,9 +35,14 @@ class IndexAndHoldTest {
         ?: throw AssertionError("Missing UI text containing: $value")
     private fun clickTile(value: String) {
         assertTrue("Tile present: $value", device.wait(Until.hasObject(By.text(value)),15000))
-        repeat(3) {
+        repeat(4) {
             try {
                 val bounds = device.findObjects(By.text(value)).maxBy { it.visibleBounds.centerY() }.visibleBounds
+                // A tile label under the bottom bar is not tappable: scroll the dashboard first.
+                if (bounds.centerY() > device.displayHeight * 0.78) {
+                    device.swipe(540, device.displayHeight * 7 / 10, 540, device.displayHeight * 4 / 10, 12); device.waitForIdle()
+                    return@repeat
+                }
                 device.click(bounds.centerX(), bounds.centerY())
                 return
             } catch (_: StaleObjectException) { device.waitForIdle() }

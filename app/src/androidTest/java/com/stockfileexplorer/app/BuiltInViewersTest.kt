@@ -29,7 +29,17 @@ class BuiltInViewersTest {
             inst.context.assets.open("viewers/$name").use { input -> File(root, name).outputStream().use { input.copyTo(it) } }
         }
     }
-    private fun waitText(text: String) = assertTrue("Expected '$text'", device.wait(Until.hasObject(By.textContains(text)), 15000))
+    private fun waitText(text: String) {
+        if (device.wait(Until.hasObject(By.textContains(text)), 15000)) return
+        // Evidence only: keep what was on screen when the expected text never appeared.
+        runCatching {
+            screenshot("failure-" + text.filter { it.isLetterOrDigit() })
+            File("/sdcard/Download/sfe-viewers-failure-texts.txt").writeText(
+                "expected=$text\nvisibleTexts=" + device.findObjects(By.pkg(device.currentPackageName ?: "")).mapNotNull { it.text }.take(60) + "\n" +
+                "currentPackage=" + device.currentPackageName + "\n")
+        }
+        throw AssertionError("Expected '$text'")
+    }
     private fun screenshot(name: String) {
         val mode = InstrumentationRegistry.getArguments().getString("capture", "viewers")
         device.takeScreenshot(File("/sdcard/Download/sfe-$mode-$name.png"))

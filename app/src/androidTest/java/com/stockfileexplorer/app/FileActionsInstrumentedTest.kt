@@ -310,4 +310,32 @@ class FileActionsInstrumentedTest {
         root.deleteRecursively()
     }
 
+
+    @Test fun germanLibraryMenuUsesLocalizedActions() {
+        if (context.getString(R.string.copy) != "Kopieren") return
+        root.deleteRecursively()
+        root.mkdirs()
+        categoryImage.writeBytes(byteArrayOf(1, 2, 3, 4))
+        FileActionPreferences.setVisibleActions(context, FileMenuAction.entries.toSet())
+        if (FileActionPreferences.isFavorite(context, categoryImage.absolutePath)) {
+            FileActionPreferences.toggleFavorite(context, categoryImage.absolutePath)
+        }
+
+        runBlocking { FileIndex.verifyFixture(context, root, clear = true) }
+        launchHome()
+        clickText(context.getString(R.string.tab_library))
+        clickText(context.getString(R.string.cat_images))
+        longClickText(categoryImage.name)
+        waitText(context.getString(R.string.copy))
+        waitText(context.getString(R.string.move_to))
+        waitText(context.getString(R.string.properties))
+        waitText(context.getString(R.string.favorite))
+        waitText(context.getString(R.string.open_with))
+        waitText(context.getString(R.string.customize_menu))
+        screenshot("sfe-file-actions-category-de")
+
+        FileActionPreferences.setVisibleActions(context, FileMenuAction.entries.toSet())
+        root.deleteRecursively()
+    }
+
 }

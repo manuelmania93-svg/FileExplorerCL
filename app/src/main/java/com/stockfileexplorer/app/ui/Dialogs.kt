@@ -20,6 +20,7 @@ import androidx.compose.ui.res.stringResource
 import com.stockfileexplorer.app.R
 
 @Composable
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 fun TextInputDialog(
     title: String,
     initialValue: String,
@@ -70,6 +71,9 @@ fun ConfirmDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
+        // Dialogs render in their own window, outside the app root's testTagsAsResourceId
+        // scope - re-enable it here so dialog tags reach UI Automator too.
+        modifier = Modifier.semantics { testTagsAsResourceId = true },
         title = { Text(title) },
         text = { Text(body) },
         confirmButton = {

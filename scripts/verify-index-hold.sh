@@ -11,11 +11,11 @@ run_test() {
   if grep -q 'OK (' app/build/reports/device/instrumentation-last.txt; then echo "TEST_RESULT PASS $1"; else echo "TEST_RESULT FAIL $1"; FAILED=1; fi
 }
 run_test com.stockfileexplorer.app.IndexAndHoldTest#a_largeIndexFirstBenchmarkAndPersistence,com.stockfileexplorer.app.IndexAndHoldTest#b_actualHoldAcrossAllViewsAndSelect
+adb shell am force-stop com.stockfileexplorer.app
+run_test com.stockfileexplorer.app.IndexAndHoldTest#c_productionColdRestartUsesPersistedRows
 run_test com.stockfileexplorer.app.StorageAnalysisInstrumentedTest#storageAnalysisShowsRankedResults
 run_test com.stockfileexplorer.app.SortAndSpeedTest
 adb pull /sdcard/Download/ app/build/reports/device/
-adb shell am force-stop com.stockfileexplorer.app
-run_test com.stockfileexplorer.app.IndexAndHoldTest#c_productionColdRestartUsesPersistedRows
 run_test com.stockfileexplorer.app.FileActionsInstrumentedTest
 adb pull /sdcard/Download/ app/build/reports/device/
 if [ "$SFE_TEST_API" = "35" ]; then

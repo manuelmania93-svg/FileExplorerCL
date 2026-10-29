@@ -132,12 +132,21 @@ class SortAndSpeedTest {
         var tries = 0
         while (row == null && tries++ < 8) { device.swipe(540, 1500, 540, 600, 12); device.waitForIdle(); row = device.findObject(By.text("Download")) }
         assertNotNull("Download folder row", row)
-        row!!.click()
-        device.waitForIdle(); Thread.sleep(2500)
+        val rowBounds = row!!.visibleBounds
+        row.click()
+        device.waitForIdle(); Thread.sleep(1500)
+        screenshot("analysis-after-first-click")
+        var secondClickOpened = "not tried"
         if (device.findObject(By.text("SfeSort")) == null) {
+            // Diagnostic only: the test still fails below; this records whether a second tap would have opened the folder.
+            device.findObject(By.text("Download"))?.click()
+            device.waitForIdle(); Thread.sleep(2500)
+            secondClickOpened = if (device.findObject(By.text("SfeSort")) != null) "yes" else "no"
+        }
+        if (secondClickOpened != "not tried") {
             screenshot("analysis-folder-missing")
             val seen = device.findObjects(By.pkg(context.packageName)).mapNotNull { it.text }.distinct().take(40)
-            throw AssertionError("After opening Download, SfeSort not shown. Visible texts: $seen")
+            throw AssertionError("After opening Download (row bounds $rowBounds), SfeSort not shown after first tap; second tap opened folder: $secondClickOpened. Visible texts: $seen")
         }
         screenshot("analysis-folder-opened")
         // Intended user path: system Back returns from the opened folder to the analysis.

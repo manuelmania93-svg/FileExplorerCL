@@ -91,7 +91,9 @@ class SortAndSpeedTest {
         File(root, "cc-small.mp4").writeBytes(ByteArray(10))
         FileIndex.verifyFixture(context, root, clear = true)
         launch()
-        waitText(label("Videos", "Videos")).click()
+        // The dashboard summary also contains a "Videos" label; the tile is the lowest match.
+        device.wait(Until.hasObject(By.text("Videos")), 20000)
+        device.findObjects(By.text("Videos")).maxBy { it.visibleBounds.centerY() }.let { device.click(it.visibleBounds.centerX(), it.visibleBounds.centerY()) }
         waitText("bb-broken.mp4")
         // A real video shows a decoded frame; the unreadable one falls back to the category icon.
         waitDesc(label("Video thumbnail: aa-real-frame.mp4", "Videovorschau: aa-real-frame.mp4"), 30000)
@@ -133,7 +135,7 @@ class SortAndSpeedTest {
         row!!.click()
         waitText("SfeSort")
         screenshot("analysis-folder-opened")
-        device.pressBack(); device.waitForIdle()
+        launch("storage_analysis" to true)
         waitText(label("Storage analysis", "Speicheranalyse"))
         // Large files: tap the file row opens the viewer/chooser (app leaves the analysis list), folder icon opens its folder.
         var file = device.wait(Until.findObject(By.text("huge-fixture.bin")), 3000)
@@ -156,7 +158,10 @@ class SortAndSpeedTest {
         FileIndex.verifyFixture(context, root, clear = true)
         launch()
         waitText(label("Main storage", "Hauptspeicher"))
-        waitText(label("Papierkorb", "Papierkorb"))
+        var bin = device.wait(Until.findObject(By.text("Papierkorb")), 3000)
+        var swipes = 0
+        while (bin == null && swipes++ < 6) { device.swipe(540, 1500, 540, 700, 12); device.waitForIdle(); bin = device.findObject(By.text("Papierkorb")) }
+        assertNotNull("Papierkorb tile reachable on dashboard", bin)
         screenshot("dashboard")
         // Delete from the real browser UI: long-press, select, delete, confirm.
         launch("browse_path" to root.absolutePath)

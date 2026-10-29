@@ -38,8 +38,10 @@ class IndexAndHoldTest {
         repeat(4) {
             try {
                 val bounds = device.findObjects(By.text(value)).maxBy { it.visibleBounds.centerY() }.visibleBounds
-                // A tile label under the bottom bar is not tappable: scroll the dashboard first.
-                if (bounds.centerY() > device.displayHeight * 0.78) {
+                // A tile label that is under the bottom bar is not visible to the test (only the summary label
+                // with the same text is): scroll the dashboard so the tile itself comes above the bar, and keep
+                // a screenshot as evidence that normal scrolling reaches it.
+                if (bounds.centerY() < device.displayHeight * 0.45 || bounds.centerY() > device.displayHeight * 0.78) {
                     device.swipe(540, device.displayHeight * 7 / 10, 540, device.displayHeight * 4 / 10, 12); device.waitForIdle()
                     screenshot("dashboard-scrolled-for-$value")
                     return@repeat

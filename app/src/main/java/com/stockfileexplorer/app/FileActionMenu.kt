@@ -87,7 +87,7 @@ fun FileActionMenu(
                     Text(name, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
                 HorizontalDivider()
-                LazyColumn(Modifier.heightIn(max = 440.dp)) {
+                LazyColumn(Modifier.heightIn(max = 600.dp)) {
                     items(FileMenuAction.entries) { action ->
                         if (action !in visible || (action.filesOnly && isDirectory)) return@items
                         val label = if (action == FileMenuAction.FAVORITE && isFavorite) {
@@ -140,7 +140,7 @@ private fun menuIcon(action: FileMenuAction): ImageVector = when (action) {
 @Composable
 private fun MenuAction(icon: ImageVector, label: String, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(onClick = onClick).padding(horizontal = 20.dp),
+        Modifier.fillMaxWidth().heightIn(min = 44.dp).clickable(onClick = onClick).padding(horizontal = 20.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))

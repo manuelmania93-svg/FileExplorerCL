@@ -84,7 +84,20 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 private val FolderYellow = Color(0xFFFFC107)
-private val thumbnailCache = android.util.LruCache<String, ImageBitmap>(120)
+private val thumbnailCache = android.util.LruCache<String, ImageBitmap>(400)
+// Few decode threads so scrolling a long list never starves the UI or the index scan.
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+private val thumbnailDispatcher = Dispatchers.IO.limitedParallelism(3)
+
+private fun loadVideoThumbnail(file: File, cacheKey: String): ImageBitmap? {
+    thumbnailCache.get(cacheKey)?.let { return it }
+    return try {
+        val bmp = android.media.ThumbnailUtils.createVideoThumbnail(file, android.util.Size(160, 160), null)
+        val result = bmp.asImageBitmap()
+        thumbnailCache.put(cacheKey, result)
+        result
+    } catch (e: Exception) { null } catch (e: OutOfMemoryError) { null }
+}
 
 private fun loadThumbnail(file: File, reqSize: Int, cacheKey: String): ImageBitmap? {
     thumbnailCache.get(cacheKey)?.let { return it }
@@ -172,7 +185,7 @@ fun BrowserScreen(
     val rootPath = remember { Environment.getExternalStorageDirectory().absolutePath }
 
     var currentPath by remember { mutableStateOf(startPath) }
-    var items by remember { mutableStateOf<List<FileItem>>(emptyList()) }
+    var rawItems by remember { mutableStateOf<List<FileItem>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var sortMode by remember { mutableStateOf(SortMode.NAME) }
     var showHidden by remember { mutableStateOf(false) }
@@ -198,7 +211,7 @@ fun BrowserScreen(
     LaunchedEffect(currentPath, sortMode, showHidden, refreshTick) {
         loading = true
         selection = emptySet()
-        items = withContext(Dispatchers.IO) {
+        rawItems = withContext(Dispatchers.IO) {
             FileRepository.listDir(File(currentPath), showHidden, sortMode)
         }
         loading = false
@@ -206,12 +219,28 @@ fun BrowserScreen(
 
     // Query once when the visible folders or refresh boundary changes, not on every
     // indexed batch. In-progress results stay visibly provisional until completion.
-    LaunchedEffect(items, indexStatus.refreshing) {
-        val directoryPaths = items.filter { it.isDirectory }.map { it.file.absolutePath }
+    LaunchedEffect(rawItems, indexStatus.refreshing) {
+        val directoryPaths = rawItems.filter { it.isDirectory }.map { it.file.absolutePath }
         if (directoryPaths.isEmpty()) {
             folderStats = emptyMap()
         } else {
             folderStats = FileIndex.directoryStats(directoryPaths)
+        }
+    }
+
+    // Folders follow Size/Date too (by indexed total / modified time) instead of always by name.
+    val items = remember(rawItems, folderStats, sortMode) {
+        when (sortMode) {
+            SortMode.SIZE, SortMode.DATE -> {
+                val dirs = rawItems.filter { it.isDirectory }
+                val files = rawItems.filter { !it.isDirectory }
+                val sortedDirs = if (sortMode == SortMode.SIZE)
+                    dirs.sortedWith(compareByDescending<FileItem> { folderStats[it.file.absolutePath]?.totalBytes ?: 0L }
+                        .thenBy { it.name.lowercase() })
+                else dirs.sortedByDescending { it.lastModified }
+                sortedDirs + files
+            }
+            else -> rawItems
         }
     }
 
@@ -771,15 +800,18 @@ fun FileIcon(item: FileItem, size: Int) {
             tint = FolderYellow,
             modifier = Modifier.size(size.dp)
         )
-    } else if (FileLogic.isImage(item.name)) {
+    } else if (FileLogic.isImage(item.name) || item.category == FileCategory.VIDEOS) {
+        val isVideo = item.category == FileCategory.VIDEOS
         val cacheKey = "${item.file.absolutePath}:${item.size}:${item.lastModified}"
         val thumb = produceState<ImageBitmap?>(null, cacheKey) {
-            value = withContext(Dispatchers.IO) { loadThumbnail(item.file, 128, cacheKey) }
+            value = withContext(thumbnailDispatcher) {
+                if (isVideo) loadVideoThumbnail(item.file, cacheKey) else loadThumbnail(item.file, 128, cacheKey)
+            }
         }.value
         if (thumb != null) {
             Image(
                 bitmap = thumb,
-                contentDescription = stringResource(R.string.picture_thumbnail, item.name),
+                contentDescription = stringResource(if (item.category == FileCategory.VIDEOS) R.string.video_thumbnail else R.string.picture_thumbnail, item.name),
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.size(size.dp)
             )

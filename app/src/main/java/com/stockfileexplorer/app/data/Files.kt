@@ -71,13 +71,15 @@ object FileRepository {
         val items = children
             .filter { showHidden || !it.name.startsWith(".") }
             .map { f ->
-                val isDir = f.isDirectory
+                // One stat call per entry instead of isDirectory + length + lastModified.
+                val st = try { android.system.Os.stat(f.absolutePath) } catch (_: Exception) { null }
+                val isDir = if (st != null) android.system.OsConstants.S_ISDIR(st.st_mode) else f.isDirectory
                 FileItem(
                     file = f,
                     name = f.name,
                     isDirectory = isDir,
-                    size = if (isDir) 0L else f.length(),
-                    lastModified = f.lastModified(),
+                    size = if (isDir) 0L else (st?.st_size ?: f.length()),
+                    lastModified = if (st != null) st.st_mtime * 1000 else f.lastModified(),
                     childCount = if (isDir) -1 else 0,
                     category = if (isDir) FileCategory.OTHER else FileLogic.categoryOf(f.name)
                 )

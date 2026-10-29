@@ -2,6 +2,7 @@ package com.stockfileexplorer.app.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -44,6 +45,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.stockfileexplorer.app.R
 import com.stockfileexplorer.app.data.AnalysisStage
+import com.stockfileexplorer.app.data.FileCategory
 import com.stockfileexplorer.app.data.FileItem
 import com.stockfileexplorer.app.data.FileLogic
 import com.stockfileexplorer.app.data.StorageAnalyzer
@@ -51,7 +53,14 @@ import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun StorageAnalysisScreen(onBack: () -> Unit) {
+fun StorageAnalysisScreen(
+    onBack: () -> Unit,
+    onOpenFolder: (String) -> Unit = {},
+    onOpenCategory: (FileCategory) -> Unit = {},
+) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val noApp = stringResource(R.string.no_app_to_open)
+    val openFileAction: (java.io.File) -> Unit = { openFile(context, it, noApp) }
     var stage by remember { mutableStateOf<AnalysisStage?>(null) }
     var report by remember { mutableStateOf<StorageAnalyzer.Report?>(null) }
 
@@ -119,7 +128,8 @@ fun StorageAnalysisScreen(onBack: () -> Unit) {
 
                 item { SectionTitle(stringResource(R.string.categories)) }
                 items(value.categories.entries.sortedByDescending { it.value }) { entry ->
-                    AnalysisLine(categoryLabel(entry.key), FileLogic.formatSize(entry.value))
+                    AnalysisLine(categoryLabel(entry.key), FileLogic.formatSize(entry.value),
+                        onClick = if (entry.key == FileCategory.OTHER) null else ({ onOpenCategory(entry.key) }))
                 }
 
                 item { SectionTitle(stringResource(R.string.largest_folders)) }
@@ -128,21 +138,22 @@ fun StorageAnalysisScreen(onBack: () -> Unit) {
                         folder.name,
                         stringResource(R.string.analysis_folder_value, FileLogic.formatSize(folder.sizeBytes), folder.fileCount),
                         subtitle = folder.path,
+                        onClick = { onOpenFolder(folder.path) },
                     )
                 }
 
                 item { SectionTitle(stringResource(R.string.large_files)) }
-                items(value.largeFiles.take(10)) { file -> FileAnalysisLine(file) }
+                items(value.largeFiles.take(10)) { file -> FileAnalysisLine(file, onOpen = openFileAction, onOpenFolder = onOpenFolder) }
 
                 item { SectionTitle(stringResource(R.string.recent_files)) }
-                items(value.recentFiles.take(10)) { file -> FileAnalysisLine(file, showDate = true) }
+                items(value.recentFiles.take(10)) { file -> FileAnalysisLine(file, showDate = true, onOpen = openFileAction, onOpenFolder = onOpenFolder) }
 
                 item { SectionTitle(stringResource(R.string.empty_folders)) }
                 if (value.emptyFolders.isEmpty()) {
                     item { Text(stringResource(R.string.no_empty_folders)) }
                 } else {
                     items(value.emptyFolders) { folder ->
-                        AnalysisLine(folder.name, folder.absolutePath)
+                        AnalysisLine(folder.name, folder.absolutePath, onClick = { onOpenFolder(folder.absolutePath) })
                     }
                 }
 
@@ -157,7 +168,7 @@ fun StorageAnalysisScreen(onBack: () -> Unit) {
                 if (value.redundantFiles.isEmpty()) {
                     item { Text(stringResource(R.string.no_redundant_files)) }
                 } else {
-                    items(value.redundantFiles.take(10)) { file -> FileAnalysisLine(file) }
+                    items(value.redundantFiles.take(10)) { file -> FileAnalysisLine(file, onOpen = openFileAction, onOpenFolder = onOpenFolder) }
                 }
 
                 item { SectionTitle(stringResource(R.string.duplicate_files)) }
@@ -177,6 +188,7 @@ fun StorageAnalysisScreen(onBack: () -> Unit) {
                             group.paths.take(4).forEach { path ->
                                 Text(
                                     path,
+                                    modifier = Modifier.fillMaxWidth().clickable { openFileAction(java.io.File(path)) }.padding(vertical = 4.dp),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 1,
@@ -203,6 +215,7 @@ fun StorageAnalysisScreen(onBack: () -> Unit) {
                             folder.name,
                             stringResource(R.string.analysis_folder_value, FileLogic.formatSize(folder.sizeBytes), folder.fileCount),
                             subtitle = folder.path,
+                            onClick = { onOpenFolder(folder.path) },
                         )
                     }
                 }
@@ -319,8 +332,9 @@ private fun SectionTitle(title: String) {
 }
 
 @Composable
-private fun AnalysisLine(label: String, value: String, subtitle: String? = null) {
-    Row(Modifier.fillMaxWidth()) {
+private fun AnalysisLine(label: String, value: String, subtitle: String? = null, onClick: (() -> Unit)? = null, trailing: (@Composable () -> Unit)? = null) {
+    Row(Modifier.fillMaxWidth().let { if (onClick != null) it.clickable { onClick() }.padding(vertical = 4.dp) else it },
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis)
             subtitle?.let {
@@ -342,14 +356,21 @@ private fun AnalysisLine(label: String, value: String, subtitle: String? = null)
             overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.End,
         )
+        trailing?.invoke()
     }
 }
 
 @Composable
-private fun FileAnalysisLine(item: FileItem, showDate: Boolean = false) {
+private fun FileAnalysisLine(item: FileItem, showDate: Boolean = false, onOpen: (java.io.File) -> Unit, onOpenFolder: (String) -> Unit) {
     AnalysisLine(
         item.name,
         if (showDate) FileLogic.formatDate(item.lastModified) else FileLogic.formatSize(item.size),
         subtitle = item.file.absolutePath,
+        onClick = { onOpen(item.file) },
+        trailing = {
+            IconButton(onClick = { item.file.parent?.let(onOpenFolder) }) {
+                Icon(SfeIcons.Folder, stringResource(R.string.open_folder))
+            }
+        },
     )
 }

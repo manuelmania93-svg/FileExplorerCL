@@ -10,6 +10,7 @@ run_test() {
 }
 run_test com.stockfileexplorer.app.IndexAndHoldTest#a_largeIndexFirstBenchmarkAndPersistence,com.stockfileexplorer.app.IndexAndHoldTest#b_actualHoldAcrossAllViewsAndSelect
 run_test com.stockfileexplorer.app.StorageAnalysisInstrumentedTest#storageAnalysisShowsRankedResults
+run_test com.stockfileexplorer.app.SortAndSpeedTest
 adb pull /sdcard/Download/ app/build/reports/device/
 adb shell am force-stop com.stockfileexplorer.app
 run_test com.stockfileexplorer.app.IndexAndHoldTest#c_productionColdRestartUsesPersistedRows
@@ -21,5 +22,7 @@ run_test com.stockfileexplorer.app.FileActionsInstrumentedTest#germanLibraryMenu
 run_test com.stockfileexplorer.app.IndexAndHoldTest#b_actualHoldAcrossAllViewsAndSelect
 adb pull /sdcard/Download/ app/build/reports/device/
 run_test com.stockfileexplorer.app.StorageAnalysisInstrumentedTest#storageAnalysisShowsRankedResults
+run_test com.stockfileexplorer.app.SortAndSpeedTest#b_librarySortControlAndVideoFrameThumbnail
+run_test com.stockfileexplorer.app.SortAndSpeedTest#c_analysisRowsAreClickable
 adb pull /sdcard/Download/ app/build/reports/device/
 fi

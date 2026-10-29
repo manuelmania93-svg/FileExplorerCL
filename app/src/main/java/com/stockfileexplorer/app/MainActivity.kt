@@ -132,7 +132,11 @@ fun MainScaffold(initialBrowsePath: String? = null, initialStorageAnalysis: Bool
                 val path = browsePath
                 if (showStorageAnalysis && path == null) {
                     Column(Modifier.fillMaxSize().padding(padding)) {
-                        StorageAnalysisScreen(onBack = { showStorageAnalysis = false })
+                        StorageAnalysisScreen(
+                            onBack = { showStorageAnalysis = false },
+                            onOpenFolder = { browsePath = it },
+                            onOpenCategory = { cat -> libraryCategory = cat; tab = TAB_LIBRARY }
+                        )
                     }
                 } else if (showRecent && path == null) {
                     Column(Modifier.fillMaxSize().padding(padding)) {

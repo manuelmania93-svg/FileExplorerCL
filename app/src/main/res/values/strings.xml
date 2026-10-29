@@ -147,4 +147,6 @@
     <string name="no_recycle_bin_folders">No shared-storage recycle bin folders found</string>
     <string name="analysis_stage_redundant">Finding redundant files…</string>
     <string name="analysis_stage_recycle">Checking recycle bin folders…</string>
+    <string name="video_thumbnail">Video thumbnail: %1$s</string>
+    <string name="open_folder">Open containing folder</string>
 </resources>

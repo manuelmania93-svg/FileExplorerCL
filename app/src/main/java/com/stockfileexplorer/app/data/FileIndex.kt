@@ -24,13 +24,24 @@ object FileIndex {
                      val checked: Int = 0, val incomplete: Boolean = false)
     data class DirectoryStats(val fileCount: Long, val totalBytes: Long)
     data class Page(val items: List<FileItem>, val hasMore: Boolean)
-    private class Database(context: Context) : SQLiteOpenHelper(context, "file-index.db", null, 1) {
+    enum class Sort { DATE, NAME, SIZE }
+    private class Database(context: Context) : SQLiteOpenHelper(context, "file-index.db", null, 2) {
         override fun onCreate(db: SQLiteDatabase) {
             db.execSQL("CREATE TABLE files(path TEXT PRIMARY KEY, name TEXT NOT NULL, category INTEGER NOT NULL, size INTEGER NOT NULL, modified INTEGER NOT NULL, seen INTEGER NOT NULL)")
-            db.execSQL("CREATE INDEX category_date ON files(category,modified DESC,path)")
-            db.execSQL("CREATE INDEX recent_date ON files(modified DESC,path)")
+            createIndexes(db)
         }
-        override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+        // Keeps all indexed rows; only rebuilds the sort indexes (sorting by date, size, name).
+        override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+            db.execSQL("DROP INDEX IF EXISTS category_date")
+            db.execSQL("DROP INDEX IF EXISTS recent_date")
+            createIndexes(db)
+        }
+        private fun createIndexes(db: SQLiteDatabase) {
+            db.execSQL("CREATE INDEX IF NOT EXISTS cat_modified ON files(category,modified,path)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS cat_size ON files(category,size,path)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS all_modified ON files(modified,path)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS all_size ON files(size,path)")
+        }
     }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mutable = MutableStateFlow(State())
@@ -242,38 +253,36 @@ object FileIndex {
             .filter { it.isNotEmpty() }
             .distinct()
         if (targets.isEmpty()) return@withContext emptyMap()
-        val totals = targets.associateWith { longArrayOf(0L, 0L) }
         val db = helper?.readableDatabase ?: return@withContext targets.associateWith { DirectoryStats(0L, 0L) }
-        db.rawQuery("SELECT path,size FROM files", null).use { cursor ->
-            while (cursor.moveToNext()) {
-                val path = cursor.getString(0)
-                val size = cursor.getLong(1)
-                var slash = path.indexOf('/', 1)
-                while (slash >= 0) {
-                    totals[path.substring(0, slash)]?.let { total ->
-                        total[0] += 1L
-                        total[1] += size
-                    }
-                    slash = path.indexOf('/', slash + 1)
-                }
+        // One primary-key range scan per visible folder ('/' + 1 == '0'). Sibling ranges do not
+        // overlap, so the total work is bounded by the index size and never a full scan per folder.
+        targets.associateWith { dir ->
+            db.rawQuery("SELECT COUNT(*),COALESCE(SUM(size),0) FROM files WHERE path>=? AND path<?",
+                arrayOf("$dir/", "$dir" + "0")).use { c ->
+                if (c.moveToFirst()) DirectoryStats(c.getLong(0), c.getLong(1)) else DirectoryStats(0L, 0L)
             }
-        }
-        targets.associateWith { path ->
-            val total = totals.getValue(path)
-            DirectoryStats(total[0], total[1])
         }
     }
 
-    suspend fun page(category: FileCategory?, limit: Int): Page = withContext(Dispatchers.IO) {
+    suspend fun page(category: FileCategory?, limit: Int, sort: Sort = Sort.DATE, ascending: Boolean = false): Page = withContext(Dispatchers.IO) {
         val db = helper?.readableDatabase ?: return@withContext Page(emptyList(), false)
         val rows = ArrayList<FileItem>()
         db.query("files", arrayOf("path", "name", "size", "modified", "category"),
             if (category == null) null else "category=?", category?.let { arrayOf(it.ordinal.toString()) },
-            null, null, "modified DESC,path ASC", (limit + 1).toString()).use { c ->
+            null, null, orderBy(sort, ascending), (limit + 1).toString()).use { c ->
             while (c.moveToNext()) rows.add(FileItem(File(c.getString(0)), c.getString(1), false,
                 c.getLong(2), c.getLong(3), 0, FileCategory.entries[c.getInt(4)]))
         }
         Page(rows.take(limit), rows.size > limit)
+    }
+
+    internal fun orderBy(sort: Sort, ascending: Boolean): String {
+        val dir = if (ascending) "ASC" else "DESC"
+        return when (sort) {
+            Sort.DATE -> "modified $dir,path $dir"
+            Sort.SIZE -> "size $dir,path $dir"
+            Sort.NAME -> "name COLLATE NOCASE $dir,path $dir"
+        }
     }
 
     suspend fun allFiles(): List<FileItem> = withContext(Dispatchers.IO) {

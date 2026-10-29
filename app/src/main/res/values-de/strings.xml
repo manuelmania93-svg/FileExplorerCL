@@ -147,4 +147,6 @@
     <string name="no_recycle_bin_folders">Keine Papierkorb-Ordner im gemeinsamen Speicher gefunden</string>
     <string name="analysis_stage_redundant">Redundante Dateien werden gesucht…</string>
     <string name="analysis_stage_recycle">Papierkorb-Ordner werden geprüft…</string>
+    <string name="video_thumbnail">Videovorschau: %1$s</string>
+    <string name="open_folder">Ordner öffnen</string>
 </resources>

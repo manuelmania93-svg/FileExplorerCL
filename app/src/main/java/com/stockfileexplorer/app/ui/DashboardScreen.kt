@@ -65,7 +65,19 @@ fun DashboardScreen(
     val status by com.stockfileexplorer.app.data.FileIndex.state.collectAsState()
     val scanning = status.refreshing || status.incomplete
     var sizes by remember { mutableStateOf(LongArray(FileCategory.entries.size)) }
-    LaunchedEffect(status.revision) { sizes = com.stockfileexplorer.app.data.FileIndex.sizes() }
+    // Totals persist in the index between runs, so show them during a refresh (marked provisional)
+    // and reload at most once a second while scan batches arrive.
+    LaunchedEffect(Unit) {
+        var last = 0L
+        var seen = -1L
+        com.stockfileexplorer.app.data.FileIndex.state.collect { st ->
+            val now = android.os.SystemClock.elapsedRealtime()
+            if (st.revision != seen && (!st.refreshing || now - last >= 1000)) {
+                seen = st.revision; last = now
+                sizes = com.stockfileexplorer.app.data.FileIndex.sizes()
+            }
+        }
+    }
 
     LaunchedEffect(Unit) {
         val (total, free) = withContext(Dispatchers.IO) {
@@ -188,20 +200,21 @@ fun DashboardScreen(
                                 )
                                 CategorySizeLine(
                                     stringResource(R.string.cat_etc),
-                                    if (scanning) stringResource(if (status.incomplete && !status.refreshing) R.string.index_partial else R.string.scanning)
-                                    else FileLogic.formatSize(
-                                        // All remaining used space: archives and uncategorized
-                                        // files, plus Android/data, Android/obb and app-private
-                                        // data that all-files access cannot itemize, and system
-                                        // overhead on the user-data partition.
-                                        (usedBytes -
-                                            sizes[FileCategory.IMAGES.ordinal] -
-                                            sizes[FileCategory.VIDEOS.ordinal] -
-                                            sizes[FileCategory.AUDIO.ordinal] -
-                                            sizes[FileCategory.DOCUMENTS.ordinal] -
-                                            sizes[FileCategory.APPS.ordinal]
-                                            ).coerceAtLeast(0L)
-                                    )
+                                    run {
+                                        val known = sizes.sum() > 0
+                                        if (scanning && !known) stringResource(if (status.incomplete && !status.refreshing) R.string.index_partial else R.string.scanning)
+                                        else (if (scanning) "~" else "") + FileLogic.formatSize(
+                                            // Remaining used space: archives, uncategorized files and
+                                            // data all-files access cannot itemize.
+                                            (usedBytes -
+                                                sizes[FileCategory.IMAGES.ordinal] -
+                                                sizes[FileCategory.VIDEOS.ordinal] -
+                                                sizes[FileCategory.AUDIO.ordinal] -
+                                                sizes[FileCategory.DOCUMENTS.ordinal] -
+                                                sizes[FileCategory.APPS.ordinal]
+                                                ).coerceAtLeast(0L)
+                                        )
+                                    }
                                 )
                             }
                         }
@@ -241,10 +254,16 @@ fun DashboardScreen(
 }
 
 @Composable
-private fun categorySizeText(category: FileCategory, sizes: LongArray, scanning: Boolean, incomplete: Boolean = false): String =
-    if (incomplete) stringResource(R.string.index_partial)
-    else if (scanning) stringResource(R.string.scanning)
-    else FileLogic.formatSize(sizes[category.ordinal])
+private fun categorySizeText(category: FileCategory, sizes: LongArray, scanning: Boolean, incomplete: Boolean = false): String {
+    val size = sizes[category.ordinal]
+    return when {
+        // Previously indexed totals stay visible and are marked provisional ("~") until the scan ends.
+        scanning && size > 0 -> "~" + FileLogic.formatSize(size)
+        incomplete -> stringResource(R.string.index_partial)
+        scanning -> stringResource(R.string.scanning)
+        else -> FileLogic.formatSize(size)
+    }
+}
 
 @Composable
 private fun CategorySizeLine(label: String, sizeText: String) {
@@ -255,8 +274,9 @@ private fun CategorySizeLine(label: String, sizeText: String) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f, fill = false).padding(end = 6.dp)
         )
+        Spacer(Modifier.weight(1f))
         Text(
             text = sizeText,
             style = MaterialTheme.typography.bodySmall,
@@ -293,8 +313,9 @@ fun CategoryCircle(
             text = label,
             style = MaterialTheme.typography.bodySmall,
             textAlign = TextAlign.Center,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 2.dp)
         )
     }
 }

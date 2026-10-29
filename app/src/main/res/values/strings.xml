@@ -178,4 +178,5 @@
     <string name="restricted_failed">failed</string>
     <string name="restricted_up">Up</string>
     <string name="restricted_listing_failed">Android refused to list this folder.</string>
+    <string name="restricted_access_link">Folder access and write test</string>
 </resources>

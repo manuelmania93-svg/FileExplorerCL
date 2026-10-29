@@ -361,8 +361,13 @@ fun BrowserScreen(
         val restrictedHidden by produceState(false, currentPath, refreshTick) {
             value = restrictedKind != null && withContext(Dispatchers.IO) { File(currentPath).list().let { it == null || it.isEmpty() } }
         }
+        // A listing that works does not prove writing works: the grant and write test stay reachable.
+        var restrictedOpen by remember(currentPath) { mutableStateOf(false) }
+        if (restrictedKind != null && !restrictedHidden) TextButton(onClick = { restrictedOpen = !restrictedOpen }, modifier = Modifier.padding(horizontal = 8.dp)) {
+            Text(stringResource(R.string.restricted_access_link))
+        }
         when {
-            restrictedKind != null && restrictedHidden -> RestrictedAccessPanel(currentPath, restrictedKind)
+            restrictedKind != null && (restrictedHidden || restrictedOpen) -> RestrictedAccessPanel(currentPath, restrictedKind)
             loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }

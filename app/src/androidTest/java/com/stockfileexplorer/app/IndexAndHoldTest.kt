@@ -41,6 +41,7 @@ class IndexAndHoldTest {
                 // A tile label under the bottom bar is not tappable: scroll the dashboard first.
                 if (bounds.centerY() > device.displayHeight * 0.78) {
                     device.swipe(540, device.displayHeight * 7 / 10, 540, device.displayHeight * 4 / 10, 12); device.waitForIdle()
+                    screenshot("dashboard-scrolled-for-$value")
                     return@repeat
                 }
                 device.click(bounds.centerX(), bounds.centerY())

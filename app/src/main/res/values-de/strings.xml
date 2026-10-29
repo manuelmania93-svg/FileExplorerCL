@@ -178,4 +178,5 @@
     <string name="restricted_failed">fehlgeschlagen</string>
     <string name="restricted_up">Hoch</string>
     <string name="restricted_listing_failed">Android hat das Auflisten dieses Ordners verweigert.</string>
+    <string name="restricted_access_link">Ordnerzugriff und Schreibtest</string>
 </resources>

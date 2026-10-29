@@ -14,7 +14,7 @@ pull_reports() {
 }
 # Every class runs even if an earlier one fails, so one failure cannot hide the others; the script still exits non-zero.
 run_test() {
-  adb shell am instrument -w -r -e class "$1" com.stockfileexplorer.app.test/androidx.test.runner.AndroidJUnitRunner | tee app/build/reports/device/instrumentation-last.txt || true
+  adb shell am instrument -w -r -e class "$1" ${2:+-e phase "$2"} com.stockfileexplorer.app.test/androidx.test.runner.AndroidJUnitRunner | tee app/build/reports/device/instrumentation-last.txt || true
   pull_reports || true
   if grep -q 'OK (' app/build/reports/device/instrumentation-last.txt; then echo "TEST_RESULT PASS $1"; else echo "TEST_RESULT FAIL $1"; FAILED=1; fi
 }
@@ -31,7 +31,7 @@ if [ "$SFE_TEST_API" = "35" ]; then
 adb shell cmd locale set-app-locales com.stockfileexplorer.app --locales de-AT
 run_test com.stockfileexplorer.app.FileActionsInstrumentedTest#germanLibraryMenuUsesLocalizedActions
 run_test com.stockfileexplorer.app.FileActionsInstrumentedTest#restrictedPanelShowsGrantScreen
-run_test com.stockfileexplorer.app.IndexAndHoldTest#b_actualHoldAcrossAllViewsAndSelect
+run_test com.stockfileexplorer.app.IndexAndHoldTest#b_actualHoldAcrossAllViewsAndSelect de
 pull_reports
 run_test com.stockfileexplorer.app.StorageAnalysisInstrumentedTest#storageAnalysisShowsRankedResults
 run_test com.stockfileexplorer.app.SortAndSpeedTest#b_librarySortControlAndVideoFrameThumbnail

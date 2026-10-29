@@ -276,6 +276,18 @@ object FileIndex {
         Page(rows.take(limit), rows.size > limit)
     }
 
+    suspend fun allFiles(): List<FileItem> = withContext(Dispatchers.IO) {
+        val rows = ArrayList<FileItem>()
+        helper?.readableDatabase?.query(
+            "files", arrayOf("path", "name", "size", "modified", "category"),
+            null, null, null, null, "path ASC"
+        )?.use { c ->
+            while (c.moveToNext()) rows.add(FileItem(File(c.getString(0)), c.getString(1), false,
+                c.getLong(2), c.getLong(3), 0, FileCategory.entries[c.getInt(4)]))
+        }
+        rows
+    }
+
     suspend fun sizes(): LongArray = withContext(Dispatchers.IO) {
         val values = LongArray(FileCategory.entries.size)
         helper?.readableDatabase?.rawQuery("SELECT category,SUM(size) FROM files GROUP BY category", null)?.use {

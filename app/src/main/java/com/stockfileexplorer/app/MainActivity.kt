@@ -43,6 +43,7 @@ import com.stockfileexplorer.app.ui.DashboardScreen
 import com.stockfileexplorer.app.ui.LibraryScreen
 import com.stockfileexplorer.app.ui.PermissionScreen
 import com.stockfileexplorer.app.ui.RecentFilesScreen
+import com.stockfileexplorer.app.ui.StorageAnalysisScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -53,7 +54,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    Root(intent.getStringExtra("browse_path"))
+                    Root(intent.getStringExtra("browse_path"), intent.getBooleanExtra("storage_analysis", false))
                 }
             }
         }
@@ -65,7 +66,7 @@ private const val TAB_LIBRARY = 1
 private const val TAB_NETWORK = 2
 
 @Composable
-fun Root(initialBrowsePath: String? = null) {
+fun Root(initialBrowsePath: String? = null, initialStorageAnalysis: Boolean = false) {
     var hasAccess by remember { mutableStateOf(Environment.isExternalStorageManager()) }
     val lifecycleOwner = LocalLifecycleOwner.current
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -84,21 +85,22 @@ fun Root(initialBrowsePath: String? = null) {
         PermissionScreen()
     } else {
         androidx.compose.runtime.LaunchedEffect(Unit) { com.stockfileexplorer.app.data.FileIndex.start(context) }
-        MainScaffold(initialBrowsePath)
+        MainScaffold(initialBrowsePath, initialStorageAnalysis)
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScaffold(initialBrowsePath: String? = null) {
+fun MainScaffold(initialBrowsePath: String? = null, initialStorageAnalysis: Boolean = false) {
     var tab by remember { mutableIntStateOf(TAB_LOCAL) }
     var browsePath by remember { mutableStateOf<String?>(initialBrowsePath) }
     var libraryCategory by remember { mutableStateOf<FileCategory?>(null) }
     var showRecent by remember { mutableStateOf(false) }
+    var showStorageAnalysis by remember { mutableStateOf(initialStorageAnalysis) }
     val storageRoot = remember { Environment.getExternalStorageDirectory().absolutePath }
 
-    BackHandler(enabled = browsePath != null || showRecent) {
-        if (showRecent) showRecent = false else browsePath = null
+    BackHandler(enabled = browsePath != null || showRecent || showStorageAnalysis) {
+        if (showStorageAnalysis) showStorageAnalysis = false else if (showRecent) showRecent = false else browsePath = null
     }
 
     Scaffold(
@@ -128,7 +130,11 @@ fun MainScaffold(initialBrowsePath: String? = null) {
         when (tab) {
             TAB_LOCAL -> {
                 val path = browsePath
-                if (showRecent && path == null) {
+                if (showStorageAnalysis && path == null) {
+                    Column(Modifier.fillMaxSize().padding(padding)) {
+                        StorageAnalysisScreen(onBack = { showStorageAnalysis = false })
+                    }
+                } else if (showRecent && path == null) {
                     Column(Modifier.fillMaxSize().padding(padding)) {
                         RecentFilesScreen(onBack = { showRecent = false })
                     }
@@ -141,7 +147,8 @@ fun MainScaffold(initialBrowsePath: String? = null) {
                                 libraryCategory = cat
                                 tab = TAB_LIBRARY
                             },
-                            onOpenRecent = { showRecent = true }
+                            onOpenRecent = { showRecent = true },
+                            onOpenStorageAnalysis = { showStorageAnalysis = true }
                         )
                     }
                 } else {

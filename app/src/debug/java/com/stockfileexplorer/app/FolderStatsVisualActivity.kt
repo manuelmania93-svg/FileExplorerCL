@@ -29,28 +29,28 @@ class FolderStatsVisualActivity : ComponentActivity() {
         setContent {
             AppTheme {
                 Column(Modifier.fillMaxSize().padding(8.dp)) {
-                    FileListRow(folder("pending-folder"), false, false, null, false, {}, {})
+                    FileListRow(folder("pending-folder"), false, false, false, null, false, {}, {})
                     FileListRow(
-                        folder("partial-folder"), false, false,
+                        folder("partial-folder"), false, false, false,
                         FileIndex.DirectoryStats(1L, 2000L), true, {}, {}
                     )
                     FileListRow(
-                        folder("complete-folder"), false, false,
+                        folder("complete-folder"), false, false, false,
                         FileIndex.DirectoryStats(2L, 15L), false, {}, {}
                     )
                     Row(Modifier.fillMaxWidth()) {
                         Column(Modifier.weight(1f)) {
-                            FileGridCell(folder("grid-pending"), false, false, null, false, {}, {})
+                            FileGridCell(folder("grid-pending"), false, false, false, null, false, {}, {})
                         }
                         Column(Modifier.weight(1f)) {
                             FileGridCell(
-                                folder("grid-partial"), false, false,
+                                folder("grid-partial"), false, false, false,
                                 FileIndex.DirectoryStats(1L, 2000L), true, {}, {}
                             )
                         }
                         Column(Modifier.weight(1f)) {
                             FileGridCell(
-                                folder("grid-complete"), false, false,
+                                folder("grid-complete"), false, false, false,
                                 FileIndex.DirectoryStats(2L, 15L), false, {}, {}
                             )
                         }

@@ -44,7 +44,32 @@ class FileActionsInstrumentedTest {
 
     private fun clickText(value: String, timeout: Long = 15_000) = tapText(value, timeout, long = false)
 
-    private fun longClickText(value: String, timeout: Long = 15_000) = tapText(value, timeout, long = true)
+    // Long-press now selects the row directly (CX behavior); a file's action menu lives
+    // behind its row's overflow button. Every row's overflow carries the same description,
+    // so click the one vertically aligned with the file's name.
+    private fun openActionsFor(value: String, timeout: Long = 15_000) {
+        val deadline = SystemClock.uptimeMillis() + timeout
+        var lastError: Throwable? = null
+        while (SystemClock.uptimeMillis() < deadline) {
+            val item = device.wait(Until.findObject(By.text(value)), 500)
+            if (item != null) {
+                try {
+                    val rowCenterY = item.visibleBounds.centerY()
+                    val overflow = device.findObjects(By.desc(context.getString(R.string.file_actions)))
+                        .minByOrNull { kotlin.math.abs(it.visibleBounds.centerY() - rowCenterY) }
+                    if (overflow != null) {
+                        overflow.click()
+                        device.waitForIdle()
+                        return
+                    }
+                } catch (error: StaleObjectException) {
+                    lastError = error
+                    SystemClock.sleep(150)
+                }
+            }
+        }
+        throw AssertionError("Unable to open actions for: $value", lastError)
+    }
 
     private fun tapText(value: String, timeout: Long, long: Boolean) {
         val deadline = SystemClock.uptimeMillis() + timeout
@@ -112,7 +137,7 @@ class FileActionsInstrumentedTest {
     }
 
     private fun openMenu() {
-        longClickText(target.name)
+        openActionsFor(target.name)
         device.waitForIdle()
     }
 
@@ -175,7 +200,7 @@ class FileActionsInstrumentedTest {
         launchHome()
         clickText("Library")
         clickText("Images")
-        longClickText(categoryImage.name)
+        openActionsFor(categoryImage.name)
         device.waitForIdle()
         waitText("Copy")
         waitText("Move to")
@@ -199,7 +224,7 @@ class FileActionsInstrumentedTest {
         assertTrue("category copy removed the original", categoryImage.exists())
         screenshot("sfe-file-actions-category-transfer")
 
-        longClickText(categoryImage.name)
+        openActionsFor(categoryImage.name)
         clickText("Favorite")
         waitDescription("Favorite")
 
@@ -220,7 +245,7 @@ class FileActionsInstrumentedTest {
         FileActionPreferences.setVisibleActions(context, FileMenuAction.entries.toSet())
 
         launch()
-        longClickText(copySource.name)
+        openActionsFor(copySource.name)
         clickText("Copy")
         waitText("Choose copy destination")
         clickText("Download")
@@ -236,7 +261,7 @@ class FileActionsInstrumentedTest {
         assertTrue("copy removed the original", copySource.exists())
         assertEquals("existing content", File(destination, copySource.name).readText())
 
-        longClickText(moveSource.name)
+        openActionsFor(moveSource.name)
         clickText("Move to")
         waitText("Choose move destination")
         clickText("Download")
@@ -345,7 +370,7 @@ class FileActionsInstrumentedTest {
         launchHome()
         clickText(context.getString(R.string.tab_library))
         clickText(context.getString(R.string.cat_images))
-        longClickText(categoryImage.name)
+        openActionsFor(categoryImage.name)
         waitText(context.getString(R.string.copy))
         waitText(context.getString(R.string.move_to))
         waitText(context.getString(R.string.properties))

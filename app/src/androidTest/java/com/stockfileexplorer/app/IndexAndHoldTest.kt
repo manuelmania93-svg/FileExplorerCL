@@ -120,7 +120,8 @@ class IndexAndHoldTest {
             assertTrue("UI is usable before filesystem traversal", device.wait(Until.hasObject(By.textStartsWith("indexed-")),20000))
             screenshot("indexed-before-walk")
             device.findObject(By.textStartsWith("indexed-")).longClick()
-            waitText(label("Rename","Umbenennen"))
+            // Hold starts multi-select directly now.
+            waitText(label("1 selected","1 ausgewählt"))
             screenshot("hold-during-reconciliation")
             device.pressBack()
             uiCheckMs = SystemClock.elapsedRealtime() - uiStart
@@ -283,7 +284,8 @@ class IndexAndHoldTest {
         clickTile(label("Documents","Dokumente"))
         val row = waitText("hold-one.txt")
         row.longClick()
-        waitText(label("Rename","Umbenennen"))
+        // Hold starts multi-select directly now.
+        waitText(label("1 selected","1 ausgewählt"))
         screenshot("production-restart-hold")
         device.pressBack()
         // The normal, non-fixture background pass must keep persisted rows usable.

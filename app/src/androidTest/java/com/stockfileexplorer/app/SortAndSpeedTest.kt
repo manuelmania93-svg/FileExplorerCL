@@ -226,11 +226,14 @@ class SortAndSpeedTest {
         // Delete from the real browser UI: long-press, select, delete, confirm.
         launch("browse_path" to root.absolutePath)
         device.wait(Until.findObject(By.text("papierkorb-keep.txt")), 20000)!!.longClick()
-        waitText(label("Select", "Auswählen")).click()
-        waitDesc(label("Delete", "Löschen")).click()
+        // Long-press selects the file directly; Delete is the selection bar's action.
+        waitText(label("Delete", "Löschen")).click()
         device.wait(Until.findObject(By.textContains("Papierkorb")), 10000) ?: throw AssertionError("delete confirm missing")
         screenshot("delete-confirm")
-        device.findObject(By.text(label("Delete", "Löschen")))?.click()
+        // The bar's own Delete label stays visible behind the dialog, so confirm via the
+        // dialog button's resource tag instead of an ambiguous text match.
+        device.wait(Until.findObject(By.res("com.stockfileexplorer.app:id/dialog_confirm")), 5000)?.click()
+            ?: throw AssertionError("delete confirm button missing")
         device.waitForIdle()
         Thread.sleep(1500)
         assertFalse("moved out of folder", keep.exists())

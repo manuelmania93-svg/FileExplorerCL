@@ -123,8 +123,13 @@ class BuiltInViewersTest {
     @Test fun wholeFilenameIncludingExtensionRename() {
         fixtures();mainAndDownload()
         openInList("rename-me.mp4").longClick()
+        // Long-press selects the file directly (CX behavior); single-file rename lives
+        // in the selection bar's "More" menu.
+        val moreAction = device.wait(Until.findObject(By.text("More")), 5000)
+        assertNotNull("Selection bar More action after long press", moreAction)
+        moreAction.click()
         val renameAction = device.wait(Until.findObject(By.text("Rename")), 5000)
-        assertNotNull("Rename action after long press", renameAction)
+        assertNotNull("Rename action in More menu", renameAction)
         renameAction.click()
         val input = device.wait(Until.findObject(By.clazz("android.widget.EditText")), 5000)
         assertEquals("rename-me.mp4", input.text)

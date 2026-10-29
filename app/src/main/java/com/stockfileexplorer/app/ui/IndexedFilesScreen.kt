@@ -10,6 +10,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -34,7 +36,10 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val status by FileIndex.state.collectAsState()
-    var limit by remember(category) { mutableIntStateOf(100) }
+    var limit by remember(category) { mutableIntStateOf(200) }
+    var sort by rememberSaveable(category) { mutableStateOf(FileIndex.Sort.DATE) }
+    var ascending by rememberSaveable(category) { mutableStateOf(false) }
+    var sortMenu by remember { mutableStateOf(false) }
     var page by remember(category) { mutableStateOf(FileIndex.Page(emptyList(), false)) }
     var selection by remember(category) { mutableStateOf(setOf<String>()) }
     var menu by remember { mutableStateOf<FileItem?>(null) }
@@ -48,14 +53,53 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
     val noApp = stringResource(R.string.no_app_to_open)
     val openWithTitle = stringResource(R.string.open_with)
     fun toggle(path: String) { selection = if (path in selection) selection - path else selection + path }
-    LaunchedEffect(category, status.revision, limit) {
-        page = FileIndex.page(category, limit)
+    // Query immediately when the user changes category, sort or page size. While the index is
+    // still refreshing, reload at most once a second instead of on every 250 ms scan batch.
+    LaunchedEffect(category, sort, ascending, limit) {
+        page = FileIndex.page(category, limit, sort, ascending)
+        var last = android.os.SystemClock.elapsedRealtime()
+        var seen = FileIndex.state.value.revision
+        FileIndex.state.collect { st ->
+            if (st.revision == seen) return@collect
+            seen = st.revision
+            val now = android.os.SystemClock.elapsedRealtime()
+            if (!st.refreshing || now - last >= 1000) {
+                last = now
+                page = FileIndex.page(category, limit, sort, ascending)
+            }
+        }
     }
     BackHandler(selection.isNotEmpty()) { selection = emptySet() }
     Column(Modifier.fillMaxSize()) {
         TopAppBar(title = { Text(if (selection.isEmpty()) title else stringResource(R.string.selected_count, selection.size)) },
             navigationIcon = { IconButton(onClick = { if (selection.isEmpty()) onBack() else selection = emptySet() }) { Icon(Icons.Filled.ArrowBack, null) } },
             actions = {
+                if (selection.isEmpty()) {
+                    Box {
+                        IconButton(onClick = { sortMenu = true }, modifier = Modifier.testTag("sort_button")) {
+                            Icon(SfeIcons.Sort, stringResource(R.string.sort_by))
+                        }
+                        DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
+                            Text(stringResource(R.string.sort_by), style = MaterialTheme.typography.labelSmall,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
+                            FileIndex.Sort.entries.forEach { mode ->
+                                val label = stringResource(when (mode) {
+                                    FileIndex.Sort.DATE -> R.string.sort_date
+                                    FileIndex.Sort.NAME -> R.string.sort_name
+                                    FileIndex.Sort.SIZE -> R.string.sort_size
+                                })
+                                DropdownMenuItem(
+                                    text = { Text(if (mode == sort) label + (if (ascending) "  ↑" else "  ↓") else label) },
+                                    onClick = {
+                                        if (mode == sort) ascending = !ascending
+                                        else { sort = mode; ascending = mode == FileIndex.Sort.NAME }
+                                        limit = 200
+                                        sortMenu = false
+                                    })
+                            }
+                        }
+                    }
+                }
                 if (selection.isNotEmpty()) {
                     IconButton(onClick = { shareFiles(context, selection.map { java.io.File(it) }) }) { Icon(Icons.Filled.Share, stringResource(R.string.share)) }
                     IconButton(onClick = { deletes = selection.map { java.io.File(it) } }) { Icon(Icons.Filled.Delete, stringResource(R.string.delete)) }
@@ -72,7 +116,7 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
             items(page.items.size, key = { page.items[it].file.absolutePath }) { n ->
                 val item = page.items[n]
                 Row(Modifier.fillMaxWidth().combinedClickable(
-                    onClick = { if (selection.isNotEmpty()) toggle(item.file.absolutePath) else openFile(context, item.file, noApp) },
+                    onClick = { if (selection.isNotEmpty()) toggle(item.file.absolutePath) else openFile(context, item.file, noApp, page.items.map { it.file }) },
                     onLongClick = { if (selection.isNotEmpty()) toggle(item.file.absolutePath) else menu = item }
                 ).padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (selection.isNotEmpty()) Checkbox(item.file.absolutePath in selection, { toggle(item.file.absolutePath) })
@@ -98,7 +142,7 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
                 HorizontalDivider()
             }
             if (page.hasMore) item {
-                TextButton(onClick = { limit += 100 }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.load_more)) }
+                TextButton(onClick = { limit += 200 }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.load_more)) }
             }
         }
     }
@@ -109,7 +153,7 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
             isFavorite = item.file.absolutePath in favoritePaths,
             onDismiss = { menu = null },
             callbacks = FileActionCallbacks(
-                onOpen = { openFile(context, item.file, noApp) },
+                onOpen = { openFile(context, item.file, noApp, page.items.map { it.file }) },
                 onCopy = {
                     transferSources = listOf(item)
                     transferMove = false
@@ -200,7 +244,7 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
         onConfirm = {
             val targets = deletes; deletes = emptyList(); selection = emptySet()
             scope.launch {
-                val results = withContext(Dispatchers.IO) { targets.map { it to (it.exists() && it.deleteRecursively()) } }
+                val results = withContext(Dispatchers.IO) { targets.map { it to com.stockfileexplorer.app.data.Trash.moveToTrash(it) } }
                 FileIndex.removed(results.filter { it.second }.map { it.first })
                 val ok = results.all { it.second }
                 Toast.makeText(context, if (ok) R.string.deleted_ok else R.string.delete_failed, Toast.LENGTH_SHORT).show()

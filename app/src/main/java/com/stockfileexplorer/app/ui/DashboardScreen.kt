@@ -1,8 +1,11 @@
 package com.stockfileexplorer.app.ui
 
+import androidx.compose.ui.platform.testTag
 import android.os.Environment
 import android.os.StatFs
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -44,6 +47,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import com.stockfileexplorer.app.R
 import com.stockfileexplorer.app.data.FileCategory
 import com.stockfileexplorer.app.data.FileLogic
@@ -57,7 +63,8 @@ fun DashboardScreen(
     onOpenStorage: () -> Unit,
     onOpenCategory: (FileCategory) -> Unit,
     onOpenRecent: () -> Unit,
-    onOpenStorageAnalysis: () -> Unit
+    onOpenStorageAnalysis: () -> Unit,
+    onOpenPapierkorb: () -> Unit = {}
 ) {
     val root = remember { Environment.getExternalStorageDirectory() }
     var totalBytes by remember { mutableStateOf(0L) }
@@ -65,7 +72,19 @@ fun DashboardScreen(
     val status by com.stockfileexplorer.app.data.FileIndex.state.collectAsState()
     val scanning = status.refreshing || status.incomplete
     var sizes by remember { mutableStateOf(LongArray(FileCategory.entries.size)) }
-    LaunchedEffect(status.revision) { sizes = com.stockfileexplorer.app.data.FileIndex.sizes() }
+    // Totals persist in the index between runs, so show them during a refresh (marked provisional)
+    // and reload at most once a second while scan batches arrive.
+    LaunchedEffect(Unit) {
+        var last = 0L
+        var seen = -1L
+        com.stockfileexplorer.app.data.FileIndex.state.collect { st ->
+            val now = android.os.SystemClock.elapsedRealtime()
+            if (st.revision != seen && (!st.refreshing || now - last >= 1000)) {
+                seen = st.revision; last = now
+                sizes = com.stockfileexplorer.app.data.FileIndex.sizes()
+            }
+        }
+    }
 
     LaunchedEffect(Unit) {
         val (total, free) = withContext(Dispatchers.IO) {
@@ -93,12 +112,6 @@ fun DashboardScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item(span = { GridItemSpan(3) }) {
-            if (status.refreshing || status.incomplete) Text(
-                stringResource(if (status.refreshing) R.string.index_updating else R.string.index_incomplete),
-                style = MaterialTheme.typography.bodySmall
-            )
-        }
-        item(span = { GridItemSpan(3) }) {
             Card(
                 modifier = Modifier.fillMaxWidth().clickable { onOpenStorage() },
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
@@ -107,7 +120,7 @@ fun DashboardScreen(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(96.dp)) {
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(88.dp)) {
                         val trackColor = MaterialTheme.colorScheme.surfaceVariant
                         val barColor = MaterialTheme.colorScheme.primary
                         Canvas(Modifier.size(96.dp)) {
@@ -188,20 +201,21 @@ fun DashboardScreen(
                                 )
                                 CategorySizeLine(
                                     stringResource(R.string.cat_etc),
-                                    if (scanning) stringResource(if (status.incomplete && !status.refreshing) R.string.index_partial else R.string.scanning)
-                                    else FileLogic.formatSize(
-                                        // All remaining used space: archives and uncategorized
-                                        // files, plus Android/data, Android/obb and app-private
-                                        // data that all-files access cannot itemize, and system
-                                        // overhead on the user-data partition.
-                                        (usedBytes -
-                                            sizes[FileCategory.IMAGES.ordinal] -
-                                            sizes[FileCategory.VIDEOS.ordinal] -
-                                            sizes[FileCategory.AUDIO.ordinal] -
-                                            sizes[FileCategory.DOCUMENTS.ordinal] -
-                                            sizes[FileCategory.APPS.ordinal]
-                                            ).coerceAtLeast(0L)
-                                    )
+                                    run {
+                                        val known = sizes.sum() > 0
+                                        if (scanning && !known) stringResource(if (status.incomplete && !status.refreshing) R.string.index_partial else R.string.scanning)
+                                        else (if (scanning) "~" else "") + FileLogic.formatSize(
+                                            // Remaining used space: archives, uncategorized files and
+                                            // data all-files access cannot itemize.
+                                            (usedBytes -
+                                                sizes[FileCategory.IMAGES.ordinal] -
+                                                sizes[FileCategory.VIDEOS.ordinal] -
+                                                sizes[FileCategory.AUDIO.ordinal] -
+                                                sizes[FileCategory.DOCUMENTS.ordinal] -
+                                                sizes[FileCategory.APPS.ordinal]
+                                                ).coerceAtLeast(0L)
+                                        )
+                                    }
                                 )
                             }
                         }
@@ -210,6 +224,18 @@ fun DashboardScreen(
             }
         }
 
+        item(span = { GridItemSpan(3) }) {
+            if (status.refreshing || status.incomplete) Text(
+                stringResource(if (status.refreshing) R.string.index_updating else R.string.index_incomplete),
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+        item(span = { GridItemSpan(3) }) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                ShortcutCard(SfeIcons.Folder, Color(0xFFFF9800), stringResource(R.string.main_storage), onOpenStorage, Modifier.weight(1f))
+                ShortcutCard(Icons.Filled.Delete, Color(0xFF607D8B), stringResource(R.string.papierkorb), onOpenPapierkorb, Modifier.weight(1f))
+            }
+        }
         items(entries.size) { index ->
             val cat = entries[index]
             if (cat == null) {
@@ -241,27 +267,32 @@ fun DashboardScreen(
 }
 
 @Composable
-private fun categorySizeText(category: FileCategory, sizes: LongArray, scanning: Boolean, incomplete: Boolean = false): String =
-    if (incomplete) stringResource(R.string.index_partial)
-    else if (scanning) stringResource(R.string.scanning)
-    else FileLogic.formatSize(sizes[category.ordinal])
+private fun categorySizeText(category: FileCategory, sizes: LongArray, scanning: Boolean, incomplete: Boolean = false): String {
+    val size = sizes[category.ordinal]
+    return when {
+        // Previously indexed totals stay visible and are marked provisional ("~") until the scan ends.
+        scanning && size > 0 -> "~" + FileLogic.formatSize(size)
+        incomplete -> stringResource(R.string.index_partial)
+        scanning -> stringResource(R.string.scanning)
+        else -> FileLogic.formatSize(size)
+    }
+}
 
 @Composable
 private fun CategorySizeLine(label: String, sizeText: String) {
-    Row(Modifier.fillMaxWidth()) {
+    // Label above value at normal body size: nothing is cut off at phone widths or larger font scales.
+    Column(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
         Text(
             text = label,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f)
+            maxLines = 2,
         )
         Text(
             text = sizeText,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 2,
         )
     }
 }
@@ -274,7 +305,7 @@ fun CategoryCircle(
     onClick: () -> Unit
 ) {
     Column(
-        modifier = Modifier.fillMaxWidth().clickable { onClick() },
+        modifier = Modifier.fillMaxWidth().testTag("tile:$label").clickable { onClick() },
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Box(
@@ -293,8 +324,9 @@ fun CategoryCircle(
             text = label,
             style = MaterialTheme.typography.bodySmall,
             textAlign = TextAlign.Center,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 2.dp)
         )
     }
 }
@@ -344,5 +376,42 @@ fun CategoryCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    }
+}
+
+/** Soft yellow waves behind the header and storage card. Decorative only; text stays on top. */
+@Composable
+fun YellowWaves(modifier: Modifier = Modifier) {
+    androidx.compose.foundation.Canvas(modifier) {
+        fun wave(top: Float, amp: Float, color: Color) {
+            val path = androidx.compose.ui.graphics.Path().apply {
+                moveTo(0f, 0f); lineTo(0f, top)
+                cubicTo(size.width * 0.25f, top - amp, size.width * 0.5f, top + amp, size.width * 0.75f, top)
+                cubicTo(size.width * 0.88f, top - amp * 0.5f, size.width * 0.95f, top - amp * 0.2f, size.width, top - amp * 0.6f)
+                lineTo(size.width, 0f); close()
+            }
+            drawPath(path, color)
+        }
+        wave(size.height * 0.95f, size.height * 0.18f, Color(0x33FFC107))
+        wave(size.height * 0.72f, size.height * 0.16f, Color(0x55FFC107))
+        wave(size.height * 0.48f, size.height * 0.12f, Color(0x66FFD54F))
+    }
+}
+
+@Composable
+private fun ShortcutCard(icon: ImageVector, tint: Color, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+            .clickable { onClick() }
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(Modifier.size(36.dp).background(tint, CircleShape), contentAlignment = Alignment.Center) {
+            Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+        }
+        Spacer(Modifier.width(10.dp))
+        Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
 }

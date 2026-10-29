@@ -50,11 +50,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -77,6 +77,7 @@ import com.stockfileexplorer.app.data.FileItem
 import com.stockfileexplorer.app.data.FileLogic
 import com.stockfileexplorer.app.data.FileRepository
 import com.stockfileexplorer.app.data.ScanStore
+import com.stockfileexplorer.app.data.FileCategory
 import com.stockfileexplorer.app.data.SortMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -84,7 +85,20 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 private val FolderYellow = Color(0xFFFFC107)
-private val thumbnailCache = android.util.LruCache<String, ImageBitmap>(120)
+private val thumbnailCache = android.util.LruCache<String, ImageBitmap>(400)
+// Few decode threads so scrolling a long list never starves the UI or the index scan.
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+private val thumbnailDispatcher = Dispatchers.IO.limitedParallelism(3)
+
+private fun loadVideoThumbnail(file: File, cacheKey: String): ImageBitmap? {
+    thumbnailCache.get(cacheKey)?.let { return it }
+    return try {
+        val bmp = android.media.ThumbnailUtils.createVideoThumbnail(file, android.util.Size(160, 160), null)
+        val result = bmp.asImageBitmap()
+        thumbnailCache.put(cacheKey, result)
+        result
+    } catch (e: Exception) { null } catch (e: OutOfMemoryError) { null }
+}
 
 private fun loadThumbnail(file: File, reqSize: Int, cacheKey: String): ImageBitmap? {
     thumbnailCache.get(cacheKey)?.let { return it }
@@ -115,8 +129,8 @@ private fun mimeTypeFor(file: File): String {
 private fun uriFor(context: android.content.Context, file: File) =
     FileProvider.getUriForFile(context, context.packageName + ".fileprovider", file)
 
-fun openFile(context: android.content.Context, file: File, noAppMessage: String) {
-    if (com.stockfileexplorer.app.ViewerActivity.open(context, file)) return
+fun openFile(context: android.content.Context, file: File, noAppMessage: String, siblings: List<File> = emptyList()) {
+    if (com.stockfileexplorer.app.ViewerActivity.open(context, file, siblings)) return
     try {
         val intent = Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(uriFor(context, file), mimeTypeFor(file))
@@ -172,7 +186,7 @@ fun BrowserScreen(
     val rootPath = remember { Environment.getExternalStorageDirectory().absolutePath }
 
     var currentPath by remember { mutableStateOf(startPath) }
-    var items by remember { mutableStateOf<List<FileItem>>(emptyList()) }
+    var rawItems by remember { mutableStateOf<List<FileItem>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var sortMode by remember { mutableStateOf(SortMode.NAME) }
     var showHidden by remember { mutableStateOf(false) }
@@ -198,7 +212,7 @@ fun BrowserScreen(
     LaunchedEffect(currentPath, sortMode, showHidden, refreshTick) {
         loading = true
         selection = emptySet()
-        items = withContext(Dispatchers.IO) {
+        rawItems = withContext(Dispatchers.IO) {
             FileRepository.listDir(File(currentPath), showHidden, sortMode)
         }
         loading = false
@@ -206,12 +220,28 @@ fun BrowserScreen(
 
     // Query once when the visible folders or refresh boundary changes, not on every
     // indexed batch. In-progress results stay visibly provisional until completion.
-    LaunchedEffect(items, indexStatus.refreshing) {
-        val directoryPaths = items.filter { it.isDirectory }.map { it.file.absolutePath }
+    LaunchedEffect(rawItems, indexStatus.refreshing) {
+        val directoryPaths = rawItems.filter { it.isDirectory }.map { it.file.absolutePath }
         if (directoryPaths.isEmpty()) {
             folderStats = emptyMap()
         } else {
             folderStats = FileIndex.directoryStats(directoryPaths)
+        }
+    }
+
+    // Folders follow Size/Date too (by indexed total / modified time) instead of always by name.
+    val items = remember(rawItems, folderStats, sortMode) {
+        when (sortMode) {
+            SortMode.SIZE, SortMode.DATE -> {
+                val dirs = rawItems.filter { it.isDirectory }
+                val files = rawItems.filter { !it.isDirectory }
+                val sortedDirs = if (sortMode == SortMode.SIZE)
+                    dirs.sortedWith(compareByDescending<FileItem> { folderStats[it.file.absolutePath]?.totalBytes ?: 0L }
+                        .thenBy { it.name.lowercase() })
+                else dirs.sortedByDescending { it.lastModified }
+                sortedDirs + files
+            }
+            else -> rawItems
         }
     }
 
@@ -326,7 +356,18 @@ fun BrowserScreen(
             )
         }
 
+        val restrictedKind = remember(currentPath) { com.stockfileexplorer.app.data.RestrictedAccess.kindOf(currentPath) }
+        // Only when Android really hides the folder: a normal listing that works stays the normal browser.
+        val restrictedHidden by produceState(false, currentPath, refreshTick) {
+            value = restrictedKind != null && withContext(Dispatchers.IO) { File(currentPath).list().let { it == null || it.isEmpty() } }
+        }
+        // A listing that works does not prove writing works: the grant and write test stay reachable.
+        var restrictedOpen by remember(currentPath) { mutableStateOf(false) }
+        if (restrictedKind != null && !restrictedHidden) TextButton(onClick = { restrictedOpen = !restrictedOpen }, modifier = Modifier.padding(horizontal = 8.dp)) {
+            Text(stringResource(R.string.restricted_access_link))
+        }
         when {
+            restrictedKind != null && (restrictedHidden || restrictedOpen) -> RestrictedAccessPanel(currentPath, restrictedKind)
             loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
@@ -354,7 +395,7 @@ fun BrowserScreen(
                         onClick = {
                             if (selecting) toggleSelection(item.file.absolutePath)
                             else if (item.isDirectory) navigateTo(item.file.absolutePath)
-                            else openFile(context, item.file, noAppMessage)
+                            else openFile(context, item.file, noAppMessage, items.filter { !it.isDirectory }.map { it.file })
                         },
                         onLongClick = { if (selecting) toggleSelection(item.file.absolutePath) else menuTarget = item }
                     )
@@ -374,7 +415,7 @@ fun BrowserScreen(
                         onClick = {
                             if (selecting) toggleSelection(item.file.absolutePath)
                             else if (item.isDirectory) navigateTo(item.file.absolutePath)
-                            else openFile(context, item.file, noAppMessage)
+                            else openFile(context, item.file, noAppMessage, items.filter { !it.isDirectory }.map { it.file })
                         },
                         onLongClick = { if (selecting) toggleSelection(item.file.absolutePath) else menuTarget = item },
                         trailing = {
@@ -403,7 +444,7 @@ fun BrowserScreen(
             callbacks = FileActionCallbacks(
                 onOpen = {
                     if (item.isDirectory) navigateTo(item.file.absolutePath)
-                    else openFile(context, item.file, noAppMessage)
+                    else openFile(context, item.file, noAppMessage, items.filter { !it.isDirectory }.map { it.file })
                 },
                 onCopy = {
                     transferSources = listOf(item)
@@ -554,7 +595,7 @@ fun BrowserScreen(
                 selection = emptySet()
                 scope.launch {
                     val results = withContext(Dispatchers.IO) {
-                        toDelete.map { File(it) }.map { it to (it.exists() && it.deleteRecursively()) }
+                        toDelete.map { File(it) }.map { it to com.stockfileexplorer.app.data.Trash.moveToTrash(it) }
                     }
                     com.stockfileexplorer.app.data.FileIndex.removed(results.filter { it.second }.map { it.first })
                     val allOk = results.all { it.second }
@@ -771,15 +812,18 @@ fun FileIcon(item: FileItem, size: Int) {
             tint = FolderYellow,
             modifier = Modifier.size(size.dp)
         )
-    } else if (FileLogic.isImage(item.name)) {
+    } else if (FileLogic.isImage(item.name) || item.category == FileCategory.VIDEOS) {
+        val isVideo = item.category == FileCategory.VIDEOS
         val cacheKey = "${item.file.absolutePath}:${item.size}:${item.lastModified}"
         val thumb = produceState<ImageBitmap?>(null, cacheKey) {
-            value = withContext(Dispatchers.IO) { loadThumbnail(item.file, 128, cacheKey) }
+            value = withContext(thumbnailDispatcher) {
+                if (isVideo) loadVideoThumbnail(item.file, cacheKey) else loadThumbnail(item.file, 128, cacheKey)
+            }
         }.value
         if (thumb != null) {
             Image(
                 bitmap = thumb,
-                contentDescription = stringResource(R.string.picture_thumbnail, item.name),
+                contentDescription = stringResource(if (item.category == FileCategory.VIDEOS) R.string.video_thumbnail else R.string.picture_thumbnail, item.name),
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.size(size.dp)
             )

@@ -34,15 +34,38 @@ class IndexAndHoldTest {
     private fun waitTextContains(value: String): UiObject2 = device.wait(Until.findObject(By.textContains(value)), 15000)
         ?: throw AssertionError("Missing UI text containing: $value")
     private fun clickTile(value: String) {
-        assertTrue("Tile present: $value", device.wait(Until.hasObject(By.text(value)),15000))
-        repeat(3) {
+        // The tile is found by its own tag ("tile:<label>"), not by label text, so the summary card's label of the same name is never matched.
+        assertTrue("Tile present: $value", device.wait(Until.hasObject(By.res("tile:$value")), 15000))
+        repeat(6) {
             try {
-                val bounds = device.findObjects(By.text(value)).maxBy { it.visibleBounds.centerY() }.visibleBounds
+                val tile = device.findObject(By.res("tile:$value"))
+                val nav = device.findObject(By.text(label("Local", "Lokal")))
+                if (tile == null || nav == null) { device.waitForIdle(); Thread.sleep(500); return@repeat }
+                val bounds = tile.visibleBounds
+                val barTop = nav.visibleBounds.top - 80  // top of the bottom navigation bar, conservatively
+                // The whole tile (circle and label) must be above the bar before tapping; otherwise scroll the dashboard, keeping a screenshot.
+                if (bounds.bottom > barTop || bounds.top < 0) {
+                    device.swipe(540, device.displayHeight * 7 / 10, 540, device.displayHeight * 4 / 10, 12); device.waitForIdle()
+                    screenshot("dashboard-scrolled-for-$value")
+                    return@repeat
+                }
                 device.click(bounds.centerX(), bounds.centerY())
                 return
             } catch (_: StaleObjectException) { device.waitForIdle() }
         }
-        throw AssertionError("Tile not clickable: $value")
+        screenshot("tile-not-clickable-$value")
+        val seen = device.findObjects(By.res("tile:$value")).map { try { it.visibleBounds.toShortString() } catch (_: StaleObjectException) { "stale" } }
+        throw AssertionError("Tile not clickable: $value; tileBounds=$seen; display=${device.displayWidth}x${device.displayHeight}")
+    }
+    private fun finishAllActivities() {
+        val monitor = androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry.getInstance()
+        instrumentation.runOnMainSync {
+            for (stage in androidx.test.runner.lifecycle.Stage.values()) {
+                if (stage == androidx.test.runner.lifecycle.Stage.DESTROYED || stage == androidx.test.runner.lifecycle.Stage.PRE_ON_CREATE) continue
+                monitor.getActivitiesInStage(stage).forEach { it.finish() }
+            }
+        }
+        device.waitForIdle(); Thread.sleep(1500)
     }
     private fun screenshot(name: String) {
         device.takeScreenshot(File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "sfe-index-${if(german) "de" else "en"}-$name.png"))
@@ -209,6 +232,9 @@ class IndexAndHoldTest {
         val globStats = FileIndex.directoryStats(listOf(globFolder.absolutePath))
         assertEquals(1L, globStats.getValue(globFolder.absolutePath).fileCount)
         assertEquals(1L, globStats.getValue(globFolder.absolutePath).totalBytes)
+        // verifyFixture closes the index database (test seam only; production never closes it). Live screens read that database,
+        // so end them first instead of closing it under an active query.
+        finishAllActivities()
         FileIndex.verifyFixture(context,root)
         globFolder.deleteRecursively()
         // Restore a clean dashboard shot with truthful scan state.

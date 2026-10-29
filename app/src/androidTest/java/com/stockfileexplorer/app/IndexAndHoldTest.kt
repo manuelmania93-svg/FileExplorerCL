@@ -37,7 +37,9 @@ class IndexAndHoldTest {
         assertTrue("Tile present: $value", device.wait(Until.hasObject(By.text(value)),15000))
         repeat(4) {
             try {
-                val bounds = device.findObjects(By.text(value)).maxBy { it.visibleBounds.centerY() }.visibleBounds
+                val match = device.findObjects(By.text(value)).maxByOrNull { it.visibleBounds.centerY() }
+                if (match == null) { device.waitForIdle(); Thread.sleep(500); return@repeat }  // label transiently not in the tree while the list settles; look again
+                val bounds = match.visibleBounds
                 // A tile label that is under the bottom bar is not visible to the test (only the summary label
                 // with the same text is): scroll the dashboard so the tile itself comes above the bar, and keep
                 // a screenshot as evidence that normal scrolling reaches it.

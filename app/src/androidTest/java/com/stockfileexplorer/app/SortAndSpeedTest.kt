@@ -131,7 +131,10 @@ class SortAndSpeedTest {
         var row = device.wait(Until.findObject(By.text("Download")), 20000)
         var tries = 0
         while (row == null && tries++ < 8) { device.swipe(540, 1500, 540, 600, 12); device.waitForIdle(); row = device.findObject(By.text("Download")) }
-        assertNotNull("Download folder row", row)
+        if (row == null) {
+            screenshot("analysis-download-row-missing")
+            throw AssertionError("Download folder row not found. Visible: " + device.findObjects(By.pkg(context.packageName)).mapNotNull { it.text }.distinct().take(40))
+        }
         val rowBounds = row!!.visibleBounds
         row.click()
         device.waitForIdle(); Thread.sleep(1500)
@@ -158,9 +161,16 @@ class SortAndSpeedTest {
         while (file == null && tries++ < 12) { device.swipe(540, 1500, 540, 600, 12); device.waitForIdle(); file = device.findObject(By.text("huge-fixture.bin")) }
         assertNotNull("large file row", file)
         screenshot("analysis-file-row")
-        val folderButton = device.findObjects(By.desc(label("Open containing folder", "Ordner öffnen"))).first()
+        // The folder button on the same row as huge-fixture.bin (not the first button on the screen, which belongs to another file).
+        val fileY = file!!.visibleBounds.centerY()
+        val folderButton = device.findObjects(By.desc(label("Open containing folder", "Ordner öffnen")))
+            .minByOrNull { Math.abs(it.visibleBounds.centerY() - fileY) } ?: throw AssertionError("No folder button visible near huge-fixture.bin")
         folderButton.click()
-        waitText("Big")
+        device.waitForIdle()
+        if (device.wait(Until.hasObject(By.text("huge-fixture.bin")), 8000) != true || device.findObject(By.text(label("Storage analysis", "Speicheranalyse"))) != null) {
+            screenshot("analysis-file-folder-missing")
+            throw AssertionError("Folder button did not open Big. Visible: " + device.findObjects(By.pkg(context.packageName)).mapNotNull { it.text }.distinct().take(30))
+        }
         screenshot("analysis-file-folder-opened")
         root.deleteRecursively()
     }

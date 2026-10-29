@@ -45,6 +45,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import com.stockfileexplorer.app.R
 import com.stockfileexplorer.app.data.FileCategory
 import com.stockfileexplorer.app.data.FileLogic
@@ -262,7 +264,7 @@ fun DashboardScreen(
         }
         item {
             CategoryCircle(
-                icon = androidx.compose.material.icons.Icons.Filled.Delete,
+                icon = Icons.Filled.Delete,
                 tint = Color(0xFF607D8B),
                 label = stringResource(R.string.papierkorb),
                 onClick = onOpenPapierkorb

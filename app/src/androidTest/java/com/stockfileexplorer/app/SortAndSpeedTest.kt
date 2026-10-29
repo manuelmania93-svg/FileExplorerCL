@@ -138,10 +138,11 @@ class SortAndSpeedTest {
         // The analysis streams results in and sections above shift the list; tap only once the row has stopped moving.
         var stableTries = 0
         while (stableTries++ < 10) {
-            val before = row!!.visibleBounds
+            val before = try { row!!.visibleBounds } catch (_: androidx.test.uiautomator.StaleObjectException) { null }
             Thread.sleep(800)
             row = device.findObject(By.text("Download")) ?: break
-            if (row.visibleBounds == before) break
+            val after = try { row.visibleBounds } catch (_: androidx.test.uiautomator.StaleObjectException) { null }
+            if (before != null && after == before) break
         }
         val rowBounds = row!!.visibleBounds
         row.click()
@@ -170,10 +171,22 @@ class SortAndSpeedTest {
         assertNotNull("large file row", file)
         screenshot("analysis-file-row")
         // The folder button on the same row as huge-fixture.bin (not the first button on the screen, which belongs to another file).
-        file = device.findObject(By.text("huge-fixture.bin")) ?: throw AssertionError("huge-fixture.bin row disappeared before tapping its folder button")
-        val fileY = file.visibleBounds.centerY()
-        val folderButton = device.findObjects(By.desc(label("Open containing folder", "Ordner öffnen")))
-            .minByOrNull { Math.abs(it.visibleBounds.centerY() - fileY) } ?: throw AssertionError("No folder button visible near huge-fixture.bin")
+        // Re-find the row and its button together; the list may still be settling, so retry a few times and keep the evidence if it never settles.
+        var folderButton: androidx.test.uiautomator.UiObject2? = null
+        var attempt = 0
+        while (folderButton == null && attempt++ < 6) {
+            try {
+                val f = device.findObject(By.text("huge-fixture.bin"))
+                if (f == null) { Thread.sleep(700); continue }
+                val fileY = f.visibleBounds.centerY()
+                folderButton = device.findObjects(By.desc(label("Open containing folder", "Ordner öffnen")))
+                    .minByOrNull { Math.abs(it.visibleBounds.centerY() - fileY) }
+            } catch (_: androidx.test.uiautomator.StaleObjectException) { Thread.sleep(700) }
+        }
+        if (folderButton == null) {
+            screenshot("analysis-file-row-lost")
+            throw AssertionError("huge-fixture.bin row or its folder button not found after $attempt tries. Visible: " + device.findObjects(By.pkg(context.packageName)).mapNotNull { it.text }.distinct().take(30))
+        }
         folderButton.click()
         device.waitForIdle()
         if (device.wait(Until.hasObject(By.text("huge-fixture.bin")), 8000) != true || device.findObject(By.text(label("Storage analysis", "Speicheranalyse"))) != null) {

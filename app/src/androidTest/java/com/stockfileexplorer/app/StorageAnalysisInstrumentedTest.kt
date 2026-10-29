@@ -53,6 +53,8 @@ class StorageAnalysisInstrumentedTest {
 
     @Test fun storageAnalysisShowsRankedResults() {
         runBlocking {
+        // Other test classes leave their own fixtures in Download; the analyzer lists only the 20 largest duplicate groups, so remove them first.
+        listOf("SfeSort", "SfePerf", "SfeTrashRules", "SfeActions").forEach { File(root.parentFile, it).deleteRecursively() }
         root.deleteRecursively()
         val photos = File(root, "Photos").apply { mkdirs() }
         val docs = File(root, "Documents").apply { mkdirs() }

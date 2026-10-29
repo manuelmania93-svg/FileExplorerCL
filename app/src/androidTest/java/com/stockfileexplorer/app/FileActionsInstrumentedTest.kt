@@ -320,6 +320,17 @@ class FileActionsInstrumentedTest {
     }
 
 
+    @Test fun restrictedPanelShowsGrantScreen() {
+        val lang = if (context.getString(R.string.copy) == "Kopieren") "de" else "en"
+        val intent = android.content.Intent(context, MainActivity::class.java)
+            .putExtra("browse_path", File(Environment.getExternalStorageDirectory(), "Android/obb").absolutePath)
+            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        context.startActivity(intent)
+        waitText(context.getString(R.string.restricted_grant), 20_000)
+        device.waitForIdle()
+        device.takeScreenshot(File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "sfe-restricted-panel-$lang.png"))
+    }
+
     @Test fun germanLibraryMenuUsesLocalizedActions() {
         if (context.getString(R.string.copy) != "Kopieren") return
         root.deleteRecursively()

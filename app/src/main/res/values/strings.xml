@@ -185,7 +185,7 @@
     <string name="restricted_op_failed">Not done (step: %1$s). Android or the folder provider refused it. Existing files were left as they were.</string>
     <string name="restricted_copied_out">Copied to Download as %1$s</string>
     <string name="restricted_overwrite_title">Replace existing file?</string>
-    <string name="restricted_overwrite_body">%1$s already exists in this folder. The new file is copied next to it and checked first. Then the old file is renamed to %1$s.sfe-backup and kept, and the new file takes its name. If a step fails the old file is put back. Nothing is deleted; remove the backup yourself when you no longer need it.</string>
+    <string name="restricted_overwrite_body">%1$s already exists in this folder. The new file is copied next to it and checked first. Then the old file is renamed to %1$s.sfe-backup and kept, and the new file takes its name. If a step fails, the app tries to put the old file back and tells you which files are in the folder and what they are called. Nothing is deleted; remove the backup yourself when you no longer need it.</string>
     <string name="restricted_overwrite_run">Replace</string>
     <string name="restricted_replaced">Replaced %1$s. The previous version is kept as %2$s.</string>
     <string name="restricted_kept_files">Files left in the folder: %1$s</string>

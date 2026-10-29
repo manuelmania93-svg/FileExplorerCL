@@ -1,5 +1,7 @@
 package com.stockfileexplorer.app
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import android.os.Bundle
 import android.os.Environment
 import androidx.activity.ComponentActivity
@@ -50,13 +52,14 @@ import com.stockfileexplorer.app.ui.RecentFilesScreen
 import com.stockfileexplorer.app.ui.StorageAnalysisScreen
 import com.stockfileexplorer.app.ui.PapierkorbScreen
 
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             AppTheme {
                 Surface(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize().semantics { testTagsAsResourceId = true },
                     color = MaterialTheme.colorScheme.background
                 ) {
                     Root(intent.getStringExtra("browse_path"), intent.getBooleanExtra("storage_analysis", false), intent.getBooleanExtra("papierkorb", false))

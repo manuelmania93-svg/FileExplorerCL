@@ -34,16 +34,17 @@ class IndexAndHoldTest {
     private fun waitTextContains(value: String): UiObject2 = device.wait(Until.findObject(By.textContains(value)), 15000)
         ?: throw AssertionError("Missing UI text containing: $value")
     private fun clickTile(value: String) {
-        assertTrue("Tile present: $value", device.wait(Until.hasObject(By.text(value)),15000))
-        repeat(4) {
+        // The tile is found by its own tag ("tile:<label>"), not by label text, so the summary card's label of the same name is never matched.
+        assertTrue("Tile present: $value", device.wait(Until.hasObject(By.res("tile:$value")), 15000))
+        repeat(6) {
             try {
-                val match = device.findObjects(By.text(value)).maxByOrNull { it.visibleBounds.centerY() }
-                if (match == null) { device.waitForIdle(); Thread.sleep(500); return@repeat }  // label transiently not in the tree while the list settles; look again
-                val bounds = match.visibleBounds
-                // A tile label that is under the bottom bar is not visible to the test (only the summary label
-                // with the same text is): scroll the dashboard so the tile itself comes above the bar, and keep
-                // a screenshot as evidence that normal scrolling reaches it.
-                if (bounds.centerY() < device.displayHeight * 0.45 || bounds.centerY() > device.displayHeight * 0.78) {
+                val tile = device.findObject(By.res("tile:$value"))
+                val nav = device.findObject(By.text(label("Local", "Lokal")))
+                if (tile == null || nav == null) { device.waitForIdle(); Thread.sleep(500); return@repeat }
+                val bounds = tile.visibleBounds
+                val barTop = nav.visibleBounds.top - 80  // top of the bottom navigation bar, conservatively
+                // The whole tile (circle and label) must be above the bar before tapping; otherwise scroll the dashboard, keeping a screenshot.
+                if (bounds.bottom > barTop || bounds.top < 0) {
                     device.swipe(540, device.displayHeight * 7 / 10, 540, device.displayHeight * 4 / 10, 12); device.waitForIdle()
                     screenshot("dashboard-scrolled-for-$value")
                     return@repeat
@@ -52,7 +53,9 @@ class IndexAndHoldTest {
                 return
             } catch (_: StaleObjectException) { device.waitForIdle() }
         }
-        throw AssertionError("Tile not clickable: $value")
+        screenshot("tile-not-clickable-$value")
+        val seen = device.findObjects(By.res("tile:$value")).map { try { it.visibleBounds.toShortString() } catch (_: StaleObjectException) { "stale" } }
+        throw AssertionError("Tile not clickable: $value; tileBounds=$seen; display=${device.displayWidth}x${device.displayHeight}")
     }
     private fun screenshot(name: String) {
         device.takeScreenshot(File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "sfe-index-${if(german) "de" else "en"}-$name.png"))

@@ -1,5 +1,6 @@
 package com.stockfileexplorer.app.ui
 
+import androidx.compose.ui.platform.testTag
 import android.os.Environment
 import android.os.StatFs
 import androidx.compose.foundation.Canvas
@@ -304,7 +305,7 @@ fun CategoryCircle(
     onClick: () -> Unit
 ) {
     Column(
-        modifier = Modifier.fillMaxWidth().clickable { onClick() },
+        modifier = Modifier.fillMaxWidth().testTag("tile:$label").clickable { onClick() },
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Box(

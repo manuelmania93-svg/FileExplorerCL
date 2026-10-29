@@ -38,17 +38,17 @@ fun SelectionActionBar(
     Surface(tonalElevation = 3.dp, modifier = Modifier.fillMaxWidth().testTag("selection_bar")) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
             TextButton(onClick = onCopy, modifier = Modifier.testTag("selection_copy")) {
-                Text(stringResource(R.string.copy), color = MaterialTheme.colorScheme.primary)
+                Text(stringResource(R.string.copy), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             TextButton(onClick = onMove, modifier = Modifier.testTag("selection_move")) {
-                Text(stringResource(R.string.move), color = MaterialTheme.colorScheme.primary)
+                Text(stringResource(R.string.move), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             TextButton(onClick = onDelete, modifier = Modifier.testTag("selection_delete")) {
-                Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.primary)
+                Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Box {
                 TextButton(onClick = { moreOpen = true }, modifier = Modifier.testTag("selection_more")) {
-                    Text(stringResource(R.string.more), color = MaterialTheme.colorScheme.primary)
+                    Text(stringResource(R.string.more), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 DropdownMenu(expanded = moreOpen, onDismissRequest = { moreOpen = false }) {
                     DropdownMenuItem(

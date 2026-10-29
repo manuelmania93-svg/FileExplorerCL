@@ -14,6 +14,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.res.stringResource
 import com.stockfileexplorer.app.R
 
@@ -30,6 +32,9 @@ fun TextInputDialog(
     var value by remember { mutableStateOf(initialValue) }
     AlertDialog(
         onDismissRequest = onDismiss,
+        // Dialogs render in their own window, outside the app root's testTagsAsResourceId
+        // scope - re-enable it here so dialog tags reach UI Automator too.
+        modifier = Modifier.semantics { testTagsAsResourceId = true },
         title = { Text(title) },
         text = {
             OutlinedTextField(

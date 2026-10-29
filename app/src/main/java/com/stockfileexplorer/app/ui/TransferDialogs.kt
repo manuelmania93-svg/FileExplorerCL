@@ -100,10 +100,7 @@ fun FolderPickerDialog(
         confirmButton = {
             TextButton(
                 enabled = directories != null && !currentBlocked,
-                onClick = {
-                    onDismiss()
-                    onConfirm(current)
-                },
+                onClick = { onConfirm(current) },
             ) { Text(confirmLabel) }
         },
         dismissButton = {

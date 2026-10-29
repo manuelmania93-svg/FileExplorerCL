@@ -51,6 +51,10 @@ object RestrictedAccess {
 
     /** Null when the provider refuses the listing. */
     fun list(context: Context, tree: Uri, docId: String): List<Entry>? = try {
+        listOrThrow(context, tree, docId)
+    } catch (e: Exception) { null }
+
+    private fun listOrThrow(context: Context, tree: Uri, docId: String): List<Entry>? {
         val children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, docId)
         val out = ArrayList<Entry>()
         context.contentResolver.query(children, arrayOf(
@@ -66,8 +70,8 @@ object RestrictedAccess {
                 size = if (c.isNull(3)) 0L else c.getLong(3),
                 modified = if (c.isNull(4)) 0L else c.getLong(4))
         } ?: return null
-        out.sortedWith(compareByDescending<Entry> { it.isDirectory }.thenBy { it.name.lowercase() })
-    } catch (e: Exception) { null }
+        return out.sortedWith(compareByDescending<Entry> { it.isDirectory }.thenBy { it.name.lowercase() })
+    }
 
     data class ProbeResult(val created: Boolean, val wrote: Boolean, val readBack: Boolean, val deleted: Boolean)
 

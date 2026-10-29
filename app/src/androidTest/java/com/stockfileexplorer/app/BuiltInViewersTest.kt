@@ -133,8 +133,7 @@ class BuiltInViewersTest {
         if (bar == null) {
             runCatching {
                 File("/sdcard/Download/sfe-viewers-failure-selectionbar.txt").writeText(
-                    "visibleTexts=" + device.findObjects(By.pkg(device.currentPackageName ?: "")).mapNotNull { it.text }.take(60) + "
-")
+                    "visibleTexts=" + device.findObjects(By.pkg(device.currentPackageName ?: "")).mapNotNull { it.text }.take(60) + "\n")
             }
         }
         assertNotNull("Selection bar after long press", bar)

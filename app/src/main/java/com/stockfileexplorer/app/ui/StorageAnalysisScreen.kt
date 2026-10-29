@@ -1,16 +1,21 @@
 package com.stockfileexplorer.app.ui
 
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Card
@@ -28,7 +33,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -38,6 +47,7 @@ import com.stockfileexplorer.app.data.AnalysisStage
 import com.stockfileexplorer.app.data.FileItem
 import com.stockfileexplorer.app.data.FileLogic
 import com.stockfileexplorer.app.data.StorageAnalyzer
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -104,6 +114,8 @@ fun StorageAnalysisScreen(onBack: () -> Unit) {
                         }
                     }
                 }
+
+                item { StoragePyramid(value) }
 
                 item { SectionTitle(stringResource(R.string.categories)) }
                 items(value.categories.entries.sortedByDescending { it.value }) { entry ->
@@ -197,6 +209,93 @@ fun StorageAnalysisScreen(onBack: () -> Unit) {
             }
         }
     }
+}
+
+
+private data class PyramidSlice(
+    val label: String,
+    val bytes: Long,
+    val color: Color,
+)
+
+@Composable
+private fun StoragePyramid(report: StorageAnalyzer.Report) {
+    val usedBytes = (report.totalBytes - report.freeBytes).coerceAtLeast(0L)
+    val indexedBytes = report.categories.values.sum()
+    val remainingBytes = (usedBytes - indexedBytes).coerceAtLeast(0L)
+    val slices = buildList {
+        report.categories.forEach { (category, bytes) ->
+            if (bytes > 0) add(PyramidSlice(categoryLabel(category), bytes, categoryColor(category)))
+        }
+        if (remainingBytes > 0) {
+            add(PyramidSlice(stringResource(R.string.other_used_storage), remainingBytes, Color(0xFF78909C)))
+        }
+    }.sortedBy { it.bytes }
+    if (slices.isEmpty()) return
+
+    Card {
+        Column(Modifier.fillMaxWidth().padding(16.dp)) {
+            Text(stringResource(R.string.storage_pyramid), style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                stringResource(
+                    if (remainingBytes > 0) R.string.storage_pyramid_note
+                    else R.string.storage_pyramid_note_indexed,
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(12.dp))
+            val geometry = storagePyramidGeometry(slices.map { it.bytes })
+            Canvas(Modifier.fillMaxWidth().height(170.dp)) {
+                var top = 0f
+                geometry.forEachIndexed { index, layer ->
+                    val bottom = top + layer.heightFraction * size.height
+                    val topWidth = layer.topWidthFraction * size.width
+                    val bottomWidth = layer.bottomWidthFraction * size.width
+                    val center = size.width / 2f
+                    drawPath(
+                        path = Path().apply {
+                            moveTo(center - topWidth / 2f, top)
+                            lineTo(center + topWidth / 2f, top)
+                            lineTo(center + bottomWidth / 2f, bottom)
+                            lineTo(center - bottomWidth / 2f, bottom)
+                            close()
+                        },
+                        color = slices[index].color,
+                    )
+                    top = bottom
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            slices.forEach { slice -> PyramidLegendLine(slice, usedBytes) }
+        }
+    }
+}
+
+@Composable
+private fun PyramidLegendLine(slice: PyramidSlice, usedBytes: Long) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(10.dp).clip(CircleShape).background(slice.color))
+        Spacer(Modifier.size(8.dp))
+        Text(slice.label, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Spacer(Modifier.size(8.dp))
+        Text(
+            "${FileLogic.formatSize(slice.bytes)} • ${formatUsedPercentage(slice.bytes, usedBytes)}",
+            style = MaterialTheme.typography.bodySmall,
+            maxLines = 1,
+        )
+    }
+}
+
+private fun formatUsedPercentage(bytes: Long, usedBytes: Long): String {
+    if (usedBytes <= 0) return "0.0%"
+    val percentage = bytes.toDouble() * 100.0 / usedBytes.toDouble()
+    return if (percentage > 0.0 && percentage < 0.1) "<0.1%"
+    else String.format(Locale.getDefault(), "%.1f%%", percentage)
 }
 
 @Composable

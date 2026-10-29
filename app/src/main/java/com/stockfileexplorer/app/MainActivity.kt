@@ -173,7 +173,7 @@ fun MainScaffold(initialBrowsePath: String? = null, initialStorageAnalysis: Bool
                                 androidx.compose.foundation.Image(
                                     painter = androidx.compose.ui.res.painterResource(R.drawable.app_logo_header),
                                     contentDescription = null,
-                                    modifier = Modifier.size(36.dp)
+                                    modifier = Modifier.size(44.dp)
                                 )
                             }
                         },

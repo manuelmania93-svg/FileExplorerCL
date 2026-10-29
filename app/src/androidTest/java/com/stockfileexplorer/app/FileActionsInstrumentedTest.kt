@@ -78,6 +78,15 @@ class FileActionsInstrumentedTest {
         return file.exists() == shouldExist
     }
 
+    private fun waitForFileText(file: File, expected: String, timeout: Long = 15_000): Boolean {
+        val deadline = SystemClock.uptimeMillis() + timeout
+        while (SystemClock.uptimeMillis() < deadline) {
+            if (file.isFile && runCatching { file.readText() }.getOrNull() == expected) return true
+            SystemClock.sleep(200)
+        }
+        return file.isFile && runCatching { file.readText() }.getOrNull() == expected
+    }
+
     private class CapturingContext(base: Context) : ContextWrapper(base) {
         var started: Intent? = null
         override fun startActivity(intent: Intent) {
@@ -223,7 +232,7 @@ class FileActionsInstrumentedTest {
         clickText("Copy here")
         val copied = File(destination, "copy-source (1).txt")
         assertTrue("copy did not create a unique destination", waitForFile(copied))
-        assertEquals("copy content", copied.readText())
+        assertTrue("copy content did not land", waitForFileText(copied, "copy content"))
         assertTrue("copy removed the original", copySource.exists())
         assertEquals("existing content", File(destination, copySource.name).readText())
 
@@ -240,7 +249,7 @@ class FileActionsInstrumentedTest {
         val moved = File(destination, moveSource.name)
         assertTrue("move did not create the destination", waitForFile(moved))
         assertTrue("move left the original behind", waitForFile(moveSource, shouldExist = false))
-        assertEquals("move content", moved.readText())
+        assertTrue("move content did not land", waitForFileText(moved, "move content"))
         screenshot("sfe-file-actions-transfer")
 
         root.deleteRecursively()

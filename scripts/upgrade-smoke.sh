@@ -7,7 +7,7 @@ adb shell appops set --uid $P MANAGE_EXTERNAL_STORAGE allow
 adb shell am start -W -n $P/.MainActivity | tee -a $L
 sleep 8
 adb shell run-as $P mkdir -p files
-adb shell run-as $P sh -c 'echo sentinel-024 > files/upgrade-proof.txt'
+adb shell "run-as $P sh -c 'echo sentinel-024 > files/upgrade-proof.txt'"
 echo "== before" | tee -a $L
 adb shell dumpsys package $P | grep -E 'versionCode|versionName' | tee -a $L
 adb shell am force-stop $P

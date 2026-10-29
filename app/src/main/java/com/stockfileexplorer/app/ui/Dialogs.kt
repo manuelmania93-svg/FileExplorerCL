@@ -13,6 +13,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import com.stockfileexplorer.app.R
 

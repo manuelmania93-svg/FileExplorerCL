@@ -287,24 +287,19 @@ private fun categorySizeText(category: FileCategory, sizes: LongArray, scanning:
 
 @Composable
 private fun CategorySizeLine(label: String, sizeText: String) {
-    // 12 sp so "Dokumente"/"Documents" plus a size like "628.4 MB" fit one phone-width column.
-    val style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp)
-    Row(Modifier.fillMaxWidth()) {
+    // Label above value at normal body size: nothing is cut off at phone widths or larger font scales.
+    Column(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
         Text(
             text = label,
-            style = style,
+            style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            softWrap = false,
-            overflow = TextOverflow.Clip,
-            modifier = Modifier.weight(1f)
+            maxLines = 2,
         )
         Text(
             text = sizeText,
-            style = style,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            softWrap = false
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 2,
         )
     }
 }

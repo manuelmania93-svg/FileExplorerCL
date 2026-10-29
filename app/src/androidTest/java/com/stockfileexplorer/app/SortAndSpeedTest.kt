@@ -221,4 +221,36 @@ class SortAndSpeedTest {
         File(downloads, "sfe-analysis-benchmark.txt").writeText(result)
         root.deleteRecursively()
     }
+
+    @Test fun f_trashSafetyRules(): Unit = runBlocking<Unit> {
+        launch()
+        val base = File(downloads, "SfeTrashRules"); base.deleteRecursively(); base.mkdirs()
+        val bin = com.stockfileexplorer.app.data.Trash
+        val f = File(base, "doc.txt").apply { writeText("original") }
+        assertFalse("missing source fails and nothing is created", bin.moveToTrash(File(base, "nope.txt"), base))
+        assertFalse("bin cannot trash itself", bin.moveToTrash(bin.root(base).also { it.mkdirs() }, base))
+        assertFalse("folder containing the bin is refused", bin.moveToTrash(base, base))
+        assertTrue(f.exists() && f.readText() == "original")
+        assertTrue(bin.moveToTrash(f, base)); assertFalse(f.exists())
+        // Restart persistence: listing is read from disk, not memory.
+        val entry = bin.list(base).single { it.name == "doc.txt" }
+        assertEquals(f.absolutePath, entry.originalPath)
+        // Restore collision: a new file now owns the name; restore must not overwrite it.
+        File(base, "doc.txt").writeText("newer")
+        val restored = bin.restore(entry)!!
+        assertEquals("newer", File(base, "doc.txt").readText())
+        assertEquals("original", restored.readText()); assertNotEquals(f.absolutePath, restored.absolutePath)
+        // Missing parent folder is recreated on restore.
+        val sub = File(base, "gone-parent").apply { mkdirs() }
+        val inner = File(sub, "inner.txt").apply { writeText("x") }
+        assertTrue(bin.moveToTrash(inner, base)); sub.deleteRecursively()
+        val e2 = bin.list(base).single { it.name == "inner.txt" }
+        assertTrue(bin.restore(e2)!!.exists())
+        // Ordinary index results exclude the bin.
+        File(base, "keep.mp4").writeBytes(ByteArray(10))
+        assertTrue(bin.moveToTrash(File(base, "keep.mp4"), base))
+        FileIndex.verifyFixture(context, base, clear = true)
+        assertTrue(FileIndex.page(null, 100).items.none { it.file.absolutePath.contains("Papierkorb") })
+        base.deleteRecursively()
+    }
 }

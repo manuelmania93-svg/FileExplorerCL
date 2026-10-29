@@ -26,6 +26,8 @@ object StorageAnalyzer {
         val recycleBins: List<FolderUsage>,
         val incomplete: Boolean,
         val loading: Boolean = false,
+        /** True when more than [DUPLICATE_CANDIDATE_CAP] same-size files existed and only that many were compared. */
+        val duplicatesLimited: Boolean = false,
     )
 
     /**
@@ -53,6 +55,7 @@ object StorageAnalyzer {
             emptyFolders = empty.folders,
             duplicates = duplicates.groups,
             recycleBins = recycle.folders,
+            duplicatesLimited = duplicates.limited,
             incomplete = base.incomplete || empty.incomplete || duplicates.incomplete || recycle.incomplete,
             loading = false,
         )
@@ -95,7 +98,7 @@ object StorageAnalyzer {
     }
 
     private data class EmptyResult(val folders: List<File>, val incomplete: Boolean)
-    internal data class DuplicateResult(val groups: List<DuplicateGroup>, val incomplete: Boolean)
+    internal data class DuplicateResult(val groups: List<DuplicateGroup>, val incomplete: Boolean, val limited: Boolean = false)
     private data class RecycleResult(val folders: List<FolderUsage>, val incomplete: Boolean)
 
     private fun findRedundantCandidates(rows: List<FileItem>): List<FileItem> {
@@ -193,14 +196,17 @@ object StorageAnalyzer {
         return EmptyResult(result.sortedBy { it.absolutePath }.take(100), incomplete)
     }
 
+    const val DUPLICATE_CANDIDATE_CAP = 500
+
     internal fun findDuplicates(rows: List<FileItem>, prefilter: Boolean = true): DuplicateResult {
         val candidates = rows
             .filter { it.size > 0 }
             .groupBy { it.size }
             .filterValues { it.size > 1 }
             .flatMap { it.value }
-        var incomplete = candidates.size > 500
-        val limited = candidates.take(500)
+        val limitedByCap = candidates.size > DUPLICATE_CANDIDATE_CAP
+        var incomplete = limitedByCap
+        val limited = candidates.take(DUPLICATE_CANDIDATE_CAP)
         // Cheap first pass: files of equal size whose first 64 KB differ cannot be identical, so
         // only files that still collide get a full SHA-256. Results stay exact-content matches.
         val survivors = if (!prefilter) limited else {
@@ -220,6 +226,7 @@ object StorageAnalyzer {
                 .sortedByDescending { it.sizeBytes * it.paths.size }
                 .take(20),
             incomplete,
+            limitedByCap,
         )
     }
 

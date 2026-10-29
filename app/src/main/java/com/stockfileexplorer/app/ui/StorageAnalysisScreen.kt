@@ -173,6 +173,15 @@ fun StorageAnalysisScreen(
                 }
 
                 item { SectionTitle(stringResource(R.string.duplicate_files)) }
+                if (value.duplicatesLimited && !value.loading) {
+                    item {
+                        Text(
+                            stringResource(R.string.duplicates_limited, StorageAnalyzer.DUPLICATE_CANDIDATE_CAP),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
                 if (value.duplicates.isEmpty()) {
                     item { Text(stringResource(if (value.loading) R.string.analysis_checking else R.string.no_duplicate_files)) }
                 } else {

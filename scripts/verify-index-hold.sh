@@ -26,5 +26,6 @@ run_test com.stockfileexplorer.app.SortAndSpeedTest#b_librarySortControlAndVideo
 run_test com.stockfileexplorer.app.SortAndSpeedTest#c_analysisRowsAreClickable
 run_test com.stockfileexplorer.app.SortAndSpeedTest#d_dashboardAndPapierkorbMoveRestoreDelete
 run_test com.stockfileexplorer.app.SortAndSpeedTest#e_analysisSpeedFirstResultsAndExactDuplicates
+run_test com.stockfileexplorer.app.SortAndSpeedTest#f_trashSafetyRules
 adb pull /sdcard/Download/ app/build/reports/device/
 fi

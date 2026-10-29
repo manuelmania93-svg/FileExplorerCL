@@ -162,4 +162,5 @@
     <string name="moved_to_papierkorb">In den Papierkorb verschoben</string>
     <string name="deleted_permanently_ok">Endgültig gelöscht</string>
     <string name="analysis_checking">Wird noch geprüft…</string>
+    <string name="duplicates_limited">Unvollständig: nur die ersten %1$d gleich großen Dateien wurden verglichen, weitere Duplikate sind möglich.</string>
 </resources>

@@ -20,6 +20,8 @@ object Trash {
         val bin = root(base)
         // Never move the bin into itself or move something that already lives in it.
         if (file.absolutePath == bin.absolutePath || file.absolutePath.startsWith(bin.absolutePath + "/")) return false
+        // Never move a folder that contains the bin (would recurse into itself).
+        if (bin.absolutePath.startsWith(file.absolutePath + "/")) return false
         val id = System.currentTimeMillis().toString() + "-" + (Math.random() * 1e6).toInt()
         val dir = File(bin, id)
         if (!dir.mkdirs()) return false

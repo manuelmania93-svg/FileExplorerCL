@@ -233,7 +233,6 @@ private fun StoragePyramid(report: StorageAnalyzer.Report) {
         null
     }
     val slices = (categorySlices + listOfNotNull(remainingSlice)).sortedBy { it.bytes }
-    val legendSlices = listOfNotNull(remainingSlice) + categorySlices
     if (slices.isEmpty()) return
 
     Card {
@@ -250,7 +249,7 @@ private fun StoragePyramid(report: StorageAnalyzer.Report) {
             )
             Spacer(Modifier.height(12.dp))
             val geometry = storagePyramidGeometry(slices.map { it.bytes })
-            Canvas(Modifier.fillMaxWidth().height(170.dp)) {
+            Canvas(Modifier.fillMaxWidth().height(150.dp)) {
                 var top = 0f
                 geometry.forEachIndexed { index, layer ->
                     val bottom = top + layer.heightFraction * size.height
@@ -271,15 +270,23 @@ private fun StoragePyramid(report: StorageAnalyzer.Report) {
                 }
             }
             Spacer(Modifier.height(10.dp))
-            legendSlices.forEach { slice -> PyramidLegendLine(slice, usedBytes) }
+            remainingSlice?.let { PyramidLegendLine(it, usedBytes) }
+            categorySlices.chunked(2).forEach { rowSlices ->
+                Row(Modifier.fillMaxWidth()) {
+                    rowSlices.forEach { slice ->
+                        PyramidLegendLine(slice, usedBytes, Modifier.weight(1f))
+                    }
+                    if (rowSlices.size == 1) Spacer(Modifier.weight(1f))
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun PyramidLegendLine(slice: PyramidSlice, usedBytes: Long) {
+private fun PyramidLegendLine(slice: PyramidSlice, usedBytes: Long, modifier: Modifier = Modifier) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
+        modifier = modifier.fillMaxWidth().padding(vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.size(10.dp).clip(CircleShape).background(slice.color))

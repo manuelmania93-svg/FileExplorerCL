@@ -97,7 +97,7 @@ class SelectionBarTest {
 
         // Delete the whole selection; everything lands in the Papierkorb, copies stay.
         device.findObject(By.res("selection_delete")).click()
-        device.findObject(By.res("dialog_confirm")).click()
+        device.wait(Until.findObject(By.res("dialog_confirm")), 5000).click()
         Thread.sleep(2500)
         files.forEach { assertFalse("deleted ${it.name}", it.exists()) }
         files.forEach { assertTrue("copy kept ${it.name}", File(dest, it.name).exists()) }

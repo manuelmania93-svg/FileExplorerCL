@@ -60,12 +60,12 @@ class BuiltInViewersTest {
     private fun open(name: String) {
         // The index keeps refreshing while the test runs and can reset the list's scroll
         // position mid-swipe, so poll with a time budget instead of fixed swipe counts.
+        // Poll with the proven down-then-up scan inside a time budget; the index refresh
+        // can reset the list's scroll position mid-scan.
         val deadline = android.os.SystemClock.uptimeMillis() + 60000
-        var downward = true
         while (!device.hasObject(By.text(name)) && android.os.SystemClock.uptimeMillis() < deadline) {
-            if (downward) device.swipe(300, 900, 300, 300, 20) else device.swipe(300, 300, 300, 900, 20)
-            downward = !downward
-            device.waitForIdle()
+            repeat(10) { if (!device.hasObject(By.text(name))) device.swipe(300, 900, 300, 300, 20) }
+            repeat(12) { if (!device.hasObject(By.text(name))) device.swipe(300, 300, 300, 900, 20) }
         }
         waitText(name);device.findObject(By.text(name)).click()
         assertTrue(device.wait(Until.hasObject(By.pkg(context.packageName)), 5000))
@@ -127,10 +127,18 @@ class BuiltInViewersTest {
         fixtures();mainAndDownload()
         openInList("rename-me.mp4").longClick()
         // Long-press selects the file directly (CX behavior); single-file rename lives
-        // in the selection bar's "More" menu.
-        val moreAction = device.wait(Until.findObject(By.text("More")), 5000)
-        assertNotNull("Selection bar More action after long press", moreAction)
-        moreAction.click()
+        // in the selection bar's "More" menu. Match the bar by its resource tags (the
+        // language-proof form SelectionBarTest already proves) rather than English text.
+        val bar = device.wait(Until.findObject(By.res("selection_bar")), 8000)
+        if (bar == null) {
+            runCatching {
+                File("/sdcard/Download/sfe-viewers-failure-selectionbar.txt").writeText(
+                    "visibleTexts=" + device.findObjects(By.pkg(device.currentPackageName ?: "")).mapNotNull { it.text }.take(60) + "
+")
+            }
+        }
+        assertNotNull("Selection bar after long press", bar)
+        device.findObject(By.res("selection_more")).click()
         val renameAction = device.wait(Until.findObject(By.text("Rename")), 5000)
         assertNotNull("Rename action in More menu", renameAction)
         renameAction.click()
@@ -153,11 +161,9 @@ class BuiltInViewersTest {
     }
     private fun openInList(name: String): androidx.test.uiautomator.UiObject2 {
         val deadline = android.os.SystemClock.uptimeMillis() + 60000
-        var downward = true
         while (!device.hasObject(By.text(name)) && android.os.SystemClock.uptimeMillis() < deadline) {
-            if (downward) device.swipe(300,900,300,300,20) else device.swipe(300,300,300,900,20)
-            downward = !downward
-            device.waitForIdle()
+            repeat(12) { if (!device.hasObject(By.text(name))) device.swipe(300,900,300,300,20) }
+            repeat(12) { if (!device.hasObject(By.text(name))) device.swipe(300,300,300,900,20) }
         }
         return device.wait(Until.findObject(By.text(name)),5000) ?: throw AssertionError("Missing $name")
     }

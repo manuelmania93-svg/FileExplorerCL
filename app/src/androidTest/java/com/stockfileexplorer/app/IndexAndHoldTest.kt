@@ -172,18 +172,21 @@ class IndexAndHoldTest {
             waitText(name)
             device.findObject(By.desc(label("File actions","Dateiaktionen"))).click()
             waitText(label("Rename","Umbenennen"))
+            screenshot(shot)
             // The action list is a LazyColumn capped at 70% of the screen height; Share can
-            // start below the fold, so scroll the menu until it composes.
+            // start below the fold. Scroll by dragging ON a menu item - a swipe that starts
+            // below the dialog lands on the scrim and dismisses it.
             var shareSwipes = 0
             while (!device.hasObject(By.text(label("Share","Teilen"))) && shareSwipes < 4) {
-                device.swipe(device.displayWidth / 2, device.displayHeight * 3 / 4, device.displayWidth / 2, device.displayHeight / 4, 15)
+                val anchor = device.findObject(By.text(label("Rename","Umbenennen"))) ?: break
+                val b = anchor.visibleBounds
+                device.swipe(b.centerX(), b.centerY(), b.centerX(), b.centerY() - 250, 12)
                 device.waitForIdle()
                 shareSwipes++
             }
             waitText(label("Share","Teilen"))
             waitText(label("Select","Auswählen"))
             assertTrue("Overflow menu offers Open",device.hasObject(By.text(label("Open","Öffnen"))))
-            screenshot(shot)
             device.pressBack()
         }
         launch(root.absolutePath)

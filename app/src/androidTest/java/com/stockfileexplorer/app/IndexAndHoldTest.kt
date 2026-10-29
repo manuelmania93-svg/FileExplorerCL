@@ -57,6 +57,16 @@ class IndexAndHoldTest {
         val seen = device.findObjects(By.res("tile:$value")).map { try { it.visibleBounds.toShortString() } catch (_: StaleObjectException) { "stale" } }
         throw AssertionError("Tile not clickable: $value; tileBounds=$seen; display=${device.displayWidth}x${device.displayHeight}")
     }
+    private fun finishAllActivities() {
+        val monitor = androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry.getInstance()
+        instrumentation.runOnMainSync {
+            for (stage in androidx.test.runner.lifecycle.Stage.values()) {
+                if (stage == androidx.test.runner.lifecycle.Stage.DESTROYED || stage == androidx.test.runner.lifecycle.Stage.PRE_ON_CREATE) continue
+                monitor.getActivitiesInStage(stage).forEach { it.finish() }
+            }
+        }
+        device.waitForIdle(); Thread.sleep(1500)
+    }
     private fun screenshot(name: String) {
         device.takeScreenshot(File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "sfe-index-${if(german) "de" else "en"}-$name.png"))
     }
@@ -222,6 +232,9 @@ class IndexAndHoldTest {
         val globStats = FileIndex.directoryStats(listOf(globFolder.absolutePath))
         assertEquals(1L, globStats.getValue(globFolder.absolutePath).fileCount)
         assertEquals(1L, globStats.getValue(globFolder.absolutePath).totalBytes)
+        // verifyFixture closes the index database (test seam only; production never closes it). Live screens read that database,
+        // so end them first instead of closing it under an active query.
+        finishAllActivities()
         FileIndex.verifyFixture(context,root)
         globFolder.deleteRecursively()
         // Restore a clean dashboard shot with truthful scan state.

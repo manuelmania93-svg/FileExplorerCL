@@ -167,7 +167,7 @@
     <string name="viewer_info">Info</string>
     <string name="viewer_more">More</string>
     <string name="restricted_title">%1$s needs your permission</string>
-    <string name="restricted_body">Android keeps this folder away from normal file access. You can allow this app to open it: pick the folder in the next screen and tap \"Use this folder\". You can take the permission back in Android settings at any time.</string>
+    <string name="restricted_body">Android keeps this folder away from normal file access. You can try to request access: pick the folder in the next screen and tap \"Use this folder\". Android may refuse this on this device.</string>
     <string name="restricted_grant">Choose folder access</string>
     <string name="restricted_wrong_folder">That is not the folder this screen needs, or Android did not accept it.</string>
     <string name="restricted_probe">Test write access</string>

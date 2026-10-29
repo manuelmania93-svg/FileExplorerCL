@@ -167,7 +167,7 @@
     <string name="viewer_info">Info</string>
     <string name="viewer_more">Mehr</string>
     <string name="restricted_title">%1$s braucht deine Erlaubnis</string>
-    <string name="restricted_body">Android hält diesen Ordner vom normalen Dateizugriff fern. Du kannst dieser App erlauben, ihn zu öffnen: Wähle den Ordner auf dem nächsten Bildschirm und tippe auf „Diesen Ordner verwenden“. Die Erlaubnis kannst du jederzeit in den Android-Einstellungen entziehen.</string>
+    <string name="restricted_body">Android hält diesen Ordner vom normalen Dateizugriff fern. Du kannst den Zugriff anfragen: Wähle den Ordner auf dem nächsten Bildschirm und tippe auf „Diesen Ordner verwenden“. Android kann das auf diesem Gerät ablehnen.</string>
     <string name="restricted_grant">Ordnerzugriff wählen</string>
     <string name="restricted_wrong_folder">Das ist nicht der Ordner, den dieser Bildschirm braucht, oder Android hat ihn nicht akzeptiert.</string>
     <string name="restricted_probe">Schreibzugriff testen</string>

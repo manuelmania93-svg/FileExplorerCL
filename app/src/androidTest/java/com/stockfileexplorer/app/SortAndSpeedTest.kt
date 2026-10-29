@@ -190,4 +190,35 @@ class SortAndSpeedTest {
         root.deleteRecursively()
         com.stockfileexplorer.app.data.Trash.root().deleteRecursively()
     }
+
+    @Test fun e_analysisSpeedFirstResultsAndExactDuplicates(): Unit = runBlocking<Unit> {
+        launch()
+        root.deleteRecursively(); root.mkdirs()
+        val dir = File(root, "dups").apply { mkdirs() }
+        // 200 same-size files: 100 identical pairs by content, and 100 same-size files that differ only after 64 KB.
+        val tail = ByteArray(300_000)
+        for (n in 0 until 100) {
+            val body = ByteArray(300_000) { (n % 251).toByte() }
+            File(dir, "pair-$n-a.bin").writeBytes(body); File(dir, "pair-$n-b.bin").writeBytes(body)
+        }
+        for (n in 0 until 100) {
+            val a = ByteArray(300_000) { 7 }; val b = a.copyOf(); b[299_999] = (n + 1).toByte()
+            File(dir, "late-$n-a.bin").writeBytes(a.also { it[299_999] = 0 }); File(dir, "late-$n-b.bin").writeBytes(b)
+        }
+        FileIndex.verifyFixture(context, root, clear = true)
+        val rows = FileIndex.allFiles()
+        fun ms(block: () -> Unit): Long { val s = SystemClock.elapsedRealtime(); block(); return SystemClock.elapsedRealtime() - s }
+        var oldGroups = 0; var newGroups = 0
+        val oldMs = ms { oldGroups = StorageAnalyzer.findDuplicates(rows, prefilter = false).groups.size }
+        val newMs = ms { newGroups = StorageAnalyzer.findDuplicates(rows, prefilter = true).groups.size }
+        assertEquals("same exact-content groups", oldGroups, newGroups)
+        val start = SystemClock.elapsedRealtime(); var first = -1L
+        StorageAnalyzer.analyze({}, onPartial = { first = SystemClock.elapsedRealtime() - start })
+        val total = SystemClock.elapsedRealtime() - start
+        assertTrue("partial results arrive before the full analysis ends", first in 0..total)
+        val result = "dupFullHashAllMs=$oldMs dupWithPrefilterParallelMs=$newMs groups=$newGroups analysisFirstResultsMs=$first analysisCompleteMs=$total rows=${rows.size}"
+        Log.i("SfeSort", result)
+        File(downloads, "sfe-analysis-benchmark.txt").writeText(result)
+        root.deleteRecursively()
+    }
 }

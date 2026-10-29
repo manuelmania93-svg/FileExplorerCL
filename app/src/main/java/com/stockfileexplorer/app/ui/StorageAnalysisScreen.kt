@@ -65,7 +65,7 @@ fun StorageAnalysisScreen(
     var report by remember { mutableStateOf<StorageAnalyzer.Report?>(null) }
 
     LaunchedEffect(Unit) {
-        report = StorageAnalyzer.analyze { stage = it }
+        report = StorageAnalyzer.analyze({ stage = it }, onPartial = { report = it })
     }
 
     Column(Modifier.fillMaxSize()) {
@@ -86,6 +86,7 @@ fun StorageAnalysisScreen(
             )
         } else {
             val value = report!!
+            if (value.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
@@ -150,7 +151,7 @@ fun StorageAnalysisScreen(
 
                 item { SectionTitle(stringResource(R.string.empty_folders)) }
                 if (value.emptyFolders.isEmpty()) {
-                    item { Text(stringResource(R.string.no_empty_folders)) }
+                    item { Text(stringResource(if (value.loading) R.string.analysis_checking else R.string.no_empty_folders)) }
                 } else {
                     items(value.emptyFolders) { folder ->
                         AnalysisLine(folder.name, folder.absolutePath, onClick = { onOpenFolder(folder.absolutePath) })
@@ -173,7 +174,7 @@ fun StorageAnalysisScreen(
 
                 item { SectionTitle(stringResource(R.string.duplicate_files)) }
                 if (value.duplicates.isEmpty()) {
-                    item { Text(stringResource(R.string.no_duplicate_files)) }
+                    item { Text(stringResource(if (value.loading) R.string.analysis_checking else R.string.no_duplicate_files)) }
                 } else {
                     items(value.duplicates) { group ->
                         Column(Modifier.fillMaxWidth()) {
@@ -208,7 +209,7 @@ fun StorageAnalysisScreen(
                     )
                 }
                 if (value.recycleBins.isEmpty()) {
-                    item { Text(stringResource(R.string.no_recycle_bin_folders)) }
+                    item { Text(stringResource(if (value.loading) R.string.analysis_checking else R.string.no_recycle_bin_folders)) }
                 } else {
                     items(value.recycleBins) { folder ->
                         AnalysisLine(

@@ -3,6 +3,7 @@ package com.stockfileexplorer.app.data
 import android.os.Environment
 import android.os.StatFs
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.nio.file.Files
@@ -24,9 +25,15 @@ object StorageAnalyzer {
         val duplicates: List<DuplicateGroup>,
         val recycleBins: List<FolderUsage>,
         val incomplete: Boolean,
+        val loading: Boolean = false,
     )
 
-    suspend fun analyze(onStage: (AnalysisStage) -> Unit): Report = withContext(Dispatchers.IO) {
+    /**
+     * Fast sections (categories, folders, large/recent files, redundant candidates) come from the
+     * index and are published at once through [onPartial] with [Report.loading] = true. The three
+     * filesystem sections (empty folders, duplicates, recycle folders) then run in parallel.
+     */
+    suspend fun analyze(onStage: (AnalysisStage) -> Unit, onPartial: (Report) -> Unit = {}): Report = withContext(Dispatchers.IO) {
         val root = Environment.getExternalStorageDirectory()
         val stat = StatFs(root.absolutePath)
         val status = FileIndex.state.value
@@ -34,18 +41,20 @@ object StorageAnalyzer {
         val rows = FileIndex.allFiles()
         onStage(AnalysisStage.FOLDERS)
         val base = buildRowsReport(rows, root, stat.totalBytes, stat.availableBytes, status.incomplete)
-        onStage(AnalysisStage.EMPTY_FOLDERS)
-        val empty = findEmptyFolders(root)
-        onStage(AnalysisStage.REDUNDANT_FILES)
+        onPartial(base.copy(loading = true))
         onStage(AnalysisStage.DUPLICATES)
-        val duplicates = findDuplicates(rows)
-        onStage(AnalysisStage.RECYCLE_BIN)
-        val recycle = findRecycleBins(root)
+        val emptyJob = async { findEmptyFolders(root) }
+        val duplicatesJob = async { findDuplicates(rows) }
+        val recycleJob = async { findRecycleBins(root) }
+        val empty = emptyJob.await()
+        val duplicates = duplicatesJob.await()
+        val recycle = recycleJob.await()
         base.copy(
             emptyFolders = empty.folders,
             duplicates = duplicates.groups,
             recycleBins = recycle.folders,
             incomplete = base.incomplete || empty.incomplete || duplicates.incomplete || recycle.incomplete,
+            loading = false,
         )
     }
 
@@ -86,7 +95,7 @@ object StorageAnalyzer {
     }
 
     private data class EmptyResult(val folders: List<File>, val incomplete: Boolean)
-    private data class DuplicateResult(val groups: List<DuplicateGroup>, val incomplete: Boolean)
+    internal data class DuplicateResult(val groups: List<DuplicateGroup>, val incomplete: Boolean)
     private data class RecycleResult(val folders: List<FolderUsage>, val incomplete: Boolean)
 
     private fun findRedundantCandidates(rows: List<FileItem>): List<FileItem> {
@@ -184,19 +193,25 @@ object StorageAnalyzer {
         return EmptyResult(result.sortedBy { it.absolutePath }.take(100), incomplete)
     }
 
-    private fun findDuplicates(rows: List<FileItem>): DuplicateResult {
+    internal fun findDuplicates(rows: List<FileItem>, prefilter: Boolean = true): DuplicateResult {
         val candidates = rows
             .filter { it.size > 0 }
             .groupBy { it.size }
             .filterValues { it.size > 1 }
             .flatMap { it.value }
         var incomplete = candidates.size > 500
+        val limited = candidates.take(500)
+        // Cheap first pass: files of equal size whose first 64 KB differ cannot be identical, so
+        // only files that still collide get a full SHA-256. Results stay exact-content matches.
+        val survivors = if (!prefilter) limited else {
+            val heads = limited.groupBy { it.size to (headHash(it.file) ?: "unreadable:" + it.file.absolutePath) }
+            heads.values.filter { it.size > 1 }.flatten()
+        }
+        val hashes = java.util.concurrent.ConcurrentHashMap<String, String?>()
+        survivors.parallelStream().forEach { item -> hashes[item.file.absolutePath] = sha256(item.file) }
         val hashed = LinkedHashMap<Pair<Long, String>, MutableList<String>>()
-        candidates.take(500).forEach { item ->
-            val hash = sha256(item.file) ?: run {
-                incomplete = true
-                return@forEach
-            }
+        survivors.forEach { item ->
+            val hash = hashes[item.file.absolutePath] ?: run { incomplete = true; return@forEach }
             hashed.getOrPut(item.size to hash) { mutableListOf() }.add(item.file.absolutePath)
         }
         return DuplicateResult(
@@ -207,6 +222,21 @@ object StorageAnalyzer {
             incomplete,
         )
     }
+
+    private fun headHash(file: File): String? = try {
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().use { input ->
+            val buffer = ByteArray(64 * 1024)
+            var total = 0
+            while (total < buffer.size) {
+                val read = input.read(buffer, total, buffer.size - total)
+                if (read < 0) break
+                total += read
+            }
+            digest.update(buffer, 0, total)
+        }
+        digest.digest().joinToString("") { "%02x".format(it) }
+    } catch (_: Exception) { null }
 
     private fun sha256(file: File): String? = try {
         val digest = MessageDigest.getInstance("SHA-256")

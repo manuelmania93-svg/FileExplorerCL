@@ -161,4 +161,5 @@
     <string name="main_storage">Main storage</string>
     <string name="moved_to_papierkorb">Moved to Papierkorb</string>
     <string name="deleted_permanently_ok">Deleted permanently</string>
+    <string name="analysis_checking">Still checking…</string>
 </resources>

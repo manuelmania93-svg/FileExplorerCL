@@ -223,14 +223,17 @@ private fun StoragePyramid(report: StorageAnalyzer.Report) {
     val usedBytes = (report.totalBytes - report.freeBytes).coerceAtLeast(0L)
     val indexedBytes = report.categories.values.sum()
     val remainingBytes = (usedBytes - indexedBytes).coerceAtLeast(0L)
-    val slices = buildList {
-        report.categories.forEach { (category, bytes) ->
-            if (bytes > 0) add(PyramidSlice(categoryLabel(category), bytes, categoryColor(category)))
-        }
-        if (remainingBytes > 0) {
-            add(PyramidSlice(stringResource(R.string.other_used_storage), remainingBytes, Color(0xFF78909C)))
-        }
-    }.sortedBy { it.bytes }
+    val categorySlices = report.categories.entries
+        .filter { it.value > 0 }
+        .map { (category, bytes) -> PyramidSlice(categoryLabel(category), bytes, categoryColor(category)) }
+        .sortedByDescending { it.bytes }
+    val remainingSlice = if (remainingBytes > 0) {
+        PyramidSlice(stringResource(R.string.other_used_storage), remainingBytes, Color(0xFF78909C))
+    } else {
+        null
+    }
+    val slices = (categorySlices + listOfNotNull(remainingSlice)).sortedBy { it.bytes }
+    val legendSlices = listOfNotNull(remainingSlice) + categorySlices
     if (slices.isEmpty()) return
 
     Card {
@@ -268,7 +271,7 @@ private fun StoragePyramid(report: StorageAnalyzer.Report) {
                 }
             }
             Spacer(Modifier.height(10.dp))
-            slices.forEach { slice -> PyramidLegendLine(slice, usedBytes) }
+            legendSlices.forEach { slice -> PyramidLegendLine(slice, usedBytes) }
         }
     }
 }

@@ -34,8 +34,6 @@ class StorageAnalysisInstrumentedTest {
 
     private fun revealText(value: String): UiObject2 = reveal(By.text(value), value)
 
-    private fun revealTextContains(value: String): UiObject2 = reveal(By.textContains(value), value, maxSwipes = 40)
-
     private fun revealTextContains(value: String): UiObject2 = reveal(By.textContains(value), value)
 
     private fun swipeUp() {

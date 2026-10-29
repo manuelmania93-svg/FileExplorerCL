@@ -240,6 +240,10 @@ class IndexAndHoldTest {
         // Restore a clean dashboard shot with truthful scan state.
         launch()
         try {
+            // The process locale flag can lag the relaunch, so wait for either title and
+            // then require the title that matches the language read AFTER it appeared.
+            device.wait(Until.findObject(By.text(java.util.regex.Pattern.compile("Internal storage|Interner Speicher"))), 15000)
+                ?: throw AssertionError("Missing UI text: Internal storage / Interner Speicher")
             waitText(label("Internal storage","Interner Speicher"))
         } catch (e: AssertionError) {
             // Evidence only: record what the test saw so a locale-read problem can be told from a UI problem.

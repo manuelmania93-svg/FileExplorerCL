@@ -119,6 +119,19 @@ class SortAndSpeedTest {
         screenshot("videos-sorted-name")
     }
 
+    /** Slow swipes (a fast one flings the list past a short section and the row is never seen): down first, then back up from the end. */
+    private fun scrollToText(text: String): androidx.test.uiautomator.UiObject2? {
+        for (direction in listOf(1, -1)) {
+            repeat(14) {
+                val from = if (direction > 0) 1400 else 700
+                val to = if (direction > 0) 800 else 1300
+                device.swipe(540, from, 540, to, 45); device.waitForIdle()
+                device.findObject(By.text(text))?.let { return it }
+            }
+        }
+        return null
+    }
+
     @Test fun c_analysisRowsAreClickable(): Unit = runBlocking<Unit> {
         launch()
         root.deleteRecursively(); root.mkdirs()
@@ -130,7 +143,7 @@ class SortAndSpeedTest {
         // Largest folders: tap "Download" folder row opens the browser in that folder.
         var row = device.wait(Until.findObject(By.text("Download")), 20000)
         var tries = 0
-        while (row == null && tries++ < 8) { device.swipe(540, 1500, 540, 600, 12); device.waitForIdle(); row = device.findObject(By.text("Download")) }
+        if (row == null) row = scrollToText("Download")
         if (row == null) {
             screenshot("analysis-download-row-missing")
             throw AssertionError("Download folder row not found. Visible: " + device.findObjects(By.pkg(context.packageName)).mapNotNull { it.text }.distinct().take(40))
@@ -167,7 +180,7 @@ class SortAndSpeedTest {
         // Large files: tap the file row opens the viewer/chooser (app leaves the analysis list), folder icon opens its folder.
         var file = device.wait(Until.findObject(By.text("huge-fixture.bin")), 3000)
         tries = 0
-        while (file == null && tries++ < 12) { device.swipe(540, 1500, 540, 600, 12); device.waitForIdle(); file = device.findObject(By.text("huge-fixture.bin")) }
+        if (file == null) file = scrollToText("huge-fixture.bin")
         assertNotNull("large file row", file)
         screenshot("analysis-file-row")
         // The folder button on the same row as huge-fixture.bin (not the first button on the screen, which belongs to another file).
@@ -207,7 +220,7 @@ class SortAndSpeedTest {
         waitText(label("Main storage", "Hauptspeicher"))
         var bin = device.wait(Until.findObject(By.text("Papierkorb")), 3000)
         var swipes = 0
-        while (bin == null && swipes++ < 6) { device.swipe(540, 1500, 540, 700, 12); device.waitForIdle(); bin = device.findObject(By.text("Papierkorb")) }
+        if (bin == null) bin = scrollToText("Papierkorb")
         assertNotNull("Papierkorb tile reachable on dashboard", bin)
         screenshot("dashboard")
         // Delete from the real browser UI: long-press, select, delete, confirm.

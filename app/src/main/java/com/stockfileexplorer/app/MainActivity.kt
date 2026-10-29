@@ -10,6 +10,9 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
@@ -162,7 +165,13 @@ fun MainScaffold(initialBrowsePath: String? = null, initialStorageAnalysis: Bool
                     Box(Modifier.fillMaxSize().padding(padding)) {
                       com.stockfileexplorer.app.ui.YellowWaves(Modifier.fillMaxWidth().height(260.dp))
                       Column(Modifier.fillMaxSize()) {
-                        TopAppBar(title = { Text(stringResource(R.string.app_name)) },
+                        TopAppBar(title = {
+                            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                                Text(stringResource(R.string.app_name))
+                                Spacer(Modifier.width(10.dp))
+                                com.stockfileexplorer.app.ui.FolderGlyph(28.dp)
+                            }
+                        },
                             colors = TopAppBarDefaults.topAppBarColors(containerColor = androidx.compose.ui.graphics.Color.Transparent))
                         DashboardScreen(
                             onOpenStorage = { browsePath = storageRoot },

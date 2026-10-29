@@ -84,7 +84,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
-private val FolderYellow = Color(0xFFFFC107)
 private val thumbnailCache = android.util.LruCache<String, ImageBitmap>(400)
 // Few decode threads so scrolling a long list never starves the UI or the index scan.
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
@@ -806,12 +805,7 @@ private fun folderMetadata(
 @Composable
 fun FileIcon(item: FileItem, size: Int) {
     if (item.isDirectory) {
-        Icon(
-            imageVector = SfeIcons.Folder,
-            contentDescription = null,
-            tint = FolderYellow,
-            modifier = Modifier.size(size.dp)
-        )
+        FolderGlyph(size.dp)
     } else if (FileLogic.isImage(item.name) || item.category == FileCategory.VIDEOS) {
         val isVideo = item.category == FileCategory.VIDEOS
         val cacheKey = "${item.file.absolutePath}:${item.size}:${item.lastModified}"

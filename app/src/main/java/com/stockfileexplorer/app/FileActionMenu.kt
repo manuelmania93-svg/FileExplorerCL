@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -106,7 +107,11 @@ fun FileActionMenu(
 
 @Composable
 private fun MenuAction(label: String, onClick: () -> Unit) {
-    TextButton(onClick = onClick, modifier = Modifier.fillMaxWidth().height(40.dp)) {
+    TextButton(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth().height(40.dp),
+        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+    ) {
         Text(label, modifier = Modifier.fillMaxWidth(), maxLines = 1)
     }
 }
@@ -149,7 +154,10 @@ fun MenuCustomizationDialog(onDismiss: () -> Unit) {
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.done)) }
+            TextButton(
+                onClick = onDismiss,
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+            ) { Text(stringResource(R.string.done)) }
         },
     )
 }

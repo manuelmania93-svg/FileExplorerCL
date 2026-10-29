@@ -1,4 +1,4 @@
-name: Published 0.2.4 to 0.2.5 upgrade smoke
+name: Published 0.2.5 to 0.2.6 upgrade smoke
 on:
   push:
     branches: [test/upgrade-smoke-025]
@@ -24,7 +24,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p out
-          for t in v0.2.4 v0.2.5; do
+          for t in v0.2.5 v0.2.6; do
             gh api repos/${{ github.repository }}/releases/tags/$t --jq '.assets[] | [.name,.browser_download_url,.size,.digest] | @tsv' | tee -a out/assets.txt
             url=$(gh api repos/${{ github.repository }}/releases/tags/$t --jq '.assets[0].browser_download_url')
             curl -fL --retry 3 -o out/$t.apk "$url"

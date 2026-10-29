@@ -135,7 +135,8 @@ class SortAndSpeedTest {
         row!!.click()
         waitText("SfeSort")
         screenshot("analysis-folder-opened")
-        launch("storage_analysis" to true)
+        // Intended user path: system Back returns from the opened folder to the analysis.
+        device.pressBack(); device.waitForIdle()
         waitText(label("Storage analysis", "Speicheranalyse"))
         // Large files: tap the file row opens the viewer/chooser (app leaves the analysis list), folder icon opens its folder.
         var file = device.wait(Until.findObject(By.text("huge-fixture.bin")), 3000)

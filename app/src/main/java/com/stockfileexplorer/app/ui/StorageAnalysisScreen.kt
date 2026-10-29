@@ -51,10 +51,16 @@ import com.stockfileexplorer.app.data.FileLogic
 import com.stockfileexplorer.app.data.StorageAnalyzer
 import java.util.Locale
 
+class AnalysisHolder {
+    var report: StorageAnalyzer.Report? = null
+    val listState = androidx.compose.foundation.lazy.LazyListState()
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StorageAnalysisScreen(
     onBack: () -> Unit,
+    analysisHolder: AnalysisHolder = remember { AnalysisHolder() },
     onOpenFolder: (String) -> Unit = {},
     onOpenCategory: (FileCategory) -> Unit = {},
 ) {
@@ -62,10 +68,12 @@ fun StorageAnalysisScreen(
     val noApp = stringResource(R.string.no_app_to_open)
     val openFileAction: (java.io.File) -> Unit = { openFile(context, it, noApp) }
     var stage by remember { mutableStateOf<AnalysisStage?>(null) }
-    var report by remember { mutableStateOf<StorageAnalyzer.Report?>(null) }
-
+    // Held by the caller so opening a result and coming back keeps the finished report and scroll position.
+    var report by remember { mutableStateOf(analysisHolder.report) }
     LaunchedEffect(Unit) {
-        report = StorageAnalyzer.analyze({ stage = it }, onPartial = { report = it })
+        if (analysisHolder.report?.loading == false) return@LaunchedEffect
+        report = StorageAnalyzer.analyze({ stage = it }, onPartial = { report = it; analysisHolder.report = it })
+        analysisHolder.report = report
     }
 
     Column(Modifier.fillMaxSize()) {
@@ -88,6 +96,7 @@ fun StorageAnalysisScreen(
             val value = report!!
             if (value.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
             LazyColumn(
+                state = analysisHolder.listState,
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),

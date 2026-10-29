@@ -100,13 +100,15 @@ fun MainScaffold(initialBrowsePath: String? = null, initialStorageAnalysis: Bool
     var tab by remember { mutableIntStateOf(TAB_LOCAL) }
     var browsePath by remember { mutableStateOf<String?>(initialBrowsePath) }
     var libraryCategory by remember { mutableStateOf<FileCategory?>(null) }
+    val analysisHolder = remember { com.stockfileexplorer.app.ui.AnalysisHolder() }
     var showRecent by remember { mutableStateOf(false) }
     var showPapierkorb by remember { mutableStateOf(initialPapierkorb) }
     var showStorageAnalysis by remember { mutableStateOf(initialStorageAnalysis) }
     val storageRoot = remember { Environment.getExternalStorageDirectory().absolutePath }
 
     BackHandler(enabled = browsePath != null || showRecent || showStorageAnalysis || showPapierkorb) {
-        if (showPapierkorb) showPapierkorb = false else if (showStorageAnalysis) showStorageAnalysis = false else if (showRecent) showRecent = false else browsePath = null
+        // An open folder always closes first, so Back from a folder opened out of the analysis returns to it.
+        if (browsePath != null) browsePath = null else if (showPapierkorb) showPapierkorb = false else if (showStorageAnalysis) { showStorageAnalysis = false; analysisHolder.report = null } else if (showRecent) showRecent = false else browsePath = null
     }
 
     Scaffold(
@@ -143,7 +145,8 @@ fun MainScaffold(initialBrowsePath: String? = null, initialStorageAnalysis: Bool
                 } else if (showStorageAnalysis && path == null) {
                     Column(Modifier.fillMaxSize().padding(padding)) {
                         StorageAnalysisScreen(
-                            onBack = { showStorageAnalysis = false },
+                            onBack = { showStorageAnalysis = false; analysisHolder.report = null },
+                            analysisHolder = analysisHolder,
                             onOpenFolder = { browsePath = it },
                             onOpenCategory = { cat -> libraryCategory = cat; tab = TAB_LIBRARY }
                         )

@@ -235,6 +235,14 @@ fun DashboardScreen(
                 onClick = onOpenStorage
             )
         }
+        item {
+            CategoryCircle(
+                icon = Icons.Filled.Delete,
+                tint = Color(0xFF607D8B),
+                label = stringResource(R.string.papierkorb),
+                onClick = onOpenPapierkorb
+            )
+        }
         items(entries.size) { index ->
             val cat = entries[index]
             if (cat == null) {
@@ -261,14 +269,6 @@ fun DashboardScreen(
                     onClick = { onOpenCategory(cat) }
                 )
             }
-        }
-        item {
-            CategoryCircle(
-                icon = Icons.Filled.Delete,
-                tint = Color(0xFF607D8B),
-                label = stringResource(R.string.papierkorb),
-                onClick = onOpenPapierkorb
-            )
         }
     }
 }

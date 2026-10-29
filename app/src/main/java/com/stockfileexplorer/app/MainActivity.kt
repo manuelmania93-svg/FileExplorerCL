@@ -164,7 +164,7 @@ fun MainScaffold(initialBrowsePath: String? = null, initialStorageAnalysis: Bool
                     }
                 } else if (path == null) {
                     Box(Modifier.fillMaxSize().padding(padding)) {
-                      com.stockfileexplorer.app.ui.YellowWaves(Modifier.fillMaxWidth().height(260.dp))
+                      com.stockfileexplorer.app.ui.FolderBackdrop(Modifier.fillMaxWidth().height(260.dp))
                       Column(Modifier.fillMaxSize()) {
                         TopAppBar(title = {
                             Text(stringResource(R.string.app_name))

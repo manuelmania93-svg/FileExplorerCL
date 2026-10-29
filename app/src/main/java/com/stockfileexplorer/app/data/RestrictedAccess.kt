@@ -98,8 +98,12 @@ object RestrictedAccess {
         return ProbeResult(true, wrote, read, deleted)
     }
 
-    /** [ok] false carries the step that failed; [keptAs] names a leftover file when a replace stopped half way. */
-    data class OpResult(val ok: Boolean, val step: String, val keptAs: String? = null)
+    /**
+     * [ok] false carries the failed [step]. [leftover] names temporary files that could not be cleaned up;
+     * [backup] names the previous version, which is kept next to the new file after a replace (and is where
+     * the old content lives if a failed replace could not be rolled back).
+     */
+    data class OpResult(val ok: Boolean, val step: String, val leftover: List<String> = emptyList(), val backup: String? = null)
 
     private fun docUri(tree: Uri, docId: String) = DocumentsContract.buildDocumentUriUsingTree(tree, docId)
 
@@ -109,43 +113,78 @@ object RestrictedAccess {
         }
     } catch (e: Exception) { null }
 
+    private fun nameOf(context: Context, uri: Uri): String? = try {
+        context.contentResolver.query(uri, arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME), null, null, null)?.use { c ->
+            if (c.moveToFirst()) c.getString(0) else null
+        }
+    } catch (e: Exception) { null }
+
+    private fun sha256(input: java.io.InputStream): ByteArray {
+        val md = java.security.MessageDigest.getInstance("SHA-256")
+        val buf = ByteArray(64 * 1024)
+        input.use { i -> while (true) { val n = i.read(buf); if (n < 0) break; md.update(buf, 0, n) } }
+        return md.digest()
+    }
+
     /**
-     * Copies [source] into [parentDocId] under [name], inside the user's grant, through the provider.
-     * An existing file is only replaced when [overwrite] is true, and then safely: the new content is
-     * copied next to it as a temporary file and size-checked first; the old file is removed and the
-     * temporary one renamed only after that. If any step fails the existing file is kept.
+     * Copies [source] into [parentDocId] as [name], inside the user's grant, through the provider.
+     * Nothing existing is overwritten unless [overwrite] is true, and a replace never deletes the old file:
+     * 1. the new content is copied to NAME.sfe-new and checked (reported size and SHA-256 read back);
+     * 2. the old file is renamed to NAME.sfe-backup (replace is refused if the provider cannot rename);
+     * 3. the new file is renamed to NAME; if that fails the old file is renamed back.
+     * The only thing ever deleted is the temporary file this call created. The backup stays until the user
+     * removes it. [openSource] exists so tests can inject a failing source.
      */
-    fun importFile(context: Context, tree: Uri, parentDocId: String, source: Uri, name: String, overwrite: Boolean): OpResult {
+    fun importFile(
+        context: Context, tree: Uri, parentDocId: String, source: Uri, name: String, overwrite: Boolean,
+        openSource: (Uri) -> java.io.InputStream? = { context.contentResolver.openInputStream(it) },
+    ): OpResult {
         val resolver = context.contentResolver
-        val existing = (list(context, tree, parentDocId) ?: return OpResult(false, "list")).firstOrNull { it.name == name }
+        val children = list(context, tree, parentDocId) ?: return OpResult(false, "list")
+        val existing = children.firstOrNull { it.name == name }
         if (existing != null && existing.isDirectory) return OpResult(false, "is a folder")
         if (existing != null && !overwrite) return OpResult(false, "exists")
         val parent = docUri(tree, parentDocId)
-        val tempName = if (existing == null) name else "$name.sfe-new"
-        val dest = try { DocumentsContract.createDocument(resolver, parent, "application/octet-stream", tempName) } catch (e: Exception) { null }
+        val dest = try { DocumentsContract.createDocument(resolver, parent, "application/octet-stream", if (existing == null) name else "$name.sfe-new") } catch (e: Exception) { null }
             ?: return OpResult(false, "create")
-        var copied = -1L
+        val tempName = nameOf(context, dest) ?: "$name.sfe-new"
+        val leftover = ArrayList<String>()
+        fun discardTemp() {
+            val ok = try { DocumentsContract.deleteDocument(resolver, dest) } catch (e: Exception) { false }
+            if (!ok) leftover += tempName
+        }
+        var copied = 0L
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
         try {
-            val input = resolver.openInputStream(source) ?: throw IllegalStateException("no input")
+            val input = openSource(source) ?: throw IllegalStateException("no input")
             val output = resolver.openOutputStream(dest, "w") ?: throw IllegalStateException("no output")
-            copied = input.use { i -> output.use { o -> i.copyTo(o) } }
+            input.use { i -> output.use { o ->
+                val buf = ByteArray(64 * 1024)
+                while (true) { val n = i.read(buf); if (n < 0) break; o.write(buf, 0, n); digest.update(buf, 0, n); copied += n }
+            } }
         } catch (e: Exception) {
-            try { DocumentsContract.deleteDocument(resolver, dest) } catch (_: Exception) {}
-            return OpResult(false, "copy")
+            discardTemp(); return OpResult(false, "copy", leftover)
         }
         val reported = sizeOf(context, dest)
-        if (reported != null && reported != copied) {
-            try { DocumentsContract.deleteDocument(resolver, dest) } catch (_: Exception) {}
-            return OpResult(false, "size check")
-        }
+        if (reported != null && reported != copied) { discardTemp(); return OpResult(false, "size check", leftover) }
+        val back = try { resolver.openInputStream(dest)?.let { sha256(it) } } catch (e: Exception) { null }
+        if (back == null || !back.contentEquals(digest.digest())) { discardTemp(); return OpResult(false, "content check", leftover) }
         if (existing == null) return OpResult(true, "done")
-        val removed = try { DocumentsContract.deleteDocument(resolver, docUri(tree, existing.docId)) } catch (e: Exception) { false }
-        if (!removed) {
-            try { DocumentsContract.deleteDocument(resolver, dest) } catch (_: Exception) {}
-            return OpResult(false, "replace old file")
-        }
+
+        val taken = children.map { it.name }.toSet()
+        var backupName = "$name.sfe-backup"
+        var n = 2
+        while (backupName in taken) backupName = "$name.sfe-backup-${n++}"
+        val backupUri = try { DocumentsContract.renameDocument(resolver, docUri(tree, existing.docId), backupName) } catch (e: Exception) { null }
+        if (backupUri == null) { discardTemp(); return OpResult(false, "keep old file as backup", leftover) }
         val renamed = try { DocumentsContract.renameDocument(resolver, dest, name) } catch (e: Exception) { null }
-        return if (renamed != null) OpResult(true, "done") else OpResult(false, "rename", keptAs = tempName)
+        if (renamed == null) {
+            val restored = try { DocumentsContract.renameDocument(resolver, backupUri, name) } catch (e: Exception) { null }
+            if (restored == null) return OpResult(false, "restore old file", listOf(tempName), backup = backupName)
+            discardTemp()
+            return OpResult(false, "rename", leftover)
+        }
+        return OpResult(true, "done", backup = backupName)
     }
 
     /** Copies a granted file into a normal folder under a name that does not exist yet. Never overwrites. */

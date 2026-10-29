@@ -185,6 +185,8 @@
     <string name="restricted_op_failed">Nicht ausgeführt (Schritt: %1$s). Android oder der Ordner-Provider hat es abgelehnt. Vorhandene Dateien blieben unverändert.</string>
     <string name="restricted_copied_out">Nach Download kopiert als %1$s</string>
     <string name="restricted_overwrite_title">Vorhandene Datei ersetzen?</string>
-    <string name="restricted_overwrite_body">%1$s existiert in diesem Ordner bereits. Die neue Datei wird zuerst daneben kopiert und geprüft; erst danach wird die alte entfernt und die neue umbenannt. Schlägt ein Schritt fehl, bleibt die alte Datei erhalten.</string>
+    <string name="restricted_overwrite_body">%1$s existiert in diesem Ordner bereits. Die neue Datei wird zuerst daneben kopiert und geprüft. Danach wird die alte Datei in %1$s.sfe-backup umbenannt und behalten, und die neue übernimmt den Namen. Schlägt ein Schritt fehl, wird die alte Datei zurückgesetzt. Nichts wird gelöscht; entferne die Sicherung selbst, wenn du sie nicht mehr brauchst.</string>
     <string name="restricted_overwrite_run">Ersetzen</string>
+    <string name="restricted_replaced">%1$s ersetzt. Die vorherige Version bleibt als %2$s erhalten.</string>
+    <string name="restricted_kept_files">Im Ordner verbliebene Dateien: %1$s</string>
 </resources>

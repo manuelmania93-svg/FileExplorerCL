@@ -51,15 +51,19 @@ fun RestrictedAccessPanel(path: String, kind: String) {
     val doneImport = stringResource(R.string.restricted_import_done)
     val failedOp = stringResource(R.string.restricted_op_failed)
     val copiedOut = stringResource(R.string.restricted_copied_out)
+    val replacedMsg = stringResource(R.string.restricted_replaced)
+    val keptNote = stringResource(R.string.restricted_kept_files)
     fun runImport(source: Uri, name: String, overwrite: Boolean) {
         val t = tree ?: return
         val folder = docId
         scope.launch {
             val r = withContext(Dispatchers.IO) { RestrictedAccess.importFile(context, t, folder, source, name, overwrite) }
+            val extra = (r.leftover + listOfNotNull(r.backup)).joinToString(", ")
             val text = when {
+                r.ok && r.backup != null -> replacedMsg.format(name, r.backup)
                 r.ok -> doneImport.format(name)
                 r.step == "exists" -> { pendingSource = source to name; null }
-                r.keptAs != null -> failedOp.format(r.step) + " " + r.keptAs
+                extra.isNotEmpty() -> failedOp.format(r.step) + " " + keptNote.format(extra)
                 else -> failedOp.format(r.step)
             }
             if (text != null) Toast.makeText(context, text, Toast.LENGTH_LONG).show()

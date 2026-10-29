@@ -29,6 +29,7 @@ class RestrictedOperationsTest {
     private val srcDir = File(context.cacheDir, "sfe-ops-src")
 
     @Before fun clean() {
+        TestDocumentsProvider.reset()
         provRoot.deleteRecursively(); provRoot.mkdirs(); srcDir.deleteRecursively(); srcDir.mkdirs()
     }
 
@@ -50,21 +51,97 @@ class RestrictedOperationsTest {
         assertEquals(listOf("save.bin"), names())
     }
 
-    @Test fun confirmedReplaceSwapsContentAndLeavesNoTemporaryFile() {
-        File(provRoot, "save.bin").writeText("original")
-        val r = RestrictedAccess.importFile(context, tree, "root", source("save.bin", "modified-content"), "save.bin", overwrite = true)
-        assertTrue("replace: ${r.step}", r.ok)
-        assertEquals("modified-content", File(provRoot, "save.bin").readText())
-        assertEquals(listOf("save.bin"), names())
+    private fun orig() = File(provRoot, "save.bin").apply { writeText("original") }
+    private fun replace(openSource: ((Uri) -> java.io.InputStream?)? = null): RestrictedAccess.OpResult {
+        val src = source("save.bin", "modified-content")
+        return if (openSource == null) RestrictedAccess.importFile(context, tree, "root", src, "save.bin", overwrite = true)
+        else RestrictedAccess.importFile(context, tree, "root", src, "save.bin", overwrite = true, openSource = openSource)
     }
 
-    @Test fun failedCopyKeepsExistingFileAndLeavesNothingBehind() {
-        File(provRoot, "save.bin").writeText("original")
-        val missing = Uri.fromFile(File(srcDir, "does-not-exist.bin"))
-        val r = RestrictedAccess.importFile(context, tree, "root", missing, "save.bin", overwrite = true)
+    @Test fun confirmedReplaceKeepsTheOldVersionAsBackup() {
+        orig()
+        val r = replace()
+        assertTrue("replace: ${r.step}", r.ok)
+        assertEquals("modified-content", File(provRoot, "save.bin").readText())
+        assertEquals("save.bin.sfe-backup", r.backup)
+        assertEquals("original", File(provRoot, "save.bin.sfe-backup").readText())
+        assertEquals(listOf("save.bin", "save.bin.sfe-backup"), names())
+    }
+
+    @Test fun partialOutputKeepsOriginalAndLeavesNoTemporaryFile() {
+        orig()
+        val r = replace { _ -> object : java.io.InputStream() {
+            var n = 0
+            override fun read(): Int { if (n++ > 3) throw java.io.IOException("source died"); return 'x'.code }
+        } }
         assertFalse(r.ok); assertEquals("copy", r.step)
         assertEquals("original", File(provRoot, "save.bin").readText())
         assertEquals(listOf("save.bin"), names())
+    }
+
+    @Test fun failedCopyOfMissingSourceKeepsOriginal() {
+        orig()
+        val r = RestrictedAccess.importFile(context, tree, "root", Uri.fromFile(File(srcDir, "none.bin")), "save.bin", overwrite = true)
+        assertFalse(r.ok); assertEquals("copy", r.step)
+        assertEquals("original", File(provRoot, "save.bin").readText())
+        assertEquals(listOf("save.bin"), names())
+    }
+
+    @Test fun reportedSizeMismatchKeepsOriginal() {
+        orig(); TestDocumentsProvider.reportShortSizeForNew = true
+        val r = replace()
+        assertFalse(r.ok); assertEquals("size check", r.step)
+        assertEquals("original", File(provRoot, "save.bin").readText())
+        assertEquals(listOf("save.bin"), names())
+    }
+
+    @Test fun sameLengthButDifferentContentIsCaughtByTheHashCheck() {
+        orig(); TestDocumentsProvider.corruptReadbackOfNew = true
+        val r = replace()
+        assertFalse(r.ok); assertEquals("content check", r.step)
+        assertEquals("original", File(provRoot, "save.bin").readText())
+        assertEquals(listOf("save.bin"), names())
+    }
+
+    @Test fun cleanupFailureIsReportedAndOriginalIsStillThere() {
+        orig(); TestDocumentsProvider.corruptReadbackOfNew = true; TestDocumentsProvider.failDelete = true
+        val r = replace()
+        assertFalse(r.ok); assertEquals("content check", r.step)
+        assertEquals(listOf("save.bin.sfe-new"), r.leftover)
+        assertEquals("original", File(provRoot, "save.bin").readText())
+    }
+
+    @Test fun refusedBackupRenameRefusesTheReplaceAndTouchesNothing() {
+        orig(); TestDocumentsProvider.failRenameAlwaysTo = setOf("save.bin.sfe-backup")
+        val r = replace()
+        assertFalse(r.ok); assertEquals("keep old file as backup", r.step)
+        assertEquals("original", File(provRoot, "save.bin").readText())
+        assertEquals(listOf("save.bin"), names())
+    }
+
+    @Test fun failedFinalRenameRollsTheOldFileBack() {
+        orig(); TestDocumentsProvider.failRenameOnceTo = mutableSetOf("save.bin")
+        val r = replace()
+        assertFalse(r.ok); assertEquals("rename", r.step)
+        assertEquals("original", File(provRoot, "save.bin").readText())
+        assertEquals(listOf("save.bin"), names())
+    }
+
+    @Test fun failedFinalRenameAndFailedRollbackNamesWhereTheOldFileIs() {
+        orig(); TestDocumentsProvider.failRenameAlwaysTo = setOf("save.bin")
+        val r = replace()
+        assertFalse(r.ok); assertEquals("restore old file", r.step)
+        assertEquals("save.bin.sfe-backup", r.backup)
+        assertEquals("original", File(provRoot, "save.bin.sfe-backup").readText())
+        assertEquals(listOf("save.bin.sfe-backup", "save.bin.sfe-new"), names())
+    }
+
+    @Test fun deleteIsNeverCalledOnTheOriginal() {
+        orig(); TestDocumentsProvider.failDelete = true  // any delete would throw
+        val r = replace()
+        assertTrue("replace should not need delete: ${r.step}", r.ok)
+        assertEquals("modified-content", File(provRoot, "save.bin").readText())
+        assertEquals("original", File(provRoot, "save.bin.sfe-backup").readText())
     }
 
     @Test fun copyOutNeverOverwritesAnExistingFile() {

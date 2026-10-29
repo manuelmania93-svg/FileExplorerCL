@@ -58,11 +58,14 @@ class BuiltInViewersTest {
         waitText("ViewerSamples");device.findObject(By.text("ViewerSamples")).click()
     }
     private fun open(name: String) {
-        if (!device.hasObject(By.text(name))) {
-            repeat(10) { if (!device.hasObject(By.text(name))) device.swipe(300, 900, 300, 300, 20) }
-        }
-        if (!device.hasObject(By.text(name))) {
-            repeat(12) { if (!device.hasObject(By.text(name))) device.swipe(300, 300, 300, 900, 20) }
+        // The index keeps refreshing while the test runs and can reset the list's scroll
+        // position mid-swipe, so poll with a time budget instead of fixed swipe counts.
+        val deadline = android.os.SystemClock.uptimeMillis() + 60000
+        var downward = true
+        while (!device.hasObject(By.text(name)) && android.os.SystemClock.uptimeMillis() < deadline) {
+            if (downward) device.swipe(300, 900, 300, 300, 20) else device.swipe(300, 300, 300, 900, 20)
+            downward = !downward
+            device.waitForIdle()
         }
         waitText(name);device.findObject(By.text(name)).click()
         assertTrue(device.wait(Until.hasObject(By.pkg(context.packageName)), 5000))
@@ -149,8 +152,13 @@ class BuiltInViewersTest {
         assertFalse(com.stockfileexplorer.app.data.Rename.move(File(root,"renamed.txt"),"../escape.txt"))
     }
     private fun openInList(name: String): androidx.test.uiautomator.UiObject2 {
-        repeat(12) { if (!device.hasObject(By.text(name))) device.swipe(300,900,300,300,20) }
-        repeat(12) { if (!device.hasObject(By.text(name))) device.swipe(300,300,300,900,20) }
+        val deadline = android.os.SystemClock.uptimeMillis() + 60000
+        var downward = true
+        while (!device.hasObject(By.text(name)) && android.os.SystemClock.uptimeMillis() < deadline) {
+            if (downward) device.swipe(300,900,300,300,20) else device.swipe(300,300,300,900,20)
+            downward = !downward
+            device.waitForIdle()
+        }
         return device.wait(Until.findObject(By.text(name)),5000) ?: throw AssertionError("Missing $name")
     }
     @Test fun archiveSafetyAndRepeatExtraction() {

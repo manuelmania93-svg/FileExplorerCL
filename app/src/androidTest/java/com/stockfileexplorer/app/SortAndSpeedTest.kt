@@ -232,7 +232,7 @@ class SortAndSpeedTest {
         screenshot("delete-confirm")
         // The bar's own Delete label stays visible behind the dialog, so confirm via the
         // dialog button's resource tag instead of an ambiguous text match.
-        device.wait(Until.findObject(By.res("com.stockfileexplorer.app:id/dialog_confirm")), 5000)?.click()
+        device.wait(Until.findObject(By.res("dialog_confirm")), 5000)?.click()
             ?: throw AssertionError("delete confirm button missing")
         device.waitForIdle()
         Thread.sleep(1500)

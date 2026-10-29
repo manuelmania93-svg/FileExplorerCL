@@ -166,17 +166,15 @@ fun MainScaffold(initialBrowsePath: String? = null, initialStorageAnalysis: Bool
                     Box(Modifier.fillMaxSize().padding(padding)) {
                       com.stockfileexplorer.app.ui.YellowWaves(Modifier.fillMaxWidth().height(260.dp))
                       Column(Modifier.fillMaxSize()) {
-                        TopAppBar(title = {
-                            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                                Text(stringResource(R.string.app_name))
-                                Spacer(Modifier.width(10.dp))
+                        TopAppBar(title = { Text(stringResource(R.string.app_name)) },
+                            actions = {
                                 androidx.compose.foundation.Image(
                                     painter = androidx.compose.ui.res.painterResource(R.drawable.app_logo_header),
                                     contentDescription = null,
-                                    modifier = Modifier.size(44.dp)
+                                    modifier = Modifier.size(56.dp)
                                 )
-                            }
-                        },
+                                Spacer(Modifier.width(16.dp))
+                            },
                             colors = TopAppBarDefaults.topAppBarColors(containerColor = androidx.compose.ui.graphics.Color.Transparent))
                         DashboardScreen(
                             onOpenStorage = { browsePath = storageRoot },

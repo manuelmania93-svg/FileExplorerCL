@@ -94,7 +94,8 @@ fun StorageAnalysisScreen(
             )
         } else {
             val value = report!!
-            if (value.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
+            // The bar area is always reserved, so finishing the analysis does not move the rows the user is about to tap.
+            Box(Modifier.fillMaxWidth().height(4.dp)) { if (value.loading) LinearProgressIndicator(Modifier.fillMaxWidth()) }
             LazyColumn(
                 state = analysisHolder.listState,
                 modifier = Modifier.fillMaxSize(),

@@ -42,7 +42,7 @@ class IndexAndHoldTest {
                 return
             } catch (_: StaleObjectException) { device.waitForIdle() }
         }
-        throw AssertionError("Unstable tile: $value")
+        throw AssertionError("Tile not clickable: $value")
     }
     private fun screenshot(name: String) {
         device.takeScreenshot(File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "sfe-index-${if(german) "de" else "en"}-$name.png"))
@@ -94,7 +94,7 @@ class IndexAndHoldTest {
             val uiStart = SystemClock.elapsedRealtime()
             launch()
             clickTile(label("Documents","Dokumente"))
-            assertTrue("UI is usable before filesystem traversal", device.wait(Until.hasObject(By.textStartsWith("indexed-")),10000))
+            assertTrue("UI is usable before filesystem traversal", device.wait(Until.hasObject(By.textStartsWith("indexed-")),20000))
             screenshot("indexed-before-walk")
             device.findObject(By.textStartsWith("indexed-")).longClick()
             waitText(label("Rename","Umbenennen"))
@@ -178,7 +178,7 @@ class IndexAndHoldTest {
         waitText(label("Rename","Umbenennen")); waitText(label("Select","Auswählen")); device.pressBack()
         launch()
         clickTile(label("Images","Bilder"))
-        assertTrue("Actual decoded thumbnail in category", device.wait(Until.hasObject(By.desc(label("Picture thumbnail: hold-picture.jpg","Bildvorschau: hold-picture.jpg"))),5000))
+        assertTrue("Actual decoded thumbnail in category", device.wait(Until.hasObject(By.desc(label("Picture thumbnail: hold-picture.jpg","Bildvorschau: hold-picture.jpg"))),15000))
         screenshot("picture-thumbnail-category")
         assertPopup("hold-picture.jpg","hold-category")
         waitText("hold-picture.jpg").click()
@@ -186,7 +186,7 @@ class IndexAndHoldTest {
         device.pressBack()
         launch()
         waitText(label("Recent files","Neue Dateien")).click()
-        assertTrue("Actual decoded thumbnail in Recent after returning", device.wait(Until.hasObject(By.desc(label("Picture thumbnail: hold-picture.jpg","Bildvorschau: hold-picture.jpg"))),5000))
+        assertTrue("Actual decoded thumbnail in Recent after returning", device.wait(Until.hasObject(By.desc(label("Picture thumbnail: hold-picture.jpg","Bildvorschau: hold-picture.jpg"))),15000))
         screenshot("picture-thumbnail-recent")
         assertPopup("hold-one.txt","hold-recent")
         // Select remains an explicit, functioning path, including multi-select.

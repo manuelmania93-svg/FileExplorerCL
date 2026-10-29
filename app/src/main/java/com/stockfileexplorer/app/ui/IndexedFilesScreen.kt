@@ -16,6 +16,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import android.os.Environment
+import com.stockfileexplorer.app.FileActionCallbacks
+import com.stockfileexplorer.app.FileActionMenu
+import com.stockfileexplorer.app.FileActionPreferences
+import com.stockfileexplorer.app.FileOperations
+import com.stockfileexplorer.app.MenuCustomizationDialog
 import com.stockfileexplorer.app.R
 import com.stockfileexplorer.app.data.*
 import kotlinx.coroutines.Dispatchers
@@ -34,7 +40,13 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
     var menu by remember { mutableStateOf<FileItem?>(null) }
     var rename by remember { mutableStateOf<FileItem?>(null) }
     var deletes by remember { mutableStateOf<List<java.io.File>>(emptyList()) }
+    var properties by remember { mutableStateOf<FileItem?>(null) }
+    var transferSources by remember { mutableStateOf<List<FileItem>>(emptyList()) }
+    var transferMove by remember { mutableStateOf(false) }
+    var showMenuCustomization by remember { mutableStateOf(false) }
+    var favoritePaths by remember { mutableStateOf(FileActionPreferences.favoritePaths(context)) }
     val noApp = stringResource(R.string.no_app_to_open)
+    val openWithTitle = stringResource(R.string.open_with)
     fun toggle(path: String) { selection = if (path in selection) selection - path else selection + path }
     LaunchedEffect(category, status.revision, limit) {
         page = FileIndex.page(category, limit)
@@ -64,7 +76,17 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
                     onLongClick = { if (selection.isNotEmpty()) toggle(item.file.absolutePath) else menu = item }
                 ).padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (selection.isNotEmpty()) Checkbox(item.file.absolutePath in selection, { toggle(item.file.absolutePath) })
-                    FileIcon(item, 40)
+                    Box {
+                        FileIcon(item, 40)
+                        if (item.file.absolutePath in favoritePaths) {
+                            Icon(
+                                SfeIcons.Star,
+                                contentDescription = stringResource(R.string.favorite),
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.align(Alignment.TopStart).size(16.dp),
+                            )
+                        }
+                    }
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
                         Text(item.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -81,10 +103,84 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
         }
     }
     menu?.let { item ->
-        FileActionMenu(item.name, false, { menu = null },
-            { openFile(context, item.file, noApp) }, { rename = item },
-            { shareFiles(context, listOf(item.file)) }, { deletes = listOf(item.file) },
-            { selection = setOf(item.file.absolutePath) })
+        FileActionMenu(
+            name = item.name,
+            isDirectory = false,
+            isFavorite = item.file.absolutePath in favoritePaths,
+            onDismiss = { menu = null },
+            callbacks = FileActionCallbacks(
+                onOpen = { openFile(context, item.file, noApp) },
+                onCopy = {
+                    transferSources = listOf(item)
+                    transferMove = false
+                },
+                onMove = {
+                    transferSources = listOf(item)
+                    transferMove = true
+                },
+                onRename = { rename = item },
+                onProperties = { properties = item },
+                onFavorite = {
+                    val nowFavorite = FileActionPreferences.toggleFavorite(context, item.file.absolutePath)
+                    favoritePaths = FileActionPreferences.favoritePaths(context)
+                    Toast.makeText(
+                        context,
+                        if (nowFavorite) R.string.favorite_added else R.string.favorite_removed,
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                },
+                onShare = { shareFiles(context, listOf(item.file)) },
+                onOpenWith = { openFileWithChooser(context, item.file, openWithTitle, noApp) },
+                onDelete = { deletes = listOf(item.file) },
+                onSelect = { selection = setOf(item.file.absolutePath) },
+                onCustomize = { showMenuCustomization = true },
+            ),
+        )
+    }
+    if (transferSources.isNotEmpty()) {
+        FolderPickerDialog(
+            title = stringResource(
+                if (transferMove) R.string.choose_move_destination else R.string.choose_copy_destination
+            ),
+            confirmLabel = stringResource(if (transferMove) R.string.move_here else R.string.copy_here),
+            rootPath = Environment.getExternalStorageDirectory().absolutePath,
+            blockedPaths = emptySet(),
+            onDismiss = { transferSources = emptyList() },
+            onConfirm = { destination ->
+                val sources = transferSources
+                val move = transferMove
+                transferSources = emptyList()
+                scope.launch {
+                    val succeeded = withContext(Dispatchers.IO) {
+                        sources.filter { FileOperations.transfer(it.file, destination, move) }
+                    }
+                    if (succeeded.isNotEmpty()) {
+                        Toast.makeText(
+                            context,
+                            if (move) R.string.moved_ok else R.string.copied_ok,
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                        FileIndex.invalidate()
+                    } else {
+                        Toast.makeText(context, R.string.transfer_failed, Toast.LENGTH_SHORT).show()
+                    }
+                }
+            },
+        )
+    }
+    properties?.let { item ->
+        PropertiesDialog(
+            name = item.name,
+            path = item.file.absolutePath,
+            isDirectory = false,
+            sizeBytes = item.size,
+            modified = item.lastModified,
+            favorite = item.file.absolutePath in favoritePaths,
+            onDismiss = { properties = null },
+        )
+    }
+    if (showMenuCustomization) {
+        MenuCustomizationDialog(onDismiss = { showMenuCustomization = false })
     }
     rename?.let { item ->
         TextInputDialog(title = stringResource(R.string.rename), initialValue = item.name,

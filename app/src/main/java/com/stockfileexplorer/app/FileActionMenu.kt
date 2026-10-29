@@ -10,9 +10,25 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.ui.graphics.vector.ImageVector
+import com.stockfileexplorer.app.ui.SfeIcons
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
@@ -59,60 +75,76 @@ fun FileActionMenu(
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
-            shape = MaterialTheme.shapes.large,
+            shape = RoundedCornerShape(24.dp),
             tonalElevation = 4.dp,
         ) {
-            Column(Modifier.padding(16.dp)) {
-            Text(name, style = MaterialTheme.typography.titleMedium)
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                modifier = Modifier.heightIn(max = 420.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                items(FileMenuAction.entries) { action ->
-                    if (action !in visible || (action.filesOnly && isDirectory)) return@items
-                    val label = if (action == FileMenuAction.FAVORITE && isFavorite) {
-                        stringResource(R.string.remove_favorite)
-                    } else {
-                        stringResource(action.labelRes)
-                    }
-                    MenuAction(label) {
-                        onDismiss()
-                        when (action) {
-                            FileMenuAction.OPEN -> callbacks.onOpen()
-                            FileMenuAction.COPY -> callbacks.onCopy()
-                            FileMenuAction.MOVE -> callbacks.onMove()
-                            FileMenuAction.RENAME -> callbacks.onRename()
-                            FileMenuAction.PROPERTIES -> callbacks.onProperties()
-                            FileMenuAction.FAVORITE -> callbacks.onFavorite()
-                            FileMenuAction.SHARE -> callbacks.onShare()
-                            FileMenuAction.OPEN_WITH -> callbacks.onOpenWith()
-                            FileMenuAction.DELETE -> callbacks.onDelete()
-                            FileMenuAction.SELECT -> callbacks.onSelect()
+            Column(Modifier.padding(vertical = 8.dp)) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(if (isDirectory) SfeIcons.Folder else SfeIcons.InsertDriveFile, null,
+                        tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
+                    Spacer(Modifier.width(14.dp))
+                    Text(name, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
+                HorizontalDivider()
+                LazyColumn(Modifier.heightIn(max = 440.dp)) {
+                    items(FileMenuAction.entries) { action ->
+                        if (action !in visible || (action.filesOnly && isDirectory)) return@items
+                        val label = if (action == FileMenuAction.FAVORITE && isFavorite) {
+                            stringResource(R.string.remove_favorite)
+                        } else {
+                            stringResource(action.labelRes)
+                        }
+                        MenuAction(menuIcon(action), label) {
+                            onDismiss()
+                            when (action) {
+                                FileMenuAction.OPEN -> callbacks.onOpen()
+                                FileMenuAction.COPY -> callbacks.onCopy()
+                                FileMenuAction.MOVE -> callbacks.onMove()
+                                FileMenuAction.RENAME -> callbacks.onRename()
+                                FileMenuAction.PROPERTIES -> callbacks.onProperties()
+                                FileMenuAction.FAVORITE -> callbacks.onFavorite()
+                                FileMenuAction.SHARE -> callbacks.onShare()
+                                FileMenuAction.OPEN_WITH -> callbacks.onOpenWith()
+                                FileMenuAction.DELETE -> callbacks.onDelete()
+                                FileMenuAction.SELECT -> callbacks.onSelect()
+                            }
                         }
                     }
-                }
-                item {
-                    MenuAction(stringResource(R.string.customize_menu)) {
-                        onDismiss()
-                        callbacks.onCustomize()
+                    item {
+                        HorizontalDivider(Modifier.padding(top = 4.dp))
+                        MenuAction(Icons.Filled.Settings, stringResource(R.string.customize_menu)) {
+                            onDismiss()
+                            callbacks.onCustomize()
+                        }
                     }
                 }
             }
         }
     }
 }
+
+private fun menuIcon(action: FileMenuAction): ImageVector = when (action) {
+    FileMenuAction.OPEN -> Icons.Filled.PlayArrow
+    FileMenuAction.COPY -> SfeIcons.InsertDriveFile
+    FileMenuAction.MOVE -> Icons.Filled.ArrowForward
+    FileMenuAction.RENAME -> Icons.Filled.Edit
+    FileMenuAction.PROPERTIES -> Icons.Filled.Info
+    FileMenuAction.FAVORITE -> SfeIcons.Star
+    FileMenuAction.SHARE -> Icons.Filled.Share
+    FileMenuAction.OPEN_WITH -> Icons.Filled.ExitToApp
+    FileMenuAction.DELETE -> Icons.Filled.Delete
+    FileMenuAction.SELECT -> SfeIcons.CheckBox
 }
 
 @Composable
-private fun MenuAction(label: String, onClick: () -> Unit) {
-    TextButton(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth().height(40.dp),
-        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+private fun MenuAction(icon: ImageVector, label: String, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(onClick = onClick).padding(horizontal = 20.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, modifier = Modifier.fillMaxWidth(), maxLines = 1)
+        Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
+        Spacer(Modifier.width(18.dp))
+        Text(label, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 

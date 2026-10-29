@@ -93,6 +93,10 @@
     <string name="storage_analysis">Speicheranalyse</string>
     <string name="analysis_partial">Einige Ordner konnten nicht vollständig analysiert werden.</string>
     <string name="analysis_indexed_scope">Kategorien zählen Dateien aus dem App-Index. Der übrige belegte Speicher enthält private App-Daten, Systemdaten und nicht indexierten Speicher.</string>
+    <string name="storage_pyramid">Speicher-Pyramide</string>
+    <string name="storage_pyramid_note">Die Ebenenflächen entsprechen dem belegten Speicher. Die graue Ebene enthält private App-Daten, Systemdaten und nicht indexierten Speicher.</string>
+    <string name="storage_pyramid_note_indexed">Die Ebenenflächen entsprechen dem indexierten belegten Speicher.</string>
+    <string name="other_used_storage">Übriger belegter Speicher</string>
     <string name="categories">Kategorien</string>
     <string name="largest_folders">Größte Ordner</string>
     <string name="analysis_folder_value">%1$s • %2$d Dateien</string>

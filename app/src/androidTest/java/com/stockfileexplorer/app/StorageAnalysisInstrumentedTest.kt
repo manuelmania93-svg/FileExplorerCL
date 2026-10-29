@@ -71,6 +71,9 @@ class StorageAnalysisInstrumentedTest {
             "Categories count files visible in the app index. Remaining used space includes private app data, system data, and unindexed storage.",
             "Kategorien zählen Dateien aus dem App-Index. Der übrige belegte Speicher enthält private App-Daten, Systemdaten und nicht indexierten Speicher.",
         ))
+        waitText(label("Storage pyramid", "Speicher-Pyramide"))
+        waitText(label("Other used storage", "Übriger belegter Speicher"))
+        screenshot("sfe-storage-analysis-pyramid-${if (german) "de" else "en"}")
         waitText(label("Categories", "Kategorien"))
         waitText(label("Largest folders", "Größte Ordner"))
         waitText("Download")

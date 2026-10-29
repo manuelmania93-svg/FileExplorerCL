@@ -730,7 +730,7 @@ fun FileGridCell(
     statsProvisional: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
-    onMenu: () -> Unit
+    onMenu: () -> Unit = {}
 ) {
     Card(
         modifier = Modifier

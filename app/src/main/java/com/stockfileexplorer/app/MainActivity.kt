@@ -170,13 +170,9 @@ fun MainScaffold(initialBrowsePath: String? = null, initialStorageAnalysis: Bool
                             Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                                 Text(stringResource(R.string.app_name))
                                 Spacer(Modifier.width(10.dp))
-                                androidx.compose.ui.viewinterop.AndroidView(
-                                    factory = { ctx ->
-                                        android.widget.ImageView(ctx).apply {
-                                            setImageResource(R.mipmap.ic_launcher)
-                                            importantForAccessibility = android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO
-                                        }
-                                    },
+                                androidx.compose.foundation.Image(
+                                    painter = androidx.compose.ui.res.painterResource(R.drawable.app_logo_header),
+                                    contentDescription = null,
                                     modifier = Modifier.size(36.dp)
                                 )
                             }

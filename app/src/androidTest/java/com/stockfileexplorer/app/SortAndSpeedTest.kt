@@ -133,7 +133,12 @@ class SortAndSpeedTest {
         while (row == null && tries++ < 8) { device.swipe(540, 1500, 540, 600, 12); device.waitForIdle(); row = device.findObject(By.text("Download")) }
         assertNotNull("Download folder row", row)
         row!!.click()
-        waitText("SfeSort")
+        device.waitForIdle(); Thread.sleep(2500)
+        if (device.findObject(By.text("SfeSort")) == null) {
+            screenshot("analysis-folder-missing")
+            val seen = device.findObjects(By.pkg(context.packageName)).mapNotNull { it.text }.distinct().take(40)
+            throw AssertionError("After opening Download, SfeSort not shown. Visible texts: $seen")
+        }
         screenshot("analysis-folder-opened")
         // Intended user path: system Back returns from the opened folder to the analysis.
         device.pressBack(); device.waitForIdle()

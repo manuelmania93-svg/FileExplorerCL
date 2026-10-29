@@ -3,6 +3,8 @@ package com.stockfileexplorer.app.ui
 import android.os.Environment
 import android.os.StatFs
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -227,21 +229,11 @@ fun DashboardScreen(
                 style = MaterialTheme.typography.bodySmall
             )
         }
-        item {
-            CategoryCircle(
-                icon = SfeIcons.Folder,
-                tint = Color(0xFFFF9800),
-                label = stringResource(R.string.main_storage),
-                onClick = onOpenStorage
-            )
-        }
-        item {
-            CategoryCircle(
-                icon = Icons.Filled.Delete,
-                tint = Color(0xFF607D8B),
-                label = stringResource(R.string.papierkorb),
-                onClick = onOpenPapierkorb
-            )
+        item(span = { GridItemSpan(3) }) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                ShortcutCard(SfeIcons.Folder, Color(0xFFFF9800), stringResource(R.string.main_storage), onOpenStorage, Modifier.weight(1f))
+                ShortcutCard(Icons.Filled.Delete, Color(0xFF607D8B), stringResource(R.string.papierkorb), onOpenPapierkorb, Modifier.weight(1f))
+            }
         }
         items(entries.size) { index ->
             val cat = entries[index]
@@ -402,5 +394,23 @@ fun YellowWaves(modifier: Modifier = Modifier) {
         wave(size.height * 0.95f, size.height * 0.18f, Color(0x33FFC107))
         wave(size.height * 0.72f, size.height * 0.16f, Color(0x55FFC107))
         wave(size.height * 0.48f, size.height * 0.12f, Color(0x66FFD54F))
+    }
+}
+
+@Composable
+private fun ShortcutCard(icon: ImageVector, tint: Color, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+            .clickable { onClick() }
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(Modifier.size(36.dp).background(tint, CircleShape), contentAlignment = Alignment.Center) {
+            Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+        }
+        Spacer(Modifier.width(10.dp))
+        Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
 }

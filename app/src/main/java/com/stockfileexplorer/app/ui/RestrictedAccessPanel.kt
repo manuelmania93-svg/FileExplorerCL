@@ -2,6 +2,8 @@ package com.stockfileexplorer.app.ui
 
 import android.content.Intent
 import android.net.Uri
+import android.os.Environment
+import android.provider.OpenableColumns
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -37,6 +39,33 @@ fun RestrictedAccessPanel(path: String, kind: String) {
     var probeAsk by remember { mutableStateOf(false) }
     var probeResult by remember(path) { mutableStateOf<RestrictedAccess.ProbeResult?>(null) }
     val wrong = stringResource(R.string.restricted_wrong_folder)
+    var reload by remember { mutableIntStateOf(0) }
+    var pendingSource by remember { mutableStateOf<Pair<Uri, String>?>(null) }
+    val importPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val name = context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+            if (c.moveToFirst()) c.getString(0) else null
+        } ?: uri.lastPathSegment?.substringAfterLast('/') ?: "imported-file"
+        pendingSource = uri to name
+    }
+    val doneImport = stringResource(R.string.restricted_import_done)
+    val failedOp = stringResource(R.string.restricted_op_failed)
+    val copiedOut = stringResource(R.string.restricted_copied_out)
+    fun runImport(source: Uri, name: String, overwrite: Boolean) {
+        val t = tree ?: return
+        val folder = docId
+        scope.launch {
+            val r = withContext(Dispatchers.IO) { RestrictedAccess.importFile(context, t, folder, source, name, overwrite) }
+            val text = when {
+                r.ok -> doneImport.format(name)
+                r.step == "exists" -> { pendingSource = source to name; null }
+                r.keptAs != null -> failedOp.format(r.step) + " " + r.keptAs
+                else -> failedOp.format(r.step)
+            }
+            if (text != null) Toast.makeText(context, text, Toast.LENGTH_LONG).show()
+            reload++
+        }
+    }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri: Uri? ->
         if (uri == null) return@rememberLauncherForActivityResult
@@ -52,7 +81,7 @@ fun RestrictedAccessPanel(path: String, kind: String) {
         if (tree == null) Toast.makeText(context, wrong, Toast.LENGTH_LONG).show()
     }
 
-    LaunchedEffect(tree, docId) {
+    LaunchedEffect(tree, docId, reload) {
         val t = tree ?: return@LaunchedEffect
         failed = false
         entries = withContext(Dispatchers.IO) { RestrictedAccess.list(context, t, docId) }
@@ -67,6 +96,7 @@ fun RestrictedAccessPanel(path: String, kind: String) {
         } else {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = { probeAsk = true }) { Text(stringResource(R.string.restricted_probe)) }
+                OutlinedButton(onClick = { importPicker.launch(arrayOf("*/*")) }) { Text(stringResource(R.string.restricted_import)) }
                 if (docId != startDoc) TextButton(onClick = { docId = docId.substringBeforeLast('/') }) { Text(stringResource(R.string.restricted_up)) }
             }
             probeResult?.let { r ->
@@ -91,11 +121,30 @@ fun RestrictedAccessPanel(path: String, kind: String) {
                                 if (!e.isDirectory) Text(FileLogic.formatSize(e.size) + " • " + FileLogic.formatDate(e.modified),
                                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
+                            if (!e.isDirectory) TextButton(onClick = {
+                                val t = tree ?: return@TextButton
+                                scope.launch {
+                                    val out = withContext(Dispatchers.IO) {
+                                        RestrictedAccess.copyOut(context, t, e, Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS))
+                                    }
+                                    Toast.makeText(context, if (out != null) copiedOut.format(out.name) else failedOp.format("copy"), Toast.LENGTH_LONG).show()
+                                }
+                            }) { Text(stringResource(R.string.restricted_copy_out)) }
                         }
                     }
                 }
             }
         }
+    }
+    pendingSource?.let { (uri, name) ->
+        val exists = entries?.any { it.name == name && !it.isDirectory } == true
+        if (exists) ConfirmDialog(
+            title = stringResource(R.string.restricted_overwrite_title),
+            body = stringResource(R.string.restricted_overwrite_body, name),
+            confirmLabel = stringResource(R.string.restricted_overwrite_run),
+            onConfirm = { pendingSource = null; runImport(uri, name, overwrite = true) },
+            onDismiss = { pendingSource = null })
+        else LaunchedEffect(uri) { pendingSource = null; runImport(uri, name, overwrite = false) }
     }
     if (probeAsk) ConfirmDialog(
         title = stringResource(R.string.restricted_probe),

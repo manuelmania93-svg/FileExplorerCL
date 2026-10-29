@@ -97,4 +97,69 @@ object RestrictedAccess {
         val deleted = isOurs && try { DocumentsContract.deleteDocument(resolver, uri) } catch (e: Exception) { false }
         return ProbeResult(true, wrote, read, deleted)
     }
+
+    /** [ok] false carries the step that failed; [keptAs] names a leftover file when a replace stopped half way. */
+    data class OpResult(val ok: Boolean, val step: String, val keptAs: String? = null)
+
+    private fun docUri(tree: Uri, docId: String) = DocumentsContract.buildDocumentUriUsingTree(tree, docId)
+
+    private fun sizeOf(context: Context, uri: Uri): Long? = try {
+        context.contentResolver.query(uri, arrayOf(DocumentsContract.Document.COLUMN_SIZE), null, null, null)?.use { c ->
+            if (c.moveToFirst() && !c.isNull(0)) c.getLong(0) else null
+        }
+    } catch (e: Exception) { null }
+
+    /**
+     * Copies [source] into [parentDocId] under [name], inside the user's grant, through the provider.
+     * An existing file is only replaced when [overwrite] is true, and then safely: the new content is
+     * copied next to it as a temporary file and size-checked first; the old file is removed and the
+     * temporary one renamed only after that. If any step fails the existing file is kept.
+     */
+    fun importFile(context: Context, tree: Uri, parentDocId: String, source: Uri, name: String, overwrite: Boolean): OpResult {
+        val resolver = context.contentResolver
+        val existing = (list(context, tree, parentDocId) ?: return OpResult(false, "list")).firstOrNull { it.name == name }
+        if (existing != null && existing.isDirectory) return OpResult(false, "is a folder")
+        if (existing != null && !overwrite) return OpResult(false, "exists")
+        val parent = docUri(tree, parentDocId)
+        val tempName = if (existing == null) name else "$name.sfe-new"
+        val dest = try { DocumentsContract.createDocument(resolver, parent, "application/octet-stream", tempName) } catch (e: Exception) { null }
+            ?: return OpResult(false, "create")
+        var copied = -1L
+        try {
+            val input = resolver.openInputStream(source) ?: throw IllegalStateException("no input")
+            val output = resolver.openOutputStream(dest, "w") ?: throw IllegalStateException("no output")
+            copied = input.use { i -> output.use { o -> i.copyTo(o) } }
+        } catch (e: Exception) {
+            try { DocumentsContract.deleteDocument(resolver, dest) } catch (_: Exception) {}
+            return OpResult(false, "copy")
+        }
+        val reported = sizeOf(context, dest)
+        if (reported != null && reported != copied) {
+            try { DocumentsContract.deleteDocument(resolver, dest) } catch (_: Exception) {}
+            return OpResult(false, "size check")
+        }
+        if (existing == null) return OpResult(true, "done")
+        val removed = try { DocumentsContract.deleteDocument(resolver, docUri(tree, existing.docId)) } catch (e: Exception) { false }
+        if (!removed) {
+            try { DocumentsContract.deleteDocument(resolver, dest) } catch (_: Exception) {}
+            return OpResult(false, "replace old file")
+        }
+        val renamed = try { DocumentsContract.renameDocument(resolver, dest, name) } catch (e: Exception) { null }
+        return if (renamed != null) OpResult(true, "done") else OpResult(false, "rename", keptAs = tempName)
+    }
+
+    /** Copies a granted file into a normal folder under a name that does not exist yet. Never overwrites. */
+    fun copyOut(context: Context, tree: Uri, entry: Entry, targetDir: java.io.File): java.io.File? = try {
+        targetDir.mkdirs()
+        var target = java.io.File(targetDir, entry.name)
+        var n = 1
+        while (target.exists()) {
+            val dot = entry.name.lastIndexOf('.')
+            target = java.io.File(targetDir, if (dot > 0) entry.name.substring(0, dot) + " ($n)" + entry.name.substring(dot) else entry.name + " ($n)")
+            n++
+        }
+        context.contentResolver.openInputStream(docUri(tree, entry.docId))?.use { i -> target.outputStream().use { o -> i.copyTo(o) } }
+            ?: throw IllegalStateException("no input")
+        target
+    } catch (e: Exception) { null }
 }

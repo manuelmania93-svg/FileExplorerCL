@@ -3,5 +3,17 @@
         <activity
             android:name=".FolderStatsVisualActivity"
             android:exported="false" />
+        <!-- Debug builds only: a local DocumentsProvider so provider-backed file operations can be tested
+             without Android/data access. Not part of the release APK. -->
+        <provider
+            android:name=".TestDocumentsProvider"
+            android:authorities="com.stockfileexplorer.app.testdocs"
+            android:exported="true"
+            android:grantUriPermissions="true"
+            android:permission="android.permission.MANAGE_DOCUMENTS">
+            <intent-filter>
+                <action android:name="android.content.action.DOCUMENTS_PROVIDER" />
+            </intent-filter>
+        </provider>
     </application>
 </manifest>

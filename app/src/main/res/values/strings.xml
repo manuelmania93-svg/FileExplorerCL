@@ -179,4 +179,12 @@
     <string name="restricted_up">Up</string>
     <string name="restricted_listing_failed">Android refused to list this folder.</string>
     <string name="restricted_access_link">Folder access and write test</string>
+    <string name="restricted_import">Import file here</string>
+    <string name="restricted_copy_out">Copy out</string>
+    <string name="restricted_import_done">Imported %1$s</string>
+    <string name="restricted_op_failed">Not done (step: %1$s). Android or the folder provider refused it. Existing files were left as they were.</string>
+    <string name="restricted_copied_out">Copied to Download as %1$s</string>
+    <string name="restricted_overwrite_title">Replace existing file?</string>
+    <string name="restricted_overwrite_body">%1$s already exists in this folder. The new file is copied next to it and checked first; only then is the old one removed and the new one renamed. If a step fails, the old file stays.</string>
+    <string name="restricted_overwrite_run">Replace</string>
 </resources>

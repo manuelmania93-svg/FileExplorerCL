@@ -179,4 +179,12 @@
     <string name="restricted_up">Hoch</string>
     <string name="restricted_listing_failed">Android hat das Auflisten dieses Ordners verweigert.</string>
     <string name="restricted_access_link">Ordnerzugriff und Schreibtest</string>
+    <string name="restricted_import">Datei hier importieren</string>
+    <string name="restricted_copy_out">Herauskopieren</string>
+    <string name="restricted_import_done">%1$s importiert</string>
+    <string name="restricted_op_failed">Nicht ausgeführt (Schritt: %1$s). Android oder der Ordner-Provider hat es abgelehnt. Vorhandene Dateien blieben unverändert.</string>
+    <string name="restricted_copied_out">Nach Download kopiert als %1$s</string>
+    <string name="restricted_overwrite_title">Vorhandene Datei ersetzen?</string>
+    <string name="restricted_overwrite_body">%1$s existiert in diesem Ordner bereits. Die neue Datei wird zuerst daneben kopiert und geprüft; erst danach wird die alte entfernt und die neue umbenannt. Schlägt ein Schritt fehl, bleibt die alte Datei erhalten.</string>
+    <string name="restricted_overwrite_run">Ersetzen</string>
 </resources>

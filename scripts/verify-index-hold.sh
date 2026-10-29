@@ -16,6 +16,7 @@ run_test com.stockfileexplorer.app.IndexAndHoldTest#c_productionColdRestartUsesP
 run_test com.stockfileexplorer.app.StorageAnalysisInstrumentedTest#storageAnalysisShowsRankedResults
 run_test com.stockfileexplorer.app.SortAndSpeedTest
 adb pull /sdcard/Download/ app/build/reports/device/
+run_test com.stockfileexplorer.app.RestrictedOperationsTest
 run_test com.stockfileexplorer.app.FileActionsInstrumentedTest
 adb pull /sdcard/Download/ app/build/reports/device/
 if [ "$SFE_TEST_API" = "35" ]; then

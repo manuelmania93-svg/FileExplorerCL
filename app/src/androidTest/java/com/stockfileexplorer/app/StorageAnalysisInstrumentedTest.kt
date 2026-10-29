@@ -11,6 +11,7 @@ import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
 import com.stockfileexplorer.app.data.FileIndex
 import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
@@ -33,6 +34,8 @@ class StorageAnalysisInstrumentedTest {
 
     private fun revealText(value: String): UiObject2 = reveal(By.text(value), value)
 
+    private fun revealTextContains(value: String): UiObject2 = reveal(By.textContains(value), value, maxSwipes = 40)
+
     private fun revealTextContains(value: String): UiObject2 = reveal(By.textContains(value), value)
 
     private fun swipeUp() {
@@ -40,13 +43,14 @@ class StorageAnalysisInstrumentedTest {
         device.waitForIdle()
     }
 
-    private fun reveal(selector: BySelector, value: String): UiObject2 {
-        repeat(12) {
+    private fun reveal(selector: BySelector, value: String, maxSwipes: Int = 12): UiObject2 {
+        repeat(maxSwipes) {
             device.wait(Until.findObject(selector), 500)?.let { return it }
             device.swipe(device.displayWidth / 2, device.displayHeight * 3 / 4, device.displayWidth / 2, device.displayHeight / 4, 45)  // slow swipe: a fast one flings past short sections
             device.waitForIdle()
         }
-        throw AssertionError("Missing UI text after scrolling: $value")
+        screenshot("sfe-storage-analysis-missing")
+        throw AssertionError("Missing UI text after scrolling: $value. Visible: " + device.findObjects(By.pkg(context.packageName)).mapNotNull { it.text }.distinct().take(30))
     }
 
     @Test fun storageAnalysisShowsRankedResults() {
@@ -63,6 +67,12 @@ class StorageAnalysisInstrumentedTest {
         File(docs, "duplicate-a.txt").writeText("same duplicate content")
         File(docs, "duplicate-b.txt").writeText("same duplicate content")
         FileIndex.verifyFixture(context, Environment.getExternalStorageDirectory(), clear = true)
+        // Data check first, so a UI miss can be told apart from missing analyzer output.
+        val dataReport = com.stockfileexplorer.app.data.StorageAnalyzer.analyze({ })
+        val groupSummary = dataReport.duplicates.map { g -> "${g.sizeBytes}B x${g.paths.size} ${g.paths.first().substringAfterLast('/')}" }
+        android.util.Log.i("SfeAnalysisData", "duplicate groups (${groupSummary.size}): $groupSummary")
+        assertTrue("Analyzer data has the duplicate-a/b group; groups=$groupSummary",
+            dataReport.duplicates.any { g -> g.paths.any { it.endsWith("duplicate-a.txt") } && g.paths.any { it.endsWith("duplicate-b.txt") } })
 
         val intent = Intent(context, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)

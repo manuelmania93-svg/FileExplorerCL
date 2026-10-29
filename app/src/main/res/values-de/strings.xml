@@ -166,4 +166,16 @@
     <string name="viewer_count">%1$d von %2$d</string>
     <string name="viewer_info">Info</string>
     <string name="viewer_more">Mehr</string>
+    <string name="restricted_title">%1$s braucht deine Erlaubnis</string>
+    <string name="restricted_body">Android hält diesen Ordner vom normalen Dateizugriff fern. Du kannst dieser App erlauben, ihn zu öffnen: Wähle den Ordner auf dem nächsten Bildschirm und tippe auf „Diesen Ordner verwenden“. Die Erlaubnis kannst du jederzeit in den Android-Einstellungen entziehen.</string>
+    <string name="restricted_grant">Ordnerzugriff wählen</string>
+    <string name="restricted_wrong_folder">Das ist nicht der Ordner, den dieser Bildschirm braucht, oder Android hat ihn nicht akzeptiert.</string>
+    <string name="restricted_probe">Schreibzugriff testen</string>
+    <string name="restricted_probe_body">Dabei wird im angezeigten Ordner eine temporäre Datei namens sfe-probe-… erstellt, ein paar Bytes geschrieben, wieder gelesen und nur diese Datei gelöscht. Sonst wird nichts geöffnet, geändert oder gelöscht.</string>
+    <string name="restricted_probe_run">Test starten</string>
+    <string name="restricted_probe_result">Erstellen: %1$s, Schreiben: %2$s, Zurücklesen: %3$s, Löschen: %4$s</string>
+    <string name="restricted_ok">OK</string>
+    <string name="restricted_failed">fehlgeschlagen</string>
+    <string name="restricted_up">Hoch</string>
+    <string name="restricted_listing_failed">Android hat das Auflisten dieses Ordners verweigert.</string>
 </resources>

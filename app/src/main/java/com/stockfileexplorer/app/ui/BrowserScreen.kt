@@ -50,6 +50,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -356,7 +357,13 @@ fun BrowserScreen(
             )
         }
 
+        val restrictedKind = remember(currentPath) { com.stockfileexplorer.app.data.RestrictedAccess.kindOf(currentPath) }
+        // Only when Android really hides the folder: a normal listing that works stays the normal browser.
+        val restrictedHidden by produceState(false, currentPath, refreshTick) {
+            value = restrictedKind != null && withContext(Dispatchers.IO) { File(currentPath).list().let { it == null || it.isEmpty() } }
+        }
         when {
+            restrictedKind != null && restrictedHidden -> RestrictedAccessPanel(currentPath, restrictedKind)
             loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }

@@ -166,4 +166,16 @@
     <string name="viewer_count">%1$d of %2$d</string>
     <string name="viewer_info">Info</string>
     <string name="viewer_more">More</string>
+    <string name="restricted_title">%1$s needs your permission</string>
+    <string name="restricted_body">Android keeps this folder away from normal file access. You can allow this app to open it: pick the folder in the next screen and tap \"Use this folder\". You can take the permission back in Android settings at any time.</string>
+    <string name="restricted_grant">Choose folder access</string>
+    <string name="restricted_wrong_folder">That is not the folder this screen needs, or Android did not accept it.</string>
+    <string name="restricted_probe">Test write access</string>
+    <string name="restricted_probe_body">This creates one temporary file named sfe-probe-… in the folder you are viewing, writes a few bytes, reads them back and deletes only that file. Nothing else is opened, changed or deleted.</string>
+    <string name="restricted_probe_run">Run test</string>
+    <string name="restricted_probe_result">Create: %1$s, write: %2$s, read back: %3$s, delete: %4$s</string>
+    <string name="restricted_ok">OK</string>
+    <string name="restricted_failed">failed</string>
+    <string name="restricted_up">Up</string>
+    <string name="restricted_listing_failed">Android refused to list this folder.</string>
 </resources>

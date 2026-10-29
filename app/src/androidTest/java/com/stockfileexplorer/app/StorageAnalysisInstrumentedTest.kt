@@ -35,6 +35,11 @@ class StorageAnalysisInstrumentedTest {
 
     private fun revealTextContains(value: String): UiObject2 = reveal(By.textContains(value), value)
 
+    private fun swipeUp() {
+        device.swipe(device.displayWidth / 2, device.displayHeight * 3 / 4, device.displayWidth / 2, device.displayHeight / 4, 30)
+        device.waitForIdle()
+    }
+
     private fun reveal(selector: BySelector, value: String): UiObject2 {
         repeat(12) {
             device.wait(Until.findObject(selector), 500)?.let { return it }
@@ -74,8 +79,10 @@ class StorageAnalysisInstrumentedTest {
         waitText(label("Storage pyramid", "Speicher-Pyramide"))
         waitText(label("Other used storage", "Übriger belegter Speicher"))
         screenshot("sfe-storage-analysis-pyramid-${if (german) "de" else "en"}")
-        revealText(label("Categories", "Kategorien"))
-        revealText(label("Largest folders", "Größte Ordner"))
+        swipeUp()
+        waitText(label("Categories", "Kategorien"))
+        waitText(label("Largest folders", "Größte Ordner"))
+        screenshot("sfe-storage-analysis-scrolled-${if (german) "de" else "en"}")
         waitText("Download")
         screenshot("sfe-storage-analysis-${if (german) "de" else "en"}")
         revealText(label("Large files", "Große Dateien"))

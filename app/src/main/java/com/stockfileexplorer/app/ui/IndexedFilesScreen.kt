@@ -116,7 +116,7 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
             items(page.items.size, key = { page.items[it].file.absolutePath }) { n ->
                 val item = page.items[n]
                 Row(Modifier.fillMaxWidth().combinedClickable(
-                    onClick = { if (selection.isNotEmpty()) toggle(item.file.absolutePath) else openFile(context, item.file, noApp) },
+                    onClick = { if (selection.isNotEmpty()) toggle(item.file.absolutePath) else openFile(context, item.file, noApp, page.items.map { it.file }) },
                     onLongClick = { if (selection.isNotEmpty()) toggle(item.file.absolutePath) else menu = item }
                 ).padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (selection.isNotEmpty()) Checkbox(item.file.absolutePath in selection, { toggle(item.file.absolutePath) })
@@ -153,7 +153,7 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
             isFavorite = item.file.absolutePath in favoritePaths,
             onDismiss = { menu = null },
             callbacks = FileActionCallbacks(
-                onOpen = { openFile(context, item.file, noApp) },
+                onOpen = { openFile(context, item.file, noApp, page.items.map { it.file }) },
                 onCopy = {
                     transferSources = listOf(item)
                     transferMove = false

@@ -17,7 +17,9 @@ class ViewerActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         val path = intent.getStringExtra("path") ?: return finish()
         val file = File(path)
-        setContent { AppTheme { Surface(Modifier.fillMaxSize()) { ViewerScreen(file, onBack = { finish() }) } } }
+        val context = (intent.getStringArrayListExtra("paths") ?: arrayListOf()).map { File(it) }
+        val files = swipeSet(file, context)
+        setContent { AppTheme { Surface(Modifier.fillMaxSize()) { ViewerScreen(files, files.indexOf(file).coerceAtLeast(0), onBack = { finish() }) } } }
     }
     companion object {
         fun kind(file: File): String? = when (file.extension.lowercase()) {
@@ -27,9 +29,26 @@ class ViewerActivity : ComponentActivity() {
             "mp4", "mkv", "webm", "avi", "mov", "3gp", "flv", "wmv", "ts" -> "video"
             else -> null
         }
-        fun open(context: Context, file: File): Boolean {
+        /** Files you can swipe through next to [file]: pictures and videos of the list it was opened from
+         *  (or of its own folder when no list is known). Other kinds open alone. */
+        fun swipeSet(file: File, context: List<File>): List<File> {
+            val k = kind(file)
+            if (k != "image" && k != "video") return listOf(file)
+            val source = if (context.any { it.absolutePath == file.absolutePath }) context
+                else (file.parentFile?.listFiles()?.sortedBy { it.name.lowercase() } ?: listOf(file))
+            val media = source.filter { it.isFile && kind(it).let { x -> x == "image" || x == "video" } }
+            return if (media.any { it.absolutePath == file.absolutePath }) media else listOf(file)
+        }
+        fun open(context: Context, file: File, siblings: List<File> = emptyList()): Boolean {
             if (kind(file) == null) return false
-            context.startActivity(Intent(context, ViewerActivity::class.java).putExtra("path", file.absolutePath))
+            val set = swipeSet(file, siblings)
+            val at = set.indexOfFirst { it.absolutePath == file.absolutePath }.coerceAtLeast(0)
+            // Keep the intent small: at most 1000 paths around the opened file.
+            val from = (at - 500).coerceAtLeast(0)
+            val window = set.subList(from, minOf(set.size, from + 1000))
+            context.startActivity(Intent(context, ViewerActivity::class.java)
+                .putExtra("path", file.absolutePath)
+                .putStringArrayListExtra("paths", ArrayList(window.map { it.absolutePath })))
             return true
         }
     }

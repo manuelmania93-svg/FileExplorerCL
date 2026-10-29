@@ -163,4 +163,7 @@
     <string name="deleted_permanently_ok">Deleted permanently</string>
     <string name="analysis_checking">Still checking…</string>
     <string name="duplicates_limited">Not complete: only the first %1$d same-size files were compared, so other duplicates may exist.</string>
+    <string name="viewer_count">%1$d of %2$d</string>
+    <string name="viewer_info">Info</string>
+    <string name="viewer_more">More</string>
 </resources>

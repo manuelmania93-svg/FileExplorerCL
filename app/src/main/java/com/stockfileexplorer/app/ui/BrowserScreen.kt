@@ -129,8 +129,8 @@ private fun mimeTypeFor(file: File): String {
 private fun uriFor(context: android.content.Context, file: File) =
     FileProvider.getUriForFile(context, context.packageName + ".fileprovider", file)
 
-fun openFile(context: android.content.Context, file: File, noAppMessage: String) {
-    if (com.stockfileexplorer.app.ViewerActivity.open(context, file)) return
+fun openFile(context: android.content.Context, file: File, noAppMessage: String, siblings: List<File> = emptyList()) {
+    if (com.stockfileexplorer.app.ViewerActivity.open(context, file, siblings)) return
     try {
         val intent = Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(uriFor(context, file), mimeTypeFor(file))
@@ -384,7 +384,7 @@ fun BrowserScreen(
                         onClick = {
                             if (selecting) toggleSelection(item.file.absolutePath)
                             else if (item.isDirectory) navigateTo(item.file.absolutePath)
-                            else openFile(context, item.file, noAppMessage)
+                            else openFile(context, item.file, noAppMessage, items.filter { !it.isDirectory }.map { it.file })
                         },
                         onLongClick = { if (selecting) toggleSelection(item.file.absolutePath) else menuTarget = item }
                     )
@@ -404,7 +404,7 @@ fun BrowserScreen(
                         onClick = {
                             if (selecting) toggleSelection(item.file.absolutePath)
                             else if (item.isDirectory) navigateTo(item.file.absolutePath)
-                            else openFile(context, item.file, noAppMessage)
+                            else openFile(context, item.file, noAppMessage, items.filter { !it.isDirectory }.map { it.file })
                         },
                         onLongClick = { if (selecting) toggleSelection(item.file.absolutePath) else menuTarget = item },
                         trailing = {
@@ -433,7 +433,7 @@ fun BrowserScreen(
             callbacks = FileActionCallbacks(
                 onOpen = {
                     if (item.isDirectory) navigateTo(item.file.absolutePath)
-                    else openFile(context, item.file, noAppMessage)
+                    else openFile(context, item.file, noAppMessage, items.filter { !it.isDirectory }.map { it.file })
                 },
                 onCopy = {
                     transferSources = listOf(item)

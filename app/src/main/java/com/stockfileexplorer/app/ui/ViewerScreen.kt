@@ -8,8 +8,20 @@ import android.os.ParcelFileDescriptor
 import android.view.ViewGroup
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.ui.input.pointer.positionChanged
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
@@ -47,22 +59,87 @@ import java.io.File
 import kotlin.coroutines.coroutineContext
 import kotlin.math.min
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-fun ViewerScreen(file: File, onBack: () -> Unit) {
-    val kind = ViewerActivity.kind(file)
+fun ViewerScreen(initialFiles: List<File>, startIndex: Int, onBack: () -> Unit) {
+    val context = LocalContext.current
+    val files = remember { mutableStateListOf<File>().apply { addAll(initialFiles) } }
+    val pager = rememberPagerState(initialPage = startIndex.coerceIn(0, (files.size - 1).coerceAtLeast(0))) { files.size }
+    var zoomed by remember { mutableStateOf(false) }
+    var showInfo by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
+    var moreMenu by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val current = files.getOrNull(pager.currentPage)
     Scaffold(topBar = {
-        TopAppBar(title = { Text(file.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        TopAppBar(
+            title = {
+                Column {
+                    if (files.size > 1) Text(stringResource(R.string.viewer_count, pager.currentPage + 1, files.size), style = MaterialTheme.typography.labelMedium)
+                    Text(current?.name ?: "", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            },
             navigationIcon = { TextButton(colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface), onClick = onBack) { Text(stringResource(R.string.viewer_back)) } })
-    }) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding)) {
-            when (kind) {
-                "image" -> PictureViewer(file)
-                "pdf" -> PdfViewer(file)
-                "video" -> VideoViewer(file)
-                "archive" -> ArchiveViewer(file)
+    }, bottomBar = {
+        if (current != null) Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(vertical = 4.dp)) {
+            ViewerAction(Icons.Filled.Share, stringResource(R.string.share), Modifier.weight(1f)) { shareFiles(context, listOf(current)) }
+            ViewerAction(Icons.Filled.Delete, stringResource(R.string.delete), Modifier.weight(1f)) { confirmDelete = true }
+            ViewerAction(Icons.Filled.Info, stringResource(R.string.viewer_info), Modifier.weight(1f)) { showInfo = true }
+            Box(Modifier.weight(1f)) {
+                ViewerAction(Icons.Filled.MoreVert, stringResource(R.string.viewer_more), Modifier.fillMaxWidth()) { moreMenu = true }
+                DropdownMenu(expanded = moreMenu, onDismissRequest = { moreMenu = false }) {
+                    DropdownMenuItem(text = { Text(stringResource(R.string.open_with)) }, onClick = {
+                        moreMenu = false
+                        openFileWithChooser(context, current, context.getString(R.string.open_with), context.getString(R.string.no_app_to_open))
+                    })
+                }
             }
         }
+    }) { padding ->
+        HorizontalPager(pager, Modifier.fillMaxSize().padding(padding), userScrollEnabled = !zoomed, key = { files.getOrNull(it)?.path ?: it }) { index ->
+            val file = files.getOrNull(index)
+            if (file != null) Column(Modifier.fillMaxSize()) {
+                when (ViewerActivity.kind(file)) {
+                    "image" -> PictureViewer(file, onZoomed = { if (index == pager.currentPage) zoomed = it })
+                    "pdf" -> PdfViewer(file)
+                    // Only the settled page owns a player, so swiping never leaves two videos playing.
+                    "video" -> if (index == pager.settledPage) VideoViewer(file)
+                    "archive" -> ArchiveViewer(file)
+                }
+            }
+        }
+    }
+    LaunchedEffect(pager.currentPage) { zoomed = false }
+    if (showInfo && current != null) PropertiesDialog(
+        name = current.name, path = current.absolutePath, isDirectory = false,
+        sizeBytes = current.length(), modified = current.lastModified(), favorite = false,
+        onDismiss = { showInfo = false })
+    if (confirmDelete && current != null) ConfirmDialog(
+        title = stringResource(R.string.delete_confirm_title, 1),
+        body = stringResource(R.string.delete_confirm_body),
+        confirmLabel = stringResource(R.string.delete),
+        onConfirm = {
+            confirmDelete = false
+            val target = current
+            scope.launch {
+                val ok = withContext(Dispatchers.IO) { com.stockfileexplorer.app.data.Trash.moveToTrash(target) }
+                if (ok) {
+                    com.stockfileexplorer.app.data.FileIndex.removed(listOf(target))
+                    com.stockfileexplorer.app.data.FileIndex.invalidate()
+                    files.remove(target)
+                    android.widget.Toast.makeText(context, R.string.deleted_ok, android.widget.Toast.LENGTH_SHORT).show()
+                    if (files.isEmpty()) onBack()
+                } else android.widget.Toast.makeText(context, R.string.delete_failed, android.widget.Toast.LENGTH_SHORT).show()
+            }
+        },
+        onDismiss = { confirmDelete = false })
+}
+
+@Composable
+private fun ViewerAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, modifier: Modifier, onClick: () -> Unit) {
+    Column(modifier.clickable(onClick = onClick).padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Icon(icon, null, modifier = Modifier.size(24.dp))
+        Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1)
     }
 }
 
@@ -75,24 +152,36 @@ private fun ViewerError(detail: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun ZoomImage(bitmap: Bitmap, description: String, rotation: Float = 0f, modifier: Modifier) {
+private fun ZoomImage(bitmap: Bitmap, description: String, rotation: Float = 0f, modifier: Modifier, onZoomed: (Boolean) -> Unit = {}) {
     var zoom by remember(bitmap) { mutableFloatStateOf(1f) }
     var x by remember(bitmap) { mutableFloatStateOf(0f) }
     var y by remember(bitmap) { mutableFloatStateOf(0f) }
     Box(modifier.clipToBounds().background(Color(0xFFF3F1EA)), contentAlignment = Alignment.Center) {
         Image(bitmap.asImageBitmap(), description, modifier = Modifier.fillMaxSize()
             .pointerInput(bitmap) {
-                detectTransformGestures { _, pan, scale, _ ->
-                    zoom = (zoom * scale).coerceIn(1f, 6f)
-                    x = if (zoom == 1f) 0f else (x + pan.x).coerceIn(-size.width * (zoom - 1), size.width * (zoom - 1))
-                    y = if (zoom == 1f) 0f else (y + pan.y).coerceIn(-size.height * (zoom - 1), size.height * (zoom - 1))
+                // One finger on an unzoomed picture is left alone so the pager can swipe; pinch or a zoomed pan is ours.
+                awaitEachGesture {
+                    awaitFirstDown(requireUnconsumed = false)
+                    do {
+                        val event = awaitPointerEvent()
+                        val fingers = event.changes.count { it.pressed }
+                        if (fingers >= 2 || zoom > 1f) {
+                            val scale = event.calculateZoom()
+                            val pan = event.calculatePan()
+                            zoom = (zoom * scale).coerceIn(1f, 6f)
+                            x = if (zoom == 1f) 0f else (x + pan.x).coerceIn(-size.width * (zoom - 1), size.width * (zoom - 1))
+                            y = if (zoom == 1f) 0f else (y + pan.y).coerceIn(-size.height * (zoom - 1), size.height * (zoom - 1))
+                            onZoomed(zoom > 1f)
+                            event.changes.forEach { if (it.positionChanged()) it.consume() }
+                        }
+                    } while (event.changes.any { it.pressed })
                 }
             }.graphicsLayer { scaleX = zoom; scaleY = zoom; translationX = x; translationY = y; rotationZ = rotation })
     }
 }
 
 @Composable
-private fun PictureViewer(file: File) {
+private fun PictureViewer(file: File, onZoomed: (Boolean) -> Unit = {}) {
     var bitmap by remember(file.path) { mutableStateOf<Bitmap?>(null) }
     var error by remember(file.path) { mutableStateOf<String?>(null) }
     var rotation by remember { mutableFloatStateOf(0f) }
@@ -113,7 +202,7 @@ private fun PictureViewer(file: File) {
         Text(stringResource(R.string.viewer_pinch), modifier = Modifier.padding(12.dp), style = MaterialTheme.typography.labelMedium)
     }
     if (error != null) ViewerError(error!!) else if (bitmap == null) CircularProgressIndicator(Modifier.padding(24.dp))
-    else ZoomImage(bitmap!!, stringResource(R.string.viewer_picture), rotation, Modifier.fillMaxSize())
+    else ZoomImage(bitmap!!, stringResource(R.string.viewer_picture), rotation, Modifier.fillMaxSize(), onZoomed)
 }
 
 @Composable

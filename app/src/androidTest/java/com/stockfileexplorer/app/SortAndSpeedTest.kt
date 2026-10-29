@@ -264,4 +264,40 @@ class SortAndSpeedTest {
         assertTrue(FileIndex.page(null, 100).items.none { it.file.absolutePath.contains("Papierkorb") })
         base.deleteRecursively()
     }
+
+    @Test fun g_viewerSwipeCountAndDeleteToBin(): Unit = runBlocking<Unit> {
+        launch()
+        root.deleteRecursively(); root.mkdirs()
+        val pics = (1..3).map { n ->
+            File(root, "pic-$n.png").also { f ->
+                val bmp = android.graphics.Bitmap.createBitmap(64 * n, 64, android.graphics.Bitmap.Config.ARGB_8888)
+                bmp.eraseColor(android.graphics.Color.rgb(60 * n, 40, 120))
+                f.outputStream().use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+            }
+        }
+        val intent = Intent(context, ViewerActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+            .putExtra("path", pics[0].absolutePath)
+            .putStringArrayListExtra("paths", ArrayList(pics.map { it.absolutePath }))
+        context.startActivity(intent)
+        waitText(label("1 of 3", "1 von 3"))
+        waitText("pic-1.png")
+        listOf(label("Share", "Teilen"), label("Delete", "Löschen"), "Info", label("More", "Mehr")).forEach { waitText(it) }
+        screenshot("viewer-first")
+        device.swipe(900, 900, 150, 900, 12); device.waitForIdle()
+        waitText(label("2 of 3", "2 von 3")); waitText("pic-2.png")
+        screenshot("viewer-second")
+        // Info opens the existing properties dialog for the shown file.
+        waitText("Info").click()
+        waitText(label("Properties", "Eigenschaften")); device.pressBack(); device.waitForIdle()
+        // Delete moves the shown file to the Papierkorb and shows the next one.
+        waitText(label("Delete", "Löschen")).click()
+        device.wait(Until.findObject(By.textContains("Papierkorb")), 10000) ?: throw AssertionError("delete confirm missing")
+        device.findObjects(By.text(label("Delete", "Löschen"))).last().click()
+        device.waitForIdle(); Thread.sleep(1500)
+        assertFalse("moved out of folder", pics[1].exists())
+        assertEquals(1, Trash.list().count { it.name == "pic-2.png" })
+        waitText(label("2 of 2", "2 von 2"))
+        screenshot("viewer-after-delete")
+        root.deleteRecursively()
+    }
 }

@@ -66,7 +66,7 @@ fun ConfirmDialog(
         title = { Text(title) },
         text = { Text(body) },
         confirmButton = {
-            TextButton(colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface), onClick = onConfirm) { Text(confirmLabel) }
+            TextButton(colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface), onClick = onConfirm, modifier = androidx.compose.ui.Modifier.testTag("dialog_confirm")) { Text(confirmLabel) }
         },
         dismissButton = {
             TextButton(colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface), onClick = onDismiss) { Text(stringResource(R.string.cancel)) }

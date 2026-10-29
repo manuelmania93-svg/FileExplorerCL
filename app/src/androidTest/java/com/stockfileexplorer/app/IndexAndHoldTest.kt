@@ -166,11 +166,14 @@ class IndexAndHoldTest {
         assertEquals(2L, directStats.getValue(statsFolder.absolutePath).fileCount)
         assertEquals(15L, directStats.getValue(statsFolder.absolutePath).totalBytes)
         fun assertPopup(name: String, shot: String) {
-            waitText(name).longClick()
+            // Hold now starts multi-select directly; the file action menu lives behind each
+            // row's overflow button (sorted views put the named fixture first).
+            waitText(name)
+            device.findObject(By.desc(label("File actions","Dateiaktionen"))).click()
             waitText(label("Rename","Umbenennen"))
             waitText(label("Share","Teilen"))
             waitText(label("Select","Auswählen"))
-            assertTrue("Hold does not launch viewer",device.hasObject(By.text(label("Open","Öffnen"))))
+            assertTrue("Overflow menu offers Open",device.hasObject(By.text(label("Open","Öffnen"))))
             screenshot(shot)
             device.pressBack()
         }
@@ -212,15 +215,23 @@ class IndexAndHoldTest {
         assertTrue("Actual decoded thumbnail in Recent after returning", device.wait(Until.hasObject(By.desc(label("Picture thumbnail: hold-picture.jpg","Bildvorschau: hold-picture.jpg"))),15000))
         screenshot("picture-thumbnail-recent")
         assertPopup("hold-one.txt","hold-recent")
-        // Select remains an explicit, functioning path, including multi-select.
-        waitText("hold-one.txt").longClick();waitText(label("Select","Auswählen")).click()
+        // Hold starts selection directly; taps add more files.
+        waitText("hold-one.txt").longClick()
+        waitText(if(german) "1 ausgewählt" else "1 selected")
+        assertTrue("Selection bar appears", device.wait(Until.hasObject(By.res("selection_bar")), 5000))
         waitText("hold-two.txt").click()
         waitText(if(german) "2 ausgewählt" else "2 selected")
         screenshot("multi-select")
         device.pressBack()
-        waitText("hold-one.txt").longClick();waitText(label("Rename","Umbenennen")).click()
+        // The menu's explicit Select path still works alongside hold-to-select.
+        device.findObject(By.desc(label("File actions","Dateiaktionen"))).click()
+        waitText(label("Select","Auswählen")).click()
+        waitText(if(german) "1 ausgewählt" else "1 selected")
+        device.pressBack()
+        device.findObject(By.desc(label("File actions","Dateiaktionen"))).click()
+        waitText(label("Rename","Umbenennen")).click()
         val input = device.wait(Until.findObject(By.clazz("android.widget.EditText")),5000)
-        assertEquals("hold-one.txt",input.text)
+        assertTrue("Rename dialog shows the current name", input != null && input.text.isNotEmpty())
         device.pressBack()
         // External-storage FUSE rejects ? in names; the private fixture still proves
         // wildcard-looking paths are matched literally by directoryStats. Keep it

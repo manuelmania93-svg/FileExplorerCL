@@ -27,11 +27,15 @@ pull_reports
 run_test com.stockfileexplorer.app.RestrictedOperationsTest
 run_test com.stockfileexplorer.app.FileActionsInstrumentedTest
 pull_reports
+run_test com.stockfileexplorer.app.SelectionBarTest
+pull_reports
 if [ "$SFE_TEST_API" = "35" ]; then
 adb shell cmd locale set-app-locales com.stockfileexplorer.app --locales de-AT
 run_test com.stockfileexplorer.app.FileActionsInstrumentedTest#germanLibraryMenuUsesLocalizedActions
 run_test com.stockfileexplorer.app.FileActionsInstrumentedTest#restrictedPanelShowsGrantScreen
 run_test com.stockfileexplorer.app.IndexAndHoldTest#b_actualHoldAcrossAllViewsAndSelect de
+pull_reports
+run_test com.stockfileexplorer.app.SelectionBarTest
 pull_reports
 run_test com.stockfileexplorer.app.StorageAnalysisInstrumentedTest#storageAnalysisShowsRankedResults
 run_test com.stockfileexplorer.app.SortAndSpeedTest#b_librarySortControlAndVideoFrameThumbnail

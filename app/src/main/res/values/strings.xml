@@ -91,6 +91,9 @@
     <string name="folder_stats_partial">%1$d+ files total | %2$s+ • %3$s</string>
     <string name="folder_stats_pending">Counting files… • %1$s</string>
     <string name="copy">Copy</string>
+    <string name="select_all">Select all</string>
+    <string name="more">More</string>
+    <string name="move">Move</string>
     <string name="move_to">Move to</string>
     <string name="properties">Properties</string>
     <string name="favorite">Favorite</string>

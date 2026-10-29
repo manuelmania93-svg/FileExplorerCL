@@ -101,8 +101,12 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
                     }
                 }
                 if (selection.isNotEmpty()) {
-                    IconButton(onClick = { shareFiles(context, selection.map { java.io.File(it) }) }) { Icon(Icons.Filled.Share, stringResource(R.string.share)) }
-                    IconButton(onClick = { deletes = selection.map { java.io.File(it) } }) { Icon(Icons.Filled.Delete, stringResource(R.string.delete)) }
+                    IconButton(onClick = {
+                        scope.launch {
+                            selection = FileIndex.page(category, Int.MAX_VALUE, sort, ascending).items
+                                .map { it.file.absolutePath }.toSet()
+                        }
+                    }, modifier = Modifier.testTag("selection_all")) { Icon(SfeIcons.CheckBox, stringResource(R.string.select_all)) }
                 }
             })
         if (status.refreshing || status.incomplete) {
@@ -112,12 +116,12 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
         }
         if (page.items.isEmpty()) {
             Text(stringResource(if (status.refreshing || status.incomplete) R.string.index_no_results_yet else R.string.empty_folder), Modifier.padding(16.dp))
-        } else LazyColumn(Modifier.fillMaxSize()) {
+        } else LazyColumn(Modifier.weight(1f)) {
             items(page.items.size, key = { page.items[it].file.absolutePath }) { n ->
                 val item = page.items[n]
                 Row(Modifier.fillMaxWidth().combinedClickable(
                     onClick = { if (selection.isNotEmpty()) toggle(item.file.absolutePath) else openFile(context, item.file, noApp, page.items.map { it.file }) },
-                    onLongClick = { if (selection.isNotEmpty()) toggle(item.file.absolutePath) else menu = item }
+                    onLongClick = { toggle(item.file.absolutePath) }
                 ).padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (selection.isNotEmpty()) Checkbox(item.file.absolutePath in selection, { toggle(item.file.absolutePath) })
                     Box {
@@ -144,6 +148,26 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
             if (page.hasMore) item {
                 TextButton(onClick = { limit += 200 }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.load_more)) }
             }
+        }
+        if (selection.isNotEmpty()) {
+            // Copy/Move need the FileItems; a select-all can cover files beyond the loaded page,
+            // so fall back to one full index query in that case.
+            fun collectSelected(onReady: (List<FileItem>) -> Unit) {
+                val loaded = page.items.filter { it.file.absolutePath in selection }
+                if (loaded.size == selection.size) { onReady(loaded); return }
+                scope.launch {
+                    val all = FileIndex.page(category, Int.MAX_VALUE, sort, ascending).items
+                    onReady(all.filter { it.file.absolutePath in selection })
+                }
+            }
+            SelectionActionBar(
+                renameEnabled = selection.size == 1,
+                onCopy = { collectSelected { transferSources = it; transferMove = false } },
+                onMove = { collectSelected { transferSources = it; transferMove = true } },
+                onDelete = { deletes = selection.map { java.io.File(it) } },
+                onShare = { shareFiles(context, selection.map { java.io.File(it) }) },
+                onRename = { page.items.firstOrNull { it.file.absolutePath == selection.first() }?.let { rename = it } },
+            )
         }
     }
     menu?.let { item ->

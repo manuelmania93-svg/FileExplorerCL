@@ -43,6 +43,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -87,7 +88,7 @@ fun FileActionMenu(
                     Text(name, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
                 HorizontalDivider()
-                LazyColumn(Modifier.heightIn(max = 600.dp)) {
+                LazyColumn(Modifier.heightIn(max = (LocalConfiguration.current.screenHeightDp * 0.7f).dp)) {
                     items(FileMenuAction.entries) { action ->
                         if (action !in visible || (action.filesOnly && isDirectory)) return@items
                         val label = if (action == FileMenuAction.FAVORITE && isFavorite) {

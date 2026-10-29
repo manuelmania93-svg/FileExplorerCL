@@ -3,10 +3,12 @@ set -euo pipefail
 mkdir -p app/build/reports/device
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+FAILED=0
+# Every class runs even if an earlier one fails, so one failure cannot hide the others; the script still exits non-zero.
 run_test() {
-  adb shell am instrument -w -r -e class "$1" com.stockfileexplorer.app.test/androidx.test.runner.AndroidJUnitRunner | tee app/build/reports/device/instrumentation-last.txt
+  adb shell am instrument -w -r -e class "$1" com.stockfileexplorer.app.test/androidx.test.runner.AndroidJUnitRunner | tee app/build/reports/device/instrumentation-last.txt || true
   adb pull /sdcard/Download/ app/build/reports/device/ || true
-  grep -q 'OK (' app/build/reports/device/instrumentation-last.txt
+  if grep -q 'OK (' app/build/reports/device/instrumentation-last.txt; then echo "TEST_RESULT PASS $1"; else echo "TEST_RESULT FAIL $1"; FAILED=1; fi
 }
 run_test com.stockfileexplorer.app.IndexAndHoldTest#a_largeIndexFirstBenchmarkAndPersistence,com.stockfileexplorer.app.IndexAndHoldTest#b_actualHoldAcrossAllViewsAndSelect
 run_test com.stockfileexplorer.app.StorageAnalysisInstrumentedTest#storageAnalysisShowsRankedResults
@@ -30,3 +32,4 @@ run_test com.stockfileexplorer.app.SortAndSpeedTest#f_trashSafetyRules
 run_test com.stockfileexplorer.app.SortAndSpeedTest#g_viewerSwipeCountAndDeleteToBin
 adb pull /sdcard/Download/ app/build/reports/device/
 fi
+exit $FAILED

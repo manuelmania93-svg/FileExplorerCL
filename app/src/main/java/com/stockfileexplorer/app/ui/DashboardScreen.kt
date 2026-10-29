@@ -44,6 +44,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.stockfileexplorer.app.R
 import com.stockfileexplorer.app.data.FileCategory
 import com.stockfileexplorer.app.data.FileLogic
@@ -57,7 +58,8 @@ fun DashboardScreen(
     onOpenStorage: () -> Unit,
     onOpenCategory: (FileCategory) -> Unit,
     onOpenRecent: () -> Unit,
-    onOpenStorageAnalysis: () -> Unit
+    onOpenStorageAnalysis: () -> Unit,
+    onOpenPapierkorb: () -> Unit = {}
 ) {
     val root = remember { Environment.getExternalStorageDirectory() }
     var totalBytes by remember { mutableStateOf(0L) }
@@ -105,12 +107,6 @@ fun DashboardScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item(span = { GridItemSpan(3) }) {
-            if (status.refreshing || status.incomplete) Text(
-                stringResource(if (status.refreshing) R.string.index_updating else R.string.index_incomplete),
-                style = MaterialTheme.typography.bodySmall
-            )
-        }
-        item(span = { GridItemSpan(3) }) {
             Card(
                 modifier = Modifier.fillMaxWidth().clickable { onOpenStorage() },
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
@@ -119,7 +115,7 @@ fun DashboardScreen(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(96.dp)) {
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(88.dp)) {
                         val trackColor = MaterialTheme.colorScheme.surfaceVariant
                         val barColor = MaterialTheme.colorScheme.primary
                         Canvas(Modifier.size(96.dp)) {
@@ -223,6 +219,20 @@ fun DashboardScreen(
             }
         }
 
+        item(span = { GridItemSpan(3) }) {
+            if (status.refreshing || status.incomplete) Text(
+                stringResource(if (status.refreshing) R.string.index_updating else R.string.index_incomplete),
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+        item {
+            CategoryCircle(
+                icon = SfeIcons.Folder,
+                tint = Color(0xFFFF9800),
+                label = stringResource(R.string.main_storage),
+                onClick = onOpenStorage
+            )
+        }
         items(entries.size) { index ->
             val cat = entries[index]
             if (cat == null) {
@@ -250,6 +260,14 @@ fun DashboardScreen(
                 )
             }
         }
+        item {
+            CategoryCircle(
+                icon = androidx.compose.material.icons.Icons.Filled.Delete,
+                tint = Color(0xFF607D8B),
+                label = stringResource(R.string.papierkorb),
+                onClick = onOpenPapierkorb
+            )
+        }
     }
 }
 
@@ -267,21 +285,24 @@ private fun categorySizeText(category: FileCategory, sizes: LongArray, scanning:
 
 @Composable
 private fun CategorySizeLine(label: String, sizeText: String) {
+    // 12 sp so "Dokumente"/"Documents" plus a size like "628.4 MB" fit one phone-width column.
+    val style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp)
     Row(Modifier.fillMaxWidth()) {
         Text(
             text = label,
-            style = MaterialTheme.typography.bodySmall,
+            style = style,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f, fill = false).padding(end = 6.dp)
+            softWrap = false,
+            overflow = TextOverflow.Clip,
+            modifier = Modifier.weight(1f)
         )
-        Spacer(Modifier.weight(1f))
         Text(
             text = sizeText,
-            style = MaterialTheme.typography.bodySmall,
+            style = style,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1
+            maxLines = 1,
+            softWrap = false
         )
     }
 }
@@ -365,5 +386,24 @@ fun CategoryCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    }
+}
+
+/** Soft yellow waves behind the header and storage card. Decorative only; text stays on top. */
+@Composable
+fun YellowWaves(modifier: Modifier = Modifier) {
+    androidx.compose.foundation.Canvas(modifier) {
+        fun wave(top: Float, amp: Float, color: Color) {
+            val path = androidx.compose.ui.graphics.Path().apply {
+                moveTo(0f, 0f); lineTo(0f, top)
+                cubicTo(size.width * 0.25f, top - amp, size.width * 0.5f, top + amp, size.width * 0.75f, top)
+                cubicTo(size.width * 0.88f, top - amp * 0.5f, size.width * 0.95f, top - amp * 0.2f, size.width, top - amp * 0.6f)
+                lineTo(size.width, 0f); close()
+            }
+            drawPath(path, color)
+        }
+        wave(size.height * 0.95f, size.height * 0.18f, Color(0x33FFC107))
+        wave(size.height * 0.72f, size.height * 0.16f, Color(0x55FFC107))
+        wave(size.height * 0.48f, size.height * 0.12f, Color(0x66FFD54F))
     }
 }

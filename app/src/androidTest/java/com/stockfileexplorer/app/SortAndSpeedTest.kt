@@ -37,7 +37,7 @@ class SortAndSpeedTest {
         device.executeShellCommand("appops set --uid ${context.packageName} MANAGE_EXTERNAL_STORAGE allow")
     }
 
-    @Test fun a_sortOrdersAndSpeedOnLargeIndex() = runBlocking {
+    @Test fun a_sortOrdersAndSpeedOnLargeIndex(): Unit = runBlocking<Unit> {
         launch()
         root.deleteRecursively(); root.mkdirs()
         val folders = (0 until 200).map { File(root, "dir-${it.toString().padStart(3, '0')}").apply { mkdirs() } }
@@ -83,7 +83,7 @@ class SortAndSpeedTest {
         File(downloads, "sfe-sort-benchmark.txt").writeText(result)
     }
 
-    @Test fun b_librarySortControlAndVideoFrameThumbnail() = runBlocking {
+    @Test fun b_librarySortControlAndVideoFrameThumbnail(): Unit = runBlocking<Unit> {
         launch()
         root.deleteRecursively(); root.mkdirs()
         instrumentation.context.assets.open("frame-fixture.mp4").use { i -> File(root, "aa-real-frame.mp4").outputStream().use { i.copyTo(it) } }
@@ -117,7 +117,7 @@ class SortAndSpeedTest {
         screenshot("videos-sorted-name")
     }
 
-    @Test fun c_analysisRowsAreClickable() = runBlocking {
+    @Test fun c_analysisRowsAreClickable(): Unit = runBlocking<Unit> {
         launch()
         root.deleteRecursively(); root.mkdirs()
         val big = File(root, "Big").apply { mkdirs() }
@@ -146,5 +146,48 @@ class SortAndSpeedTest {
         waitText("Big")
         screenshot("analysis-file-folder-opened")
         root.deleteRecursively()
+    }
+
+    @Test fun d_dashboardAndPapierkorbMoveRestoreDelete(): Unit = runBlocking<Unit> {
+        launch()
+        root.deleteRecursively(); root.mkdirs()
+        val keep = File(root, "papierkorb-keep.txt").apply { writeText("keep me") }
+        val gone = File(root, "papierkorb-gone.txt").apply { writeText("remove me") }
+        FileIndex.verifyFixture(context, root, clear = true)
+        launch()
+        waitText(label("Main storage", "Hauptspeicher"))
+        waitText(label("Papierkorb", "Papierkorb"))
+        screenshot("dashboard")
+        // Delete from the real browser UI: long-press, select, delete, confirm.
+        launch("browse_path" to root.absolutePath)
+        device.wait(Until.findObject(By.text("papierkorb-keep.txt")), 20000)!!.longClick()
+        waitText(label("Select", "Auswählen")).click()
+        waitDesc(label("Delete", "Löschen")).click()
+        device.wait(Until.findObject(By.textContains("Papierkorb")), 10000) ?: throw AssertionError("delete confirm missing")
+        screenshot("delete-confirm")
+        device.findObject(By.text(label("Delete", "Löschen")))?.click()
+        device.waitForIdle()
+        Thread.sleep(1500)
+        assertFalse("moved out of folder", keep.exists())
+        assertEquals("kept in bin, not erased", 1, com.stockfileexplorer.app.data.Trash.list().count { it.name == "papierkorb-keep.txt" })
+        launch("papierkorb" to true)
+        waitText("papierkorb-keep.txt")
+        screenshot("papierkorb")
+        waitText("papierkorb-keep.txt").click()
+        waitText(label("Restore", "Wiederherstellen")).click()
+        device.waitForIdle(); Thread.sleep(1500)
+        assertTrue("restored to original path", keep.exists() && keep.readText() == "keep me")
+        // Permanent delete only from inside the bin, with its own confirmation.
+        assertTrue(com.stockfileexplorer.app.data.Trash.moveToTrash(gone))
+        launch("papierkorb" to true)
+        waitText("papierkorb-gone.txt").click()
+        waitText(label("Delete permanently", "Endgültig löschen")).click()
+        waitText(label("This cannot be undone.", "Das kann nicht rückgängig gemacht werden."))
+        screenshot("delete-permanently-confirm")
+        device.findObjects(By.text(label("Delete permanently", "Endgültig löschen"))).last().click()
+        device.waitForIdle(); Thread.sleep(1500)
+        assertEquals(0, com.stockfileexplorer.app.data.Trash.list().count { it.name == "papierkorb-gone.txt" })
+        root.deleteRecursively()
+        com.stockfileexplorer.app.data.Trash.root().deleteRecursively()
     }
 }

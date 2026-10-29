@@ -584,7 +584,7 @@ fun BrowserScreen(
                 selection = emptySet()
                 scope.launch {
                     val results = withContext(Dispatchers.IO) {
-                        toDelete.map { File(it) }.map { it to (it.exists() && it.deleteRecursively()) }
+                        toDelete.map { File(it) }.map { it to com.stockfileexplorer.app.data.Trash.moveToTrash(it) }
                     }
                     com.stockfileexplorer.app.data.FileIndex.removed(results.filter { it.second }.map { it.first })
                     val allOk = results.all { it.second }

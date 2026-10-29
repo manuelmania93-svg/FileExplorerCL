@@ -24,5 +24,6 @@ adb pull /sdcard/Download/ app/build/reports/device/
 run_test com.stockfileexplorer.app.StorageAnalysisInstrumentedTest#storageAnalysisShowsRankedResults
 run_test com.stockfileexplorer.app.SortAndSpeedTest#b_librarySortControlAndVideoFrameThumbnail
 run_test com.stockfileexplorer.app.SortAndSpeedTest#c_analysisRowsAreClickable
+run_test com.stockfileexplorer.app.SortAndSpeedTest#d_dashboardAndPapierkorbMoveRestoreDelete
 adb pull /sdcard/Download/ app/build/reports/device/
 fi

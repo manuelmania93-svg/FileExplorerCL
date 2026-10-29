@@ -244,7 +244,7 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
         onConfirm = {
             val targets = deletes; deletes = emptyList(); selection = emptySet()
             scope.launch {
-                val results = withContext(Dispatchers.IO) { targets.map { it to (it.exists() && it.deleteRecursively()) } }
+                val results = withContext(Dispatchers.IO) { targets.map { it to com.stockfileexplorer.app.data.Trash.moveToTrash(it) } }
                 FileIndex.removed(results.filter { it.second }.map { it.first })
                 val ok = results.all { it.second }
                 Toast.makeText(context, if (ok) R.string.deleted_ok else R.string.delete_failed, Toast.LENGTH_SHORT).show()

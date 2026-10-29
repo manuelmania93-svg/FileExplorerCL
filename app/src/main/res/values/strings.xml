@@ -42,9 +42,9 @@
     <string name="rename">Rename</string>
     <string name="delete">Delete</string>
     <string name="share">Share</string>
-    <string name="delete_confirm_title">Delete %1$d item(s)?</string>
-    <string name="delete_confirm_body">This permanently deletes the selected files and folders.</string>
-    <string name="deleted_ok">Deleted</string>
+    <string name="delete_confirm_title">Move %1$d item(s) to Papierkorb?</string>
+    <string name="delete_confirm_body">You can restore them from the Papierkorb.</string>
+    <string name="deleted_ok">Moved to Papierkorb</string>
     <string name="delete_failed">Some items could not be deleted</string>
     <string name="rename_failed">Rename failed</string>
     <string name="folder_created">Folder created</string>
@@ -149,4 +149,16 @@
     <string name="analysis_stage_recycle">Checking recycle bin folders…</string>
     <string name="video_thumbnail">Video thumbnail: %1$s</string>
     <string name="open_folder">Open containing folder</string>
+    <string name="papierkorb">Papierkorb</string>
+    <string name="papierkorb_note">Deleted items stay here until you restore or delete them permanently. Nothing is emptied automatically.</string>
+    <string name="papierkorb_empty">The Papierkorb is empty.</string>
+    <string name="restore">Restore</string>
+    <string name="restored_ok">Restored</string>
+    <string name="restore_failed">Could not restore</string>
+    <string name="delete_permanently">Delete permanently</string>
+    <string name="delete_permanently_title">Permanently delete %1$s?</string>
+    <string name="delete_permanently_body">This cannot be undone.</string>
+    <string name="main_storage">Main storage</string>
+    <string name="moved_to_papierkorb">Moved to Papierkorb</string>
+    <string name="deleted_permanently_ok">Deleted permanently</string>
 </resources>

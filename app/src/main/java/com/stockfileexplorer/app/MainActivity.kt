@@ -6,7 +6,10 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -20,6 +23,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -44,6 +48,7 @@ import com.stockfileexplorer.app.ui.LibraryScreen
 import com.stockfileexplorer.app.ui.PermissionScreen
 import com.stockfileexplorer.app.ui.RecentFilesScreen
 import com.stockfileexplorer.app.ui.StorageAnalysisScreen
+import com.stockfileexplorer.app.ui.PapierkorbScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -54,7 +59,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    Root(intent.getStringExtra("browse_path"), intent.getBooleanExtra("storage_analysis", false))
+                    Root(intent.getStringExtra("browse_path"), intent.getBooleanExtra("storage_analysis", false), intent.getBooleanExtra("papierkorb", false))
                 }
             }
         }
@@ -66,7 +71,7 @@ private const val TAB_LIBRARY = 1
 private const val TAB_NETWORK = 2
 
 @Composable
-fun Root(initialBrowsePath: String? = null, initialStorageAnalysis: Boolean = false) {
+fun Root(initialBrowsePath: String? = null, initialStorageAnalysis: Boolean = false, initialPapierkorb: Boolean = false) {
     var hasAccess by remember { mutableStateOf(Environment.isExternalStorageManager()) }
     val lifecycleOwner = LocalLifecycleOwner.current
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -85,22 +90,23 @@ fun Root(initialBrowsePath: String? = null, initialStorageAnalysis: Boolean = fa
         PermissionScreen()
     } else {
         androidx.compose.runtime.LaunchedEffect(Unit) { com.stockfileexplorer.app.data.FileIndex.start(context) }
-        MainScaffold(initialBrowsePath, initialStorageAnalysis)
+        MainScaffold(initialBrowsePath, initialStorageAnalysis, initialPapierkorb)
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScaffold(initialBrowsePath: String? = null, initialStorageAnalysis: Boolean = false) {
+fun MainScaffold(initialBrowsePath: String? = null, initialStorageAnalysis: Boolean = false, initialPapierkorb: Boolean = false) {
     var tab by remember { mutableIntStateOf(TAB_LOCAL) }
     var browsePath by remember { mutableStateOf<String?>(initialBrowsePath) }
     var libraryCategory by remember { mutableStateOf<FileCategory?>(null) }
     var showRecent by remember { mutableStateOf(false) }
+    var showPapierkorb by remember { mutableStateOf(initialPapierkorb) }
     var showStorageAnalysis by remember { mutableStateOf(initialStorageAnalysis) }
     val storageRoot = remember { Environment.getExternalStorageDirectory().absolutePath }
 
-    BackHandler(enabled = browsePath != null || showRecent || showStorageAnalysis) {
-        if (showStorageAnalysis) showStorageAnalysis = false else if (showRecent) showRecent = false else browsePath = null
+    BackHandler(enabled = browsePath != null || showRecent || showStorageAnalysis || showPapierkorb) {
+        if (showPapierkorb) showPapierkorb = false else if (showStorageAnalysis) showStorageAnalysis = false else if (showRecent) showRecent = false else browsePath = null
     }
 
     Scaffold(
@@ -130,7 +136,11 @@ fun MainScaffold(initialBrowsePath: String? = null, initialStorageAnalysis: Bool
         when (tab) {
             TAB_LOCAL -> {
                 val path = browsePath
-                if (showStorageAnalysis && path == null) {
+                if (showPapierkorb && path == null) {
+                    Column(Modifier.fillMaxSize().padding(padding)) {
+                        PapierkorbScreen(onBack = { showPapierkorb = false })
+                    }
+                } else if (showStorageAnalysis && path == null) {
                     Column(Modifier.fillMaxSize().padding(padding)) {
                         StorageAnalysisScreen(
                             onBack = { showStorageAnalysis = false },
@@ -143,8 +153,11 @@ fun MainScaffold(initialBrowsePath: String? = null, initialStorageAnalysis: Bool
                         RecentFilesScreen(onBack = { showRecent = false })
                     }
                 } else if (path == null) {
-                    Column(Modifier.fillMaxSize().padding(padding)) {
-                        TopAppBar(title = { Text(stringResource(R.string.app_name)) })
+                    Box(Modifier.fillMaxSize().padding(padding)) {
+                      com.stockfileexplorer.app.ui.YellowWaves(Modifier.fillMaxWidth().height(260.dp))
+                      Column(Modifier.fillMaxSize()) {
+                        TopAppBar(title = { Text(stringResource(R.string.app_name)) },
+                            colors = TopAppBarDefaults.topAppBarColors(containerColor = androidx.compose.ui.graphics.Color.Transparent))
                         DashboardScreen(
                             onOpenStorage = { browsePath = storageRoot },
                             onOpenCategory = { cat ->
@@ -152,8 +165,10 @@ fun MainScaffold(initialBrowsePath: String? = null, initialStorageAnalysis: Bool
                                 tab = TAB_LIBRARY
                             },
                             onOpenRecent = { showRecent = true },
-                            onOpenStorageAnalysis = { showStorageAnalysis = true }
+                            onOpenStorageAnalysis = { showStorageAnalysis = true },
+                            onOpenPapierkorb = { showPapierkorb = true }
                         )
+                      }
                     }
                 } else {
                     Column(Modifier.fillMaxSize().padding(padding)) {

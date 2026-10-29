@@ -135,6 +135,14 @@ class SortAndSpeedTest {
             screenshot("analysis-download-row-missing")
             throw AssertionError("Download folder row not found. Visible: " + device.findObjects(By.pkg(context.packageName)).mapNotNull { it.text }.distinct().take(40))
         }
+        // The analysis streams results in and sections above shift the list; tap only once the row has stopped moving.
+        var stableTries = 0
+        while (stableTries++ < 10) {
+            val before = row!!.visibleBounds
+            Thread.sleep(800)
+            row = device.findObject(By.text("Download")) ?: break
+            if (row.visibleBounds == before) break
+        }
         val rowBounds = row!!.visibleBounds
         row.click()
         device.waitForIdle(); Thread.sleep(1500)
@@ -162,7 +170,8 @@ class SortAndSpeedTest {
         assertNotNull("large file row", file)
         screenshot("analysis-file-row")
         // The folder button on the same row as huge-fixture.bin (not the first button on the screen, which belongs to another file).
-        val fileY = file!!.visibleBounds.centerY()
+        file = device.findObject(By.text("huge-fixture.bin")) ?: throw AssertionError("huge-fixture.bin row disappeared before tapping its folder button")
+        val fileY = file.visibleBounds.centerY()
         val folderButton = device.findObjects(By.desc(label("Open containing folder", "Ordner öffnen")))
             .minByOrNull { Math.abs(it.visibleBounds.centerY() - fileY) } ?: throw AssertionError("No folder button visible near huge-fixture.bin")
         folderButton.click()

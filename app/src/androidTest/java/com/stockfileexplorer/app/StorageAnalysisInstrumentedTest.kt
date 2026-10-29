@@ -43,7 +43,7 @@ class StorageAnalysisInstrumentedTest {
     private fun reveal(selector: BySelector, value: String): UiObject2 {
         repeat(12) {
             device.wait(Until.findObject(selector), 500)?.let { return it }
-            device.swipe(device.displayWidth / 2, device.displayHeight * 3 / 4, device.displayWidth / 2, device.displayHeight / 4, 12)
+            device.swipe(device.displayWidth / 2, device.displayHeight * 3 / 4, device.displayWidth / 2, device.displayHeight / 4, 45)  // slow swipe: a fast one flings past short sections
             device.waitForIdle()
         }
         throw AssertionError("Missing UI text after scrolling: $value")

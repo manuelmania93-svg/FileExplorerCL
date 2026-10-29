@@ -238,7 +238,21 @@ class IndexAndHoldTest {
         FileIndex.verifyFixture(context,root)
         globFolder.deleteRecursively()
         // Restore a clean dashboard shot with truthful scan state.
-        launch(); waitText(label("Internal storage","Interner Speicher")); screenshot("dashboard")
+        launch()
+        try {
+            waitText(label("Internal storage","Interner Speicher"))
+        } catch (e: AssertionError) {
+            // Evidence only: record what the test saw so a locale-read problem can be told from a UI problem.
+            val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            File(dir, "sfe-diag-dashboard.txt").writeText(
+                "testContextLocales=" + context.resources.configuration.locales + "\n" +
+                "appContextLocales=" + instrumentation.context.resources.configuration.locales + "\n" +
+                "german=" + german + "\n" +
+                "visibleTexts=" + device.findObjects(By.pkg(context.packageName)).mapNotNull { it.text }.take(40) + "\n")
+            screenshot("dashboard-failure")
+            throw e
+        }
+        screenshot("dashboard")
     }
     /** Launched in a separate instrumentation process after adb force-stop. */
     @Test fun c_productionColdRestartUsesPersistedRows() = runBlocking {

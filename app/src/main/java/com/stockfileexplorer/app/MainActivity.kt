@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -169,7 +170,15 @@ fun MainScaffold(initialBrowsePath: String? = null, initialStorageAnalysis: Bool
                             Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                                 Text(stringResource(R.string.app_name))
                                 Spacer(Modifier.width(10.dp))
-                                com.stockfileexplorer.app.ui.FolderGlyph(28.dp)
+                                androidx.compose.ui.viewinterop.AndroidView(
+                                    factory = { ctx ->
+                                        android.widget.ImageView(ctx).apply {
+                                            setImageResource(R.mipmap.ic_launcher)
+                                            importantForAccessibility = android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                                        }
+                                    },
+                                    modifier = Modifier.size(36.dp)
+                                )
                             }
                         },
                             colors = TopAppBarDefaults.topAppBarColors(containerColor = androidx.compose.ui.graphics.Color.Transparent))

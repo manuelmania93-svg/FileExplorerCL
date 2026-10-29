@@ -77,6 +77,7 @@ import com.stockfileexplorer.app.data.FileItem
 import com.stockfileexplorer.app.data.FileLogic
 import com.stockfileexplorer.app.data.FileRepository
 import com.stockfileexplorer.app.data.ScanStore
+import com.stockfileexplorer.app.data.FileCategory
 import com.stockfileexplorer.app.data.SortMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch

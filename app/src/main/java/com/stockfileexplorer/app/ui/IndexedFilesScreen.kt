@@ -77,7 +77,7 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
                 if (selection.isEmpty()) {
                     Box {
                         IconButton(onClick = { sortMenu = true }, modifier = Modifier.testTag("sort_button")) {
-                            Icon(Icons.Filled.Sort, stringResource(R.string.sort_by))
+                            Icon(SfeIcons.Sort, stringResource(R.string.sort_by))
                         }
                         DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
                             Text(stringResource(R.string.sort_by), style = MaterialTheme.typography.labelSmall,

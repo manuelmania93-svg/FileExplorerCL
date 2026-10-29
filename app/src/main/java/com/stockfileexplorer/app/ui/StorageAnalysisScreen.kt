@@ -271,16 +271,8 @@ private fun StoragePyramid(report: StorageAnalyzer.Report) {
             }
             Spacer(Modifier.height(10.dp))
             remainingSlice?.let { PyramidLegendLine(it, usedBytes) }
-            categorySlices.chunked(2).forEach { rowSlices ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    rowSlices.forEach { slice ->
-                        PyramidLegendLine(slice, usedBytes, Modifier.weight(1f))
-                    }
-                    if (rowSlices.size == 1) Spacer(Modifier.weight(1f))
-                }
+            categorySlices.forEach { slice ->
+                PyramidLegendLine(slice, usedBytes)
             }
         }
     }

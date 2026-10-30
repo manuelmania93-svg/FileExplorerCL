@@ -66,10 +66,14 @@ class GermanLayoutTest {
         device.findObject(By.text("Interner Speicher")).click()
         assertTrue(device.wait(Until.hasObject(By.text("Download")), 8000))
         device.findObject(By.text("Download")).click()
-        assertTrue(
-            "PDF fixture visible in Download",
-            device.wait(Until.hasObject(By.textContains("sfe-fixture-report.pdf")), 8000)
-        )
+        // Name-sorted screenshots from earlier test classes (sfe-back-*) push the
+        // fixtures off the first screen; scroll like the gallery part below does.
+        // If still missing, capture evidence before failing.
+        if (!device.wait(Until.hasObject(By.textContains("sfe-fixture-report.pdf")), 8000) &&
+            !scrollToText(device, "sfe-fixture-report.pdf")) {
+            device.takeScreenshot(File("/sdcard/Download/sfe-german-download-missing.png"))
+            fail("PDF fixture visible in Download")
+        }
         val actionButtons = device.findObjects(By.descContains("Dateiaktionen"))
         assertTrue("File rows expose an action menu button", actionButtons.isNotEmpty())
         actionButtons[0].click()

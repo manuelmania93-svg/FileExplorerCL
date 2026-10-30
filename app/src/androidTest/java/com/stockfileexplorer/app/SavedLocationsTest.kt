@@ -42,7 +42,7 @@ class SavedLocationsTest {
         runBlocking { FileIndex.verifyFixture(context, File("/sdcard/Download/SavedFixture"), clear = true) }
         tag("search_query").text = "saved-note"
         text("saved-note.txt")
-        device.findObject(By.desc("File actions for saved-note.txt")).click()
+        device.wait(Until.findObject(By.desc("File actions for saved-note.txt")), 20000)!!.click()
         text("Open containing folder"); shot("containing-folder-menu")
         // Menu must remain scrollable, including the last action and customization.
         repeat(4) { device.swipe(600, 1100, 600, 480, 35) }
@@ -50,7 +50,7 @@ class SavedLocationsTest {
         repeat(4) { device.swipe(600, 480, 600, 1100, 35) }
         text("Save location as shortcut").click()
         assertTrue(FileActionPreferences.shortcutPaths(context).contains(root.absolutePath))
-        device.findObject(By.desc("File actions for saved-note.txt")).click()
+        device.wait(Until.findObject(By.desc("File actions for saved-note.txt")), 20000)!!.click()
         text("Open containing folder").click(); text("saved-note.txt"); shot("containing-folder-destination")
         device.pressBack(); text("Search files"); assertEquals("saved-note", tag("search_query").text)
         shot("returned-search")

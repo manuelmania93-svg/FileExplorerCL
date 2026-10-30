@@ -68,10 +68,12 @@ jobs:
             ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.DocumentVisibilitySmokeTest -Pandroid.testInstrumentationRunnerArguments.capture=night || (adb pull /sdcard/Download/ app/build/reports/device/; exit 1)
             adb shell cmd uimode night no
             adb pull /sdcard/Download/ app/build/reports/device/
-            ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.BuiltInViewersTest -Pandroid.testInstrumentationRunnerArguments.capture=viewers || (adb pull /sdcard/Download/ app/build/reports/device/; exit 1)
+            ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.SelectionBarTest -Pandroid.testInstrumentationRunnerArguments.capture=select || (adb pull /sdcard/Download/ app/build/reports/device/; exit 1)
+            adb pull /sdcard/Download/ app/build/reports/device/
+            ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.BuiltInViewersTest -Pandroid.testInstrumentationRunnerArguments.capture=viewers || (adb pull /sdcard/Download/ app/build/reports/device/; adb logcat -d > app/build/reports/device/logcat-viewers.txt || true; exit 1)
             adb pull /sdcard/Download/ app/build/reports/device/
             adb shell cmd uimode night yes
-            ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.BuiltInViewersTest -Pandroid.testInstrumentationRunnerArguments.capture=viewers-night || (adb pull /sdcard/Download/ app/build/reports/device/; exit 1)
+            ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.BuiltInViewersTest -Pandroid.testInstrumentationRunnerArguments.capture=viewers-night || (adb pull /sdcard/Download/ app/build/reports/device/; adb logcat -d > app/build/reports/device/logcat-viewers-night.txt || true; exit 1)
             adb pull /sdcard/Download/ app/build/reports/device/
             adb shell cmd uimode night no
             # German-locale layout run via per-app language: no reboot and no

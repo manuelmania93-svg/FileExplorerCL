@@ -100,7 +100,7 @@ class DocumentVisibilitySmokeTest {
         )
 
         // Every file row must expose its action menu through the overflow button.
-        val actionButtons = device.findObjects(By.desc("File actions"))
+        val actionButtons = device.findObjects(By.descContains("File actions"))
         assertTrue("File rows expose an action menu button", actionButtons.isNotEmpty())
         actionButtons[0].click()
         assertTrue(

@@ -379,22 +379,77 @@ fun CategoryCard(
     }
 }
 
-/** Soft yellow waves behind the header and storage card. Decorative only; text stays on top. */
+/**
+ * Folder-shaped yellow backdrop behind the header and storage card. The background itself
+ * is the folder (tab on the top left), with a soft gradient and subtle edge shading for a
+ * modern 3D feel. Decorative only; text and cards stay on top.
+ */
 @Composable
-fun YellowWaves(modifier: Modifier = Modifier) {
+fun FolderBackdrop(modifier: Modifier = Modifier) {
     androidx.compose.foundation.Canvas(modifier) {
-        fun wave(top: Float, amp: Float, color: Color) {
-            val path = androidx.compose.ui.graphics.Path().apply {
-                moveTo(0f, 0f); lineTo(0f, top)
-                cubicTo(size.width * 0.25f, top - amp, size.width * 0.5f, top + amp, size.width * 0.75f, top)
-                cubicTo(size.width * 0.88f, top - amp * 0.5f, size.width * 0.95f, top - amp * 0.2f, size.width, top - amp * 0.6f)
-                lineTo(size.width, 0f); close()
-            }
-            drawPath(path, color)
+        val w = size.width
+        val h = size.height
+        val tabH = 30.dp.toPx()
+        val tabW = w * 0.46f
+        val corner = 20.dp.toPx()
+        val fillet = 14.dp.toPx()
+
+        val folder = androidx.compose.ui.graphics.Path().apply {
+            moveTo(0f, 0f)
+            lineTo(tabW - corner, 0f)
+            quadraticBezierTo(tabW, 0f, tabW, corner)
+            lineTo(tabW, tabH - fillet)
+            quadraticBezierTo(tabW, tabH, tabW + fillet, tabH)
+            lineTo(w - corner, tabH)
+            quadraticBezierTo(w, tabH, w, tabH + corner)
+            lineTo(w, h)
+            lineTo(0f, h)
+            close()
         }
-        wave(size.height * 0.95f, size.height * 0.18f, Color(0x33FFC107))
-        wave(size.height * 0.72f, size.height * 0.16f, Color(0x55FFC107))
-        wave(size.height * 0.48f, size.height * 0.12f, Color(0x66FFD54F))
+
+        drawPath(
+            path = folder,
+            brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                colors = listOf(Color(0xFFFFECB3), Color(0xFFFFD54F)),
+                startY = 0f,
+                endY = h
+            )
+        )
+
+        // Light catch on the tab so it reads as the raised part of the folder.
+        drawRect(
+            brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                colors = listOf(Color(0x40FFFFFF), Color(0x00FFFFFF)),
+                startY = 0f,
+                endY = tabH
+            ),
+            topLeft = androidx.compose.ui.geometry.Offset(0f, 0f),
+            size = androidx.compose.ui.geometry.Size(tabW, tabH)
+        )
+
+        // Soft shadow the tab casts onto the folder body.
+        val shadowH = 12.dp.toPx()
+        drawRect(
+            brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                colors = listOf(Color(0x1F000000), Color(0x00000000)),
+                startY = tabH,
+                endY = tabH + shadowH
+            ),
+            topLeft = androidx.compose.ui.geometry.Offset(tabW + fillet, tabH),
+            size = androidx.compose.ui.geometry.Size(w - tabW - fillet, shadowH)
+        )
+
+        // Gentle grounding shadow along the bottom edge.
+        val groundH = 18.dp.toPx()
+        drawRect(
+            brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                colors = listOf(Color(0x00000000), Color(0x14000000)),
+                startY = h - groundH,
+                endY = h
+            ),
+            topLeft = androidx.compose.ui.geometry.Offset(0f, h - groundH),
+            size = androidx.compose.ui.geometry.Size(w, groundH)
+        )
     }
 }
 

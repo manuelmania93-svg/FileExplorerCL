@@ -1,6 +1,7 @@
 package com.stockfileexplorer.app.ui
 
 import android.content.ActivityNotFoundException
+import androidx.activity.compose.BackHandler
 import android.content.Intent
 import android.graphics.BitmapFactory
 import android.os.Environment
@@ -9,6 +10,7 @@ import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -62,6 +64,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -253,6 +256,7 @@ fun BrowserScreen(
     }
 
     val selecting = selection.isNotEmpty()
+    BackHandler(selecting) { selection = emptySet() }
 
     Column(Modifier.fillMaxSize()) {
         if (selecting) {
@@ -264,22 +268,11 @@ fun BrowserScreen(
                     }
                 },
                 actions = {
-                    if (selection.size == 1) {
-                        IconButton(onClick = {
-                            val target = items.firstOrNull { it.file.absolutePath == selection.first() }
-                            if (target != null) renameTarget = target
-                        }) {
-                            Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.rename))
-                        }
-                    }
-                    IconButton(onClick = {
-                        val files = selection.map { File(it) }
-                        shareFiles(context, files)
-                    }) {
-                        Icon(Icons.Filled.Share, contentDescription = stringResource(R.string.share))
-                    }
-                    IconButton(onClick = { showDeleteConfirm = true }) {
-                        Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.delete))
+                    IconButton(
+                        onClick = { selection = items.map { it.file.absolutePath }.toSet() },
+                        modifier = Modifier.testTag("selection_all"),
+                    ) {
+                        Icon(SfeIcons.CheckBox, contentDescription = stringResource(R.string.select_all))
                     }
                 }
             )
@@ -378,7 +371,7 @@ fun BrowserScreen(
             }
             gridView -> LazyVerticalGrid(
                 columns = GridCells.Adaptive(100.dp),
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.weight(1f),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(8.dp)
             ) {
                 items(items.size, key = { items[it].file.absolutePath }) { index ->
@@ -396,11 +389,12 @@ fun BrowserScreen(
                             else if (item.isDirectory) navigateTo(item.file.absolutePath)
                             else openFile(context, item.file, noAppMessage, items.filter { !it.isDirectory }.map { it.file })
                         },
-                        onLongClick = { if (selecting) toggleSelection(item.file.absolutePath) else menuTarget = item }
+                        onLongClick = { toggleSelection(item.file.absolutePath) },
+                        onMenu = { menuTarget = item }
                     )
                 }
             }
-            else -> LazyColumn(Modifier.fillMaxSize()) {
+            else -> LazyColumn(Modifier.weight(1f)) {
                 items(items.size, key = { items[it].file.absolutePath }) { index ->
                     val item = items[index]
                     FileListRow(
@@ -416,13 +410,13 @@ fun BrowserScreen(
                             else if (item.isDirectory) navigateTo(item.file.absolutePath)
                             else openFile(context, item.file, noAppMessage, items.filter { !it.isDirectory }.map { it.file })
                         },
-                        onLongClick = { if (selecting) toggleSelection(item.file.absolutePath) else menuTarget = item },
+                        onLongClick = { toggleSelection(item.file.absolutePath) },
                         trailing = {
                             Box {
                                 IconButton(onClick = { menuTarget = item }) {
                                     Icon(
                                         Icons.Filled.MoreVert,
-                                        contentDescription = stringResource(R.string.file_actions)
+                                        contentDescription = stringResource(R.string.file_actions_for, item.file.name)
                                     )
                                 }
 
@@ -431,6 +425,24 @@ fun BrowserScreen(
                     )
                 }
             }
+        }
+        if (selecting) {
+            SelectionActionBar(
+                renameEnabled = selection.size == 1,
+                onCopy = {
+                    transferSources = items.filter { it.file.absolutePath in selection }
+                    transferMove = false
+                },
+                onMove = {
+                    transferSources = items.filter { it.file.absolutePath in selection }
+                    transferMove = true
+                },
+                onDelete = { showDeleteConfirm = true },
+                onShare = { shareFiles(context, selection.map { File(it) }) },
+                onRename = {
+                    items.firstOrNull { it.file.absolutePath == selection.first() }?.let { renameTarget = it }
+                },
+            )
         }
     }
 
@@ -717,7 +729,8 @@ fun FileGridCell(
     directoryStats: FileIndex.DirectoryStats?,
     statsProvisional: Boolean,
     onClick: () -> Unit,
-    onLongClick: () -> Unit
+    onLongClick: () -> Unit,
+    onMenu: () -> Unit = {}
 ) {
     Card(
         modifier = Modifier
@@ -748,6 +761,16 @@ fun FileGridCell(
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.align(Alignment.TopEnd).size(18.dp)
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Filled.MoreVert,
+                        contentDescription = stringResource(R.string.file_actions_for, item.file.name),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .size(20.dp)
+                            .clickable { onMenu() }
                     )
                 }
             }

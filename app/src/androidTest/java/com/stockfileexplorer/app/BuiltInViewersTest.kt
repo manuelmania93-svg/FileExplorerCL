@@ -58,10 +58,13 @@ class BuiltInViewersTest {
         waitText("ViewerSamples");device.findObject(By.text("ViewerSamples")).click()
     }
     private fun open(name: String) {
-        if (!device.hasObject(By.text(name))) {
+        // The index keeps refreshing while the test runs and can reset the list's scroll
+        // position mid-swipe, so poll with a time budget instead of fixed swipe counts.
+        // Poll with the proven down-then-up scan inside a time budget; the index refresh
+        // can reset the list's scroll position mid-scan.
+        val deadline = android.os.SystemClock.uptimeMillis() + 60000
+        while (!device.hasObject(By.text(name)) && android.os.SystemClock.uptimeMillis() < deadline) {
             repeat(10) { if (!device.hasObject(By.text(name))) device.swipe(300, 900, 300, 300, 20) }
-        }
-        if (!device.hasObject(By.text(name))) {
             repeat(12) { if (!device.hasObject(By.text(name))) device.swipe(300, 300, 300, 900, 20) }
         }
         waitText(name);device.findObject(By.text(name)).click()
@@ -123,8 +126,20 @@ class BuiltInViewersTest {
     @Test fun wholeFilenameIncludingExtensionRename() {
         fixtures();mainAndDownload()
         openInList("rename-me.mp4").longClick()
+        // Long-press selects the file directly (CX behavior); single-file rename lives
+        // in the selection bar's "More" menu. Match the bar by its resource tags (the
+        // language-proof form SelectionBarTest already proves) rather than English text.
+        val bar = device.wait(Until.findObject(By.res("selection_bar")), 8000)
+        if (bar == null) {
+            runCatching {
+                File("/sdcard/Download/sfe-viewers-failure-selectionbar.txt").writeText(
+                    "visibleTexts=" + device.findObjects(By.pkg(device.currentPackageName ?: "")).mapNotNull { it.text }.take(60) + "\n")
+            }
+        }
+        assertNotNull("Selection bar after long press", bar)
+        device.findObject(By.res("selection_more")).click()
         val renameAction = device.wait(Until.findObject(By.text("Rename")), 5000)
-        assertNotNull("Rename action after long press", renameAction)
+        assertNotNull("Rename action in More menu", renameAction)
         renameAction.click()
         val input = device.wait(Until.findObject(By.clazz("android.widget.EditText")), 5000)
         assertEquals("rename-me.mp4", input.text)
@@ -144,8 +159,11 @@ class BuiltInViewersTest {
         assertFalse(com.stockfileexplorer.app.data.Rename.move(File(root,"renamed.txt"),"../escape.txt"))
     }
     private fun openInList(name: String): androidx.test.uiautomator.UiObject2 {
-        repeat(12) { if (!device.hasObject(By.text(name))) device.swipe(300,900,300,300,20) }
-        repeat(12) { if (!device.hasObject(By.text(name))) device.swipe(300,300,300,900,20) }
+        val deadline = android.os.SystemClock.uptimeMillis() + 60000
+        while (!device.hasObject(By.text(name)) && android.os.SystemClock.uptimeMillis() < deadline) {
+            repeat(12) { if (!device.hasObject(By.text(name))) device.swipe(300,900,300,300,20) }
+            repeat(12) { if (!device.hasObject(By.text(name))) device.swipe(300,300,300,900,20) }
+        }
         return device.wait(Until.findObject(By.text(name)),5000) ?: throw AssertionError("Missing $name")
     }
     @Test fun archiveSafetyAndRepeatExtraction() {

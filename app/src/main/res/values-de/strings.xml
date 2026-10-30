@@ -21,6 +21,7 @@
     <string name="cat_etc">etc.</string>
     <string name="menu_open">Öffnen</string>
     <string name="file_actions">Dateiaktionen</string>
+    <string name="file_actions_for">Dateiaktionen für %1$s</string>
     <string name="recent_subtitle">Zuletzt geänderte Dateien im gemeinsamen Speicher</string>
     <string name="cat_other">Sonstige</string>
     <string name="scanning">Suche läuft…</string>
@@ -91,6 +92,9 @@
     <string name="folder_stats_partial">%1$d+ Dateien gesamt | %2$s+ • %3$s</string>
     <string name="folder_stats_pending">Dateien werden gezählt… • %1$s</string>
     <string name="copy">Kopieren</string>
+    <string name="select_all">Alle auswählen</string>
+    <string name="more">Mehr</string>
+    <string name="move">Verschieben</string>
     <string name="move_to">Verschieben in</string>
     <string name="properties">Eigenschaften</string>
     <string name="favorite">Favorit</string>

@@ -164,18 +164,10 @@ fun MainScaffold(initialBrowsePath: String? = null, initialStorageAnalysis: Bool
                     }
                 } else if (path == null) {
                     Box(Modifier.fillMaxSize().padding(padding)) {
-                      com.stockfileexplorer.app.ui.YellowWaves(Modifier.fillMaxWidth().height(260.dp))
+                      com.stockfileexplorer.app.ui.FolderBackdrop(Modifier.fillMaxWidth().height(260.dp))
                       Column(Modifier.fillMaxSize()) {
                         TopAppBar(title = {
-                            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                                Text(stringResource(R.string.app_name))
-                                Spacer(Modifier.width(10.dp))
-                                androidx.compose.foundation.Image(
-                                    painter = androidx.compose.ui.res.painterResource(R.drawable.app_logo_header),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(60.dp)
-                                )
-                            }
+                            Text(stringResource(R.string.app_name))
                         },
                             colors = TopAppBarDefaults.topAppBarColors(containerColor = androidx.compose.ui.graphics.Color.Transparent))
                         DashboardScreen(

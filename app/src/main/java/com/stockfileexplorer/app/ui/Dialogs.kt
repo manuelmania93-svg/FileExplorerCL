@@ -13,10 +13,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.res.stringResource
 import com.stockfileexplorer.app.R
 
 @Composable
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 fun TextInputDialog(
     title: String,
     initialValue: String,
@@ -29,6 +33,9 @@ fun TextInputDialog(
     var value by remember { mutableStateOf(initialValue) }
     AlertDialog(
         onDismissRequest = onDismiss,
+        // Dialogs render in their own window, outside the app root's testTagsAsResourceId
+        // scope - re-enable it here so dialog tags reach UI Automator too.
+        modifier = Modifier.semantics { testTagsAsResourceId = true },
         title = { Text(title) },
         text = {
             OutlinedTextField(
@@ -54,6 +61,7 @@ fun TextInputDialog(
 }
 
 @Composable
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 fun ConfirmDialog(
     title: String,
     body: String,
@@ -63,10 +71,13 @@ fun ConfirmDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
+        // Dialogs render in their own window, outside the app root's testTagsAsResourceId
+        // scope - re-enable it here so dialog tags reach UI Automator too.
+        modifier = Modifier.semantics { testTagsAsResourceId = true },
         title = { Text(title) },
         text = { Text(body) },
         confirmButton = {
-            TextButton(colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface), onClick = onConfirm) { Text(confirmLabel) }
+            TextButton(colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface), onClick = onConfirm, modifier = androidx.compose.ui.Modifier.testTag("dialog_confirm")) { Text(confirmLabel) }
         },
         dismissButton = {
             TextButton(colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface), onClick = onDismiss) { Text(stringResource(R.string.cancel)) }

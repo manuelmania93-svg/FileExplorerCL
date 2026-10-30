@@ -83,6 +83,14 @@ class RemoteAndSearchTest {
         waitPosition { it in 29..30 }
         Thread.sleep(1500)
         screenshot("video-end-clamped")
+        device.pressDPadLeft(); waitPosition { it in 19..20 }
+        Thread.sleep(1500); screenshot("video-back-from-end")
+        device.pressDPadRight(); waitPosition { it in 29..30 }
+        device.pressDPadCenter()
+        Thread.sleep(1800) // the remaining fraction must play through and finish naturally
+        text("Paused")
+        waitPosition { it in 29..30 }
+        screenshot("video-natural-end")
         device.pressBack(); text("remote-video.mp4")
     }
     @Test fun appsSortBySizeAndShowClearlyLabeledApkTotal() {

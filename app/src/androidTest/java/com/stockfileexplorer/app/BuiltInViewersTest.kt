@@ -53,7 +53,8 @@ class BuiltInViewersTest {
             screenshot("dashboard-missing")
             throw AssertionError("Dashboard absent: " + device.currentPackageName)
         }
-        device.findObject(By.text("Internal storage")).click()
+        // The storage card opens the analysis now; the folder browser opens via its shortcut.
+        device.findObject(By.text("Main storage")).click()
         waitText("Download");device.findObject(By.text("Download")).click()
         waitText("ViewerSamples");device.findObject(By.text("ViewerSamples")).click()
     }
@@ -111,16 +112,18 @@ class BuiltInViewersTest {
         open("broken.pdf");waitText("Cannot open this file");screenshot("broken-pdf-error");device.pressBack()
         open("unsafe.zip");waitText("Cannot open this file");screenshot("unsafe-zip-error");device.pressBack()
         context.startActivity(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
+        // Recent files is a Library tile now.
+        waitText("Library")
+        device.findObject(By.text("Library")).click()
         waitText("Recent files")
         device.findObject(By.text("Recent files")).click()
         open("sample-picture.jpg");waitText("Rotate");screenshot("recent-picture-route");device.pressBack()
-        // Category route from the compact dashboard into Library.
+        // Category route through the Library tab grid.
         context.startActivity(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
+        waitText("Library")
+        device.findObject(By.text("Library")).click()
         waitText("Images")
-        // The storage summary repeats the category label as plain text above
-        // the tiles; the clickable Images tile is the lower match.
-        (device.findObjects(By.text("Images")).maxByOrNull { it.visibleBounds.centerY() }
-            ?: throw AssertionError("Images category tile missing on dashboard")).click()
+        device.findObject(By.text("Images")).click()
         open("sample-picture.jpg");waitText("Rotate");screenshot("library-picture-route");device.pressBack()
     }
     @Test fun wholeFilenameIncludingExtensionRename() {

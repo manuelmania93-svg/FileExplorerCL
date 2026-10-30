@@ -91,9 +91,11 @@ class SortAndSpeedTest {
         File(root, "cc-small.mp4").writeBytes(ByteArray(10))
         FileIndex.verifyFixture(context, root, clear = true)
         launch()
-        // The dashboard summary also contains a "Videos" label; the tile is the lowest match.
+        // Category tiles live in the Library tab now.
+        device.wait(Until.hasObject(By.text(label("Library", "Bibliothek"))), 20000)
+        device.findObject(By.text(label("Library", "Bibliothek"))).click()
         device.wait(Until.hasObject(By.text("Videos")), 20000)
-        device.findObjects(By.text("Videos")).maxBy { it.visibleBounds.centerY() }.let { device.click(it.visibleBounds.centerX(), it.visibleBounds.centerY()) }
+        device.findObject(By.text("Videos")).click()
         waitText("bb-broken.mp4")
         // A real video shows a decoded frame; the unreadable one falls back to the category icon.
         waitDesc(label("Video thumbnail: aa-real-frame.mp4", "Videovorschau: aa-real-frame.mp4"), 30000)

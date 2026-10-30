@@ -1,11 +1,8 @@
 package com.stockfileexplorer.app.ui
 
-import androidx.compose.ui.platform.testTag
 import android.os.Environment
 import android.os.StatFs
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -24,20 +21,24 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -47,22 +48,22 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
 import com.stockfileexplorer.app.R
-import com.stockfileexplorer.app.data.FileCategory
 import com.stockfileexplorer.app.data.FileLogic
-import com.stockfileexplorer.app.data.ScanStore
 import com.stockfileexplorer.app.theme.AmberDark
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+/**
+ * Local tab: one compact storage card (opens the storage analysis) and a consistent
+ * 2-column shortcut grid: Hauptspeicher, Downloads, Apps, Papierkorb.
+ * The media categories live in the Library tab.
+ */
 @Composable
 fun DashboardScreen(
     onOpenStorage: () -> Unit,
-    onOpenCategory: (FileCategory) -> Unit,
-    onOpenRecent: () -> Unit,
+    onOpenDownloads: () -> Unit,
+    onOpenApps: () -> Unit,
     onOpenStorageAnalysis: () -> Unit,
     onOpenPapierkorb: () -> Unit = {}
 ) {
@@ -70,21 +71,6 @@ fun DashboardScreen(
     var totalBytes by remember { mutableStateOf(0L) }
     var freeBytes by remember { mutableStateOf(0L) }
     val status by com.stockfileexplorer.app.data.FileIndex.state.collectAsState()
-    val scanning = status.refreshing || status.incomplete
-    var sizes by remember { mutableStateOf(LongArray(FileCategory.entries.size)) }
-    // Totals persist in the index between runs, so show them during a refresh (marked provisional)
-    // and reload at most once a second while scan batches arrive.
-    LaunchedEffect(Unit) {
-        var last = 0L
-        var seen = -1L
-        com.stockfileexplorer.app.data.FileIndex.state.collect { st ->
-            val now = android.os.SystemClock.elapsedRealtime()
-            if (st.revision != seen && (!st.refreshing || now - last >= 1000)) {
-                seen = st.revision; last = now
-                sizes = com.stockfileexplorer.app.data.FileIndex.sizes()
-            }
-        }
-    }
 
     LaunchedEffect(Unit) {
         val (total, free) = withContext(Dispatchers.IO) {
@@ -98,284 +84,118 @@ fun DashboardScreen(
     val usedBytes = (totalBytes - freeBytes).coerceAtLeast(0L)
     val usedFraction = if (totalBytes > 0) usedBytes.toFloat() / totalBytes.toFloat() else 0f
 
-    // null marks the Neue Dateien entry, which is not a scanned FileCategory.
-    val entries = listOf<FileCategory?>(
-        FileCategory.IMAGES, FileCategory.AUDIO, FileCategory.VIDEOS,
-        FileCategory.DOCUMENTS, null, FileCategory.APPS, FileCategory.ARCHIVES, null
-    )
-
     LazyVerticalGrid(
-        columns = GridCells.Fixed(3),
+        columns = GridCells.Fixed(2),
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item(span = { GridItemSpan(3) }) {
+        item(span = { GridItemSpan(2) }) {
             Card(
-                modifier = Modifier.fillMaxWidth().clickable { onOpenStorage() },
+                modifier = Modifier.fillMaxWidth().clickable { onOpenStorageAnalysis() },
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(88.dp)) {
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(64.dp)) {
                         val trackColor = MaterialTheme.colorScheme.surfaceVariant
                         val barColor = MaterialTheme.colorScheme.primary
-                        Canvas(Modifier.size(96.dp)) {
+                        Canvas(Modifier.size(64.dp)) {
                             drawArc(
                                 color = trackColor,
                                 startAngle = 0f,
                                 sweepAngle = 360f,
                                 useCenter = false,
-                                style = Stroke(width = 12.dp.toPx(), cap = StrokeCap.Round)
+                                style = Stroke(width = 9.dp.toPx(), cap = StrokeCap.Round)
                             )
                             drawArc(
                                 color = barColor,
                                 startAngle = -90f,
                                 sweepAngle = 360f * usedFraction,
                                 useCenter = false,
-                                style = Stroke(width = 12.dp.toPx(), cap = StrokeCap.Round)
+                                style = Stroke(width = 9.dp.toPx(), cap = StrokeCap.Round)
                             )
                         }
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = "${(usedFraction * 100).toInt()}%",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = stringResource(R.string.internal_storage),
-                                style = MaterialTheme.typography.labelSmall,
-                                textAlign = TextAlign.Center,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.padding(horizontal = 10.dp)
-                            )
-                        }
+                        Text(
+                            text = "${(usedFraction * 100).toInt()}%",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
-                    Spacer(Modifier.width(10.dp))
+                    Spacer(Modifier.width(14.dp))
                     Column(Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.internal_storage),
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                         Text(
                             text = stringResource(
                                 R.string.used_of,
                                 FileLogic.formatSize(usedBytes),
                                 FileLogic.formatSize(totalBytes)
                             ),
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 2,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
                             text = stringResource(R.string.free_space, FileLogic.formatSize(freeBytes)),
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
-                        Spacer(Modifier.height(8.dp))
-                        Row(Modifier.fillMaxWidth()) {
-                            Column(Modifier.weight(1f)) {
-                                CategorySizeLine(
-                                    categoryLabel(FileCategory.IMAGES),
-                                    categorySizeText(FileCategory.IMAGES, sizes, scanning, status.incomplete && !status.refreshing)
-                                )
-                                CategorySizeLine(
-                                    categoryLabel(FileCategory.VIDEOS),
-                                    categorySizeText(FileCategory.VIDEOS, sizes, scanning, status.incomplete && !status.refreshing)
-                                )
-                                CategorySizeLine(
-                                    categoryLabel(FileCategory.AUDIO),
-                                    categorySizeText(FileCategory.AUDIO, sizes, scanning, status.incomplete && !status.refreshing)
-                                )
-                            }
-                            Spacer(Modifier.width(10.dp))
-                            Column(Modifier.weight(1f)) {
-                                CategorySizeLine(
-                                    categoryLabel(FileCategory.DOCUMENTS),
-                                    categorySizeText(FileCategory.DOCUMENTS, sizes, scanning, status.incomplete && !status.refreshing)
-                                )
-                                CategorySizeLine(
-                                    categoryLabel(FileCategory.APPS),
-                                    categorySizeText(FileCategory.APPS, sizes, scanning, status.incomplete && !status.refreshing)
-                                )
-                                CategorySizeLine(
-                                    stringResource(R.string.cat_etc),
-                                    run {
-                                        val known = sizes.sum() > 0
-                                        if (scanning && !known) stringResource(if (status.incomplete && !status.refreshing) R.string.index_partial else R.string.scanning)
-                                        else (if (scanning) "~" else "") + FileLogic.formatSize(
-                                            // Remaining used space: archives, uncategorized files and
-                                            // data all-files access cannot itemize.
-                                            (usedBytes -
-                                                sizes[FileCategory.IMAGES.ordinal] -
-                                                sizes[FileCategory.VIDEOS.ordinal] -
-                                                sizes[FileCategory.AUDIO.ordinal] -
-                                                sizes[FileCategory.DOCUMENTS.ordinal] -
-                                                sizes[FileCategory.APPS.ordinal]
-                                                ).coerceAtLeast(0L)
-                                        )
-                                    }
-                                )
-                            }
-                        }
                     }
+                    Icon(
+                        imageVector = SfeIcons.Analytics,
+                        contentDescription = stringResource(R.string.storage_analysis),
+                        tint = AmberDark,
+                        modifier = Modifier.size(24.dp)
+                    )
                 }
             }
         }
 
-        item(span = { GridItemSpan(3) }) {
-            if (status.refreshing || status.incomplete) Text(
-                stringResource(if (status.refreshing) R.string.index_updating else R.string.index_incomplete),
-                style = MaterialTheme.typography.bodySmall
-            )
-        }
-        item(span = { GridItemSpan(3) }) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                ShortcutCard(SfeIcons.Folder, Color(0xFFFF9800), stringResource(R.string.main_storage), onOpenStorage, Modifier.weight(1f))
-                ShortcutCard(Icons.Filled.Delete, Color(0xFF607D8B), stringResource(R.string.papierkorb), onOpenPapierkorb, Modifier.weight(1f))
-            }
-        }
-        items(entries.size) { index ->
-            val cat = entries[index]
-            if (cat == null) {
-                if (index == 4) {
-                    CategoryCircle(
-                        icon = SfeIcons.Schedule,
-                        tint = AmberDark,
-                        label = stringResource(R.string.cat_recent),
-                        onClick = onOpenRecent
-                    )
-                } else {
-                    CategoryCircle(
-                        icon = SfeIcons.Analytics,
-                        tint = MaterialTheme.colorScheme.primary,
-                        label = stringResource(R.string.storage_analysis),
-                        onClick = onOpenStorageAnalysis
-                    )
-                }
-            } else {
-                CategoryCircle(
-                    icon = categoryIcon(cat),
-                    tint = categoryColor(cat),
-                    label = categoryLabel(cat),
-                    onClick = { onOpenCategory(cat) }
+        if (status.refreshing || status.incomplete) {
+            item(span = { GridItemSpan(2) }) {
+                Text(
+                    stringResource(if (status.refreshing) R.string.index_updating else R.string.index_incomplete),
+                    style = MaterialTheme.typography.bodySmall
                 )
             }
         }
+
+        item { ShortcutCard(SfeIcons.Folder, Color(0xFFFF9800), stringResource(R.string.main_storage), onOpenStorage) }
+        item { ShortcutCard(SfeIcons.Download, Color(0xFF009688), stringResource(R.string.downloads), onOpenDownloads) }
+        item { ShortcutCard(SfeIcons.Android, Color(0xFF4CAF50), stringResource(R.string.cat_apps), onOpenApps) }
+        item { ShortcutCard(Icons.Filled.Delete, Color(0xFF607D8B), stringResource(R.string.papierkorb), onOpenPapierkorb) }
     }
 }
 
 @Composable
-private fun categorySizeText(category: FileCategory, sizes: LongArray, scanning: Boolean, incomplete: Boolean = false): String {
-    val size = sizes[category.ordinal]
-    return when {
-        // Previously indexed totals stay visible and are marked provisional ("~") until the scan ends.
-        scanning && size > 0 -> "~" + FileLogic.formatSize(size)
-        incomplete -> stringResource(R.string.index_partial)
-        scanning -> stringResource(R.string.scanning)
-        else -> FileLogic.formatSize(size)
-    }
-}
-
-@Composable
-private fun CategorySizeLine(label: String, sizeText: String) {
-    // Label above value at normal body size: nothing is cut off at phone widths or larger font scales.
-    Column(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 2,
-        )
-        Text(
-            text = sizeText,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 2,
-        )
-    }
-}
-
-@Composable
-fun CategoryCircle(
-    icon: ImageVector,
-    tint: Color,
-    label: String,
-    onClick: () -> Unit
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth().testTag("tile:$label").clickable { onClick() },
-        horizontalAlignment = Alignment.CenterHorizontally
+private fun ShortcutCard(icon: ImageVector, tint: Color, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(64.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+            .clickable { onClick() }
+            .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier.size(64.dp).background(color = tint, shape = CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(30.dp)
-            )
+        Box(Modifier.size(36.dp).background(tint, CircleShape), contentAlignment = Alignment.Center) {
+            Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
         }
-        Spacer(Modifier.height(6.dp))
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            textAlign = TextAlign.Center,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(horizontal = 2.dp)
-        )
-    }
-}
-
-@Composable
-fun categoryColor(category: FileCategory): Color = when (category) {
-    FileCategory.IMAGES -> Color(0xFFE91E63)
-    FileCategory.VIDEOS -> Color(0xFF9C27B0)
-    FileCategory.AUDIO -> Color(0xFF009688)
-    FileCategory.DOCUMENTS -> Color(0xFF2196F3)
-    FileCategory.APPS -> Color(0xFF4CAF50)
-    FileCategory.ARCHIVES -> Color(0xFFFF9800)
-    FileCategory.OTHER -> Color(0xFF607D8B)
-}
-
-@Composable
-fun CategoryCard(
-    category: FileCategory,
-    size: Long,
-    count: Int,
-    scanning: Boolean,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth().clickable { onClick() },
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-    ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Icon(
-                imageVector = categoryIcon(category),
-                contentDescription = null,
-                tint = categoryColor(category),
-                modifier = Modifier.size(32.dp)
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = categoryLabel(category),
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                text = if (scanning) stringResource(R.string.scanning)
-                else FileLogic.formatSize(size) + " \u2022 " +
-                        if (count == 1) stringResource(R.string.one_item)
-                        else stringResource(R.string.items_count, count),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
+        Spacer(Modifier.width(10.dp))
+        Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -389,7 +209,7 @@ fun FolderBackdrop(modifier: Modifier = Modifier) {
     androidx.compose.foundation.Canvas(modifier) {
         val w = size.width
         val h = size.height
-        val tabH = 30.dp.toPx()
+        val tabH = 26.dp.toPx()
         val tabW = w * 0.46f
         val corner = 20.dp.toPx()
         val fillet = 14.dp.toPx()
@@ -450,23 +270,5 @@ fun FolderBackdrop(modifier: Modifier = Modifier) {
             topLeft = androidx.compose.ui.geometry.Offset(0f, h - groundH),
             size = androidx.compose.ui.geometry.Size(w, groundH)
         )
-    }
-}
-
-@Composable
-private fun ShortcutCard(icon: ImageVector, tint: Color, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Row(
-        modifier = modifier
-            .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
-            .clickable { onClick() }
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(Modifier.size(36.dp).background(tint, CircleShape), contentAlignment = Alignment.Center) {
-            Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
-        }
-        Spacer(Modifier.width(10.dp))
-        Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
 }

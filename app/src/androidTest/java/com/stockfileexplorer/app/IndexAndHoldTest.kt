@@ -33,6 +33,24 @@ class IndexAndHoldTest {
         ?: throw AssertionError("Missing UI text: $value")
     private fun waitTextContains(value: String): UiObject2 = device.wait(Until.findObject(By.textContains(value)), 15000)
         ?: throw AssertionError("Missing UI text containing: $value")
+    private fun openLibrary() {
+        // Category tiles live in the Library tab now. The index can refresh mid-tap, so
+        // wait for the tab label, click by coordinates and retry on stale nodes.
+        device.wait(Until.hasObject(By.text(label("Library", "Bibliothek"))), 15000)
+            || throw AssertionError("Library tab missing")
+        repeat(8) {
+            try {
+                val tab = device.findObject(By.text(label("Library", "Bibliothek")))
+                if (tab == null) { device.waitForIdle(); Thread.sleep(500); return@repeat }
+                val b = tab.visibleBounds
+                device.click(b.centerX(), b.centerY())
+                device.waitForIdle()
+                return
+            } catch (_: StaleObjectException) { device.waitForIdle(); Thread.sleep(300) }
+        }
+        throw AssertionError("Library tab not clickable")
+    }
+
     private fun clickTile(value: String) {
         // The tile is found by its own tag ("tile:<label>"), not by label text, so the summary card's label of the same name is never matched.
         assertTrue("Tile present: $value", device.wait(Until.hasObject(By.res("tile:$value")), 15000))
@@ -116,6 +134,7 @@ class IndexAndHoldTest {
             assertTrue("Real row opens before walk", page.items.first().file.readText().startsWith("indexed real file"))
             val uiStart = SystemClock.elapsedRealtime()
             launch()
+            openLibrary()
             clickTile(label("Documents","Dokumente"))
             assertTrue("UI is usable before filesystem traversal", device.wait(Until.hasObject(By.textStartsWith("indexed-")),20000))
             screenshot("indexed-before-walk")
@@ -235,6 +254,7 @@ class IndexAndHoldTest {
         clickOverflow(By.descContains(label("File actions","Dateiaktionen")))
         waitText(label("Rename","Umbenennen")); waitText(label("Select","Auswählen")); device.pressBack()
         launch()
+        openLibrary()
         clickTile(label("Images","Bilder"))
         assertTrue("Actual decoded thumbnail in category", device.wait(Until.hasObject(By.desc(label("Picture thumbnail: hold-picture.jpg","Bildvorschau: hold-picture.jpg"))),15000))
         screenshot("picture-thumbnail-category")
@@ -243,6 +263,7 @@ class IndexAndHoldTest {
         waitText(label("Rotate","Drehen"))
         device.pressBack()
         launch()
+        openLibrary()
         waitText(label("Recent files","Neue Dateien")).click()
         assertTrue("Actual decoded thumbnail in Recent after returning", device.wait(Until.hasObject(By.desc(label("Picture thumbnail: hold-picture.jpg","Bildvorschau: hold-picture.jpg"))),15000))
         screenshot("picture-thumbnail-recent")
@@ -312,6 +333,7 @@ class IndexAndHoldTest {
         launch()
         waitText(label("Internal storage","Interner Speicher"))
         screenshot("production-dashboard")
+        openLibrary()
         clickTile(label("Documents","Dokumente"))
         val row = waitText("hold-one.txt")
         row.longClick()

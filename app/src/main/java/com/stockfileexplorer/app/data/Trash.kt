@@ -63,5 +63,22 @@ object Trash {
 
     fun deletePermanently(entry: Entry): Boolean = entry.dir.deleteRecursively()
 
+    /**
+     * Empties the whole bin. Deletes only entries directly inside the bin root and
+     * never follows paths pointing outside it. Returns false if anything could not
+     * be removed (the entry stays in the bin then).
+     */
+    fun empty(base: File = Environment.getExternalStorageDirectory()): Boolean {
+        val bin = root(base)
+        if (!bin.exists()) return true
+        val children = bin.listFiles() ?: return false
+        var ok = true
+        for (child in children) {
+            if (!child.absolutePath.startsWith(bin.absolutePath + "/")) { ok = false; continue }
+            if (!child.deleteRecursively()) ok = false
+        }
+        return ok
+    }
+
     private fun size(f: File): Long = if (f.isFile) f.length() else f.walkTopDown().filter { it.isFile }.sumOf { it.length() }
 }

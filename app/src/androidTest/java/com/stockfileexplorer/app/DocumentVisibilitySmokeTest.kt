@@ -65,16 +65,13 @@ class DocumentVisibilitySmokeTest {
             "Dashboard storage card visible after grant",
             device.wait(Until.hasObject(By.text("Internal storage")), 10000)
         )
-        assertTrue(
-            "Combined remaining-category size row visible on dashboard",
-            device.wait(Until.hasObject(By.text("etc.")), 10000)
-        )
         // Let the storage scan finish so the captured dashboard shows real sizes.
         device.wait(Until.gone(By.textContains("Scanning")), 30000)
         device.takeScreenshot(File("/sdcard/Download/sfe-$suffix-1-dashboard.png"))
 
-        // Open internal storage -> root listing.
-        device.findObject(By.text("Internal storage")).click()
+        // Open main storage via its shortcut -> root listing.
+        // (The storage card itself now opens the storage analysis.)
+        device.findObject(By.text("Main storage")).click()
         assertTrue(
             "Root listing shows Download folder",
             device.wait(Until.hasObject(By.text("Download")), 8000)

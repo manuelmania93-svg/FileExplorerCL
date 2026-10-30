@@ -193,4 +193,11 @@
     <string name="restricted_overwrite_run">Ersetzen</string>
     <string name="restricted_replaced">%1$s ersetzt. Die vorherige Version bleibt als %2$s erhalten.</string>
     <string name="restricted_kept_files">Im Ordner verbliebene Dateien: %1$s</string>
+    <string name="papierkorb_empty_action">Papierkorb leeren</string>
+    <string name="papierkorb_empty_confirm_title">Papierkorb leeren?</string>
+    <string name="papierkorb_empty_confirm_body">Alle Elemente im Papierkorb werden endgültig gelöscht. Das kann nicht rückgängig gemacht werden.</string>
+    <string name="papierkorb_emptied">Papierkorb geleert</string>
+    <string name="downloads">Downloads</string>
+    <string name="cat_apk">APK</string>
+    <string name="no_launch_activity">Diese App kann nicht geöffnet werden</string>
 </resources>

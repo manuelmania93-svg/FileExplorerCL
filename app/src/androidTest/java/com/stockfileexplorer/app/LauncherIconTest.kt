@@ -94,14 +94,19 @@ class LauncherIconTest {
         // icon must be mostly the orange gradient with a bright cream folder.
         var orange = 0
         var cream = 0
-        val total = 432 * 432
-        val pixels = IntArray(total)
+        var total = 0
+        val pixels = IntArray(432 * 432)
         probe.getPixels(pixels, 0, 432, 0, 0, 432, 432)
         for (px in pixels) {
+            // System masks vary by image/vendor. Transparent space outside the actual
+            // adaptive icon is not artwork and must not dilute the color proportions.
+            if (Color.alpha(px) < 250) continue
+            total++
             val r = Color.red(px); val g = Color.green(px); val b = Color.blue(px)
             if (r > 200 && g in 60..235 && b < 150 && r - g > 30) orange++
             if (r > 230 && g > 210 && b > 120) cream++
         }
+        assertTrue("Adaptive icon has substantial opaque artwork", total > pixels.size / 2)
         assertTrue(
             "Icon should be mostly orange gradient, was ${orange * 100 / total}%",
             orange > total / 2

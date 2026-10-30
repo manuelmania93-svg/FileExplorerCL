@@ -113,12 +113,14 @@ class BuiltInViewersTest {
         open("unsafe.zip");waitText("Cannot open this file");screenshot("unsafe-zip-error");device.pressBack()
         context.startActivity(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
         // Recent files is a Library tile now.
+        waitText("Library")
         device.findObject(By.text("Library")).click()
         waitText("Recent files")
         device.findObject(By.text("Recent files")).click()
         open("sample-picture.jpg");waitText("Rotate");screenshot("recent-picture-route");device.pressBack()
         // Category route through the Library tab grid.
         context.startActivity(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
+        waitText("Library")
         device.findObject(By.text("Library")).click()
         waitText("Images")
         device.findObject(By.text("Images")).click()

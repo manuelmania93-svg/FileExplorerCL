@@ -48,6 +48,10 @@ jobs:
           disable-animations: true
           script: |
             mkdir -p app/build/reports/device
+            ./gradlew installDebug
+            adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
+            ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.RemoteAndSearchTest -Pandroid.testInstrumentationRunnerArguments.capture=remote-search || (adb pull /sdcard/Download/ app/build/reports/device/; adb logcat -d > app/build/reports/device/logcat-remote-search.txt || true; exit 1)
+            adb pull /sdcard/Download/ app/build/reports/device/
             ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.GateFlowTest -Pandroid.testInstrumentationRunnerArguments.capture=gate || (adb pull /sdcard/Download/ app/build/reports/device/; exit 1)
             adb pull /sdcard/Download/ app/build/reports/device/
             adb shell cmd uimode night yes
@@ -87,10 +91,6 @@ jobs:
             ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.BuiltInViewersTest -Pandroid.testInstrumentationRunnerArguments.capture=viewers-night || (adb pull /sdcard/Download/ app/build/reports/device/; adb logcat -d > app/build/reports/device/logcat-viewers-night.txt || true; exit 1)
             adb pull /sdcard/Download/ app/build/reports/device/
             adb shell cmd uimode night no
-            ./gradlew installDebug
-            adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
-            ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.RemoteAndSearchTest -Pandroid.testInstrumentationRunnerArguments.capture=remote-search || (adb pull /sdcard/Download/ app/build/reports/device/; adb logcat -d > app/build/reports/device/logcat-remote-search.txt || true; exit 1)
-            adb pull /sdcard/Download/ app/build/reports/device/
             # German-locale layout run via per-app language: no reboot and no
             # root, so the installed package and the all-files grant stay in
             # place (the previous reboot-based approach lost the package).

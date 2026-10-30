@@ -34,9 +34,21 @@ class IndexAndHoldTest {
     private fun waitTextContains(value: String): UiObject2 = device.wait(Until.findObject(By.textContains(value)), 15000)
         ?: throw AssertionError("Missing UI text containing: $value")
     private fun openLibrary() {
-        // Category tiles live in the Library tab now.
-        device.findObject(By.text(label("Library", "Bibliothek"))).click()
-        device.waitForIdle()
+        // Category tiles live in the Library tab now. The index can refresh mid-tap, so
+        // wait for the tab label, click by coordinates and retry on stale nodes.
+        device.wait(Until.hasObject(By.text(label("Library", "Bibliothek"))), 15000)
+            || throw AssertionError("Library tab missing")
+        repeat(8) {
+            try {
+                val tab = device.findObject(By.text(label("Library", "Bibliothek")))
+                if (tab == null) { device.waitForIdle(); Thread.sleep(500); return@repeat }
+                val b = tab.visibleBounds
+                device.click(b.centerX(), b.centerY())
+                device.waitForIdle()
+                return
+            } catch (_: StaleObjectException) { device.waitForIdle(); Thread.sleep(300) }
+        }
+        throw AssertionError("Library tab not clickable")
     }
 
     private fun clickTile(value: String) {

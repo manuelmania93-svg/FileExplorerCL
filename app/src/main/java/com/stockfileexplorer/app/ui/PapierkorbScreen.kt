@@ -13,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -33,6 +34,7 @@ fun PapierkorbScreen(onBack: () -> Unit) {
     var loaded by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf<Trash.Entry?>(null) }
     var confirmDelete by remember { mutableStateOf<Trash.Entry?>(null) }
+    var confirmEmpty by remember { mutableStateOf(false) }
     fun reload() { scope.launch { entries = withContext(Dispatchers.IO) { Trash.list() }; loaded = true } }
     LaunchedEffect(Unit) { reload() }
 
@@ -40,6 +42,13 @@ fun PapierkorbScreen(onBack: () -> Unit) {
         TopAppBar(
             title = { Text(stringResource(R.string.papierkorb)) },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, null) } },
+            actions = {
+                if (entries.isNotEmpty()) {
+                    TextButton(onClick = { confirmEmpty = true }, modifier = Modifier.testTag("papierkorb_empty_action")) {
+                        Text(stringResource(R.string.papierkorb_empty_action))
+                    }
+                }
+            },
         )
         Text(stringResource(R.string.papierkorb_note), style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
@@ -98,6 +107,22 @@ fun PapierkorbScreen(onBack: () -> Unit) {
                 }
             },
             onDismiss = { confirmDelete = null },
+        )
+    }
+    if (confirmEmpty) {
+        ConfirmDialog(
+            title = stringResource(R.string.papierkorb_empty_confirm_title),
+            body = stringResource(R.string.papierkorb_empty_confirm_body),
+            confirmLabel = stringResource(R.string.papierkorb_empty_action),
+            onConfirm = {
+                confirmEmpty = false
+                scope.launch {
+                    val ok = withContext(Dispatchers.IO) { Trash.empty() }
+                    Toast.makeText(context, if (ok) R.string.papierkorb_emptied else R.string.delete_failed, Toast.LENGTH_SHORT).show()
+                    FileIndex.invalidate(); reload()
+                }
+            },
+            onDismiss = { confirmEmpty = false },
         )
     }
 }

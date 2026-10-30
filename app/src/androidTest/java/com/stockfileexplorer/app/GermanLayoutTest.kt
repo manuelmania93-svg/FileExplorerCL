@@ -76,7 +76,9 @@ class GermanLayoutTest {
         )
 
         // Folder browser in German: action menu opens from the overflow button.
-        device.findObject(By.text("Interner Speicher")).click()
+        // (The "Interner Speicher" card now opens the storage analysis; the folder
+        // browser opens via the "Hauptspeicher" shortcut.)
+        device.findObject(By.text("Hauptspeicher")).click()
         assertTrue(device.wait(Until.hasObject(By.text("Download")), 8000))
         device.findObject(By.text("Download")).click()
         // Name-sorted screenshots from earlier test classes (sfe-back-*) push the

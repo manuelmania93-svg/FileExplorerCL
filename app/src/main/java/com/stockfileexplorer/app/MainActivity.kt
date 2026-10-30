@@ -52,9 +52,9 @@ import com.stockfileexplorer.app.ui.SfeIcons
 import com.stockfileexplorer.app.ui.DashboardScreen
 import com.stockfileexplorer.app.ui.LibraryScreen
 import com.stockfileexplorer.app.ui.PermissionScreen
-import com.stockfileexplorer.app.ui.RecentFilesScreen
 import com.stockfileexplorer.app.ui.StorageAnalysisScreen
 import com.stockfileexplorer.app.ui.PapierkorbScreen
+import com.stockfileexplorer.app.ui.InstalledAppsScreen
 
 @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 class MainActivity : ComponentActivity() {
@@ -106,25 +106,25 @@ fun Root(initialBrowsePath: String? = null, initialStorageAnalysis: Boolean = fa
 fun MainScaffold(initialBrowsePath: String? = null, initialStorageAnalysis: Boolean = false, initialPapierkorb: Boolean = false) {
     var tab by remember { mutableIntStateOf(TAB_LOCAL) }
     var browsePath by remember { mutableStateOf<String?>(initialBrowsePath) }
-    var libraryCategory by remember { mutableStateOf<FileCategory?>(null) }
     // A category opened out of the storage analysis overlays it on the Local tab (null = not open).
     var analysisCategory by remember { mutableStateOf<FileCategory?>(null) }
     val analysisHolder = remember { com.stockfileexplorer.app.ui.AnalysisHolder() }
-    var showRecent by remember { mutableStateOf(false) }
+    var showApps by remember { mutableStateOf(false) }
     var showPapierkorb by remember { mutableStateOf(initialPapierkorb) }
     var showStorageAnalysis by remember { mutableStateOf(initialStorageAnalysis) }
     val storageRoot = remember { Environment.getExternalStorageDirectory().absolutePath }
+    val downloadsPath = remember { Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).absolutePath }
 
     // Intercept Back only while the screen it closes is visible - all of these live on the
     // Local tab. Closing hidden state read as "Back does nothing, then the app exits".
-    BackHandler(enabled = tab == TAB_LOCAL && (browsePath != null || analysisCategory != null || showRecent || showStorageAnalysis || showPapierkorb)) {
+    BackHandler(enabled = tab == TAB_LOCAL && (browsePath != null || analysisCategory != null || showApps || showStorageAnalysis || showPapierkorb)) {
         // An open folder or category closes first, so Back from a destination opened out of
         // the analysis returns to the analysis.
         if (browsePath != null) browsePath = null
         else if (analysisCategory != null) analysisCategory = null
         else if (showPapierkorb) showPapierkorb = false
         else if (showStorageAnalysis) { showStorageAnalysis = false; analysisHolder.report = null }
-        else if (showRecent) showRecent = false
+        else if (showApps) showApps = false
     }
 
     Scaffold(
@@ -178,13 +178,13 @@ fun MainScaffold(initialBrowsePath: String? = null, initialStorageAnalysis: Bool
                             onOpenCategory = { cat -> analysisCategory = cat }
                         )
                     }
-                } else if (showRecent && path == null) {
+                } else if (showApps && path == null) {
                     Column(Modifier.fillMaxSize().padding(padding)) {
-                        RecentFilesScreen(onBack = { showRecent = false })
+                        InstalledAppsScreen(onBack = { showApps = false })
                     }
                 } else if (path == null) {
                     Box(Modifier.fillMaxSize().padding(padding)) {
-                      com.stockfileexplorer.app.ui.FolderBackdrop(Modifier.fillMaxWidth().height(260.dp))
+                      com.stockfileexplorer.app.ui.FolderBackdrop(Modifier.fillMaxWidth().height(190.dp))
                       Column(Modifier.fillMaxSize()) {
                         TopAppBar(title = {
                             Text(stringResource(R.string.app_name))
@@ -192,11 +192,8 @@ fun MainScaffold(initialBrowsePath: String? = null, initialStorageAnalysis: Bool
                             colors = TopAppBarDefaults.topAppBarColors(containerColor = androidx.compose.ui.graphics.Color.Transparent))
                         DashboardScreen(
                             onOpenStorage = { browsePath = storageRoot },
-                            onOpenCategory = { cat ->
-                                libraryCategory = cat
-                                tab = TAB_LIBRARY
-                            },
-                            onOpenRecent = { showRecent = true },
+                            onOpenDownloads = { browsePath = downloadsPath },
+                            onOpenApps = { showApps = true },
                             onOpenStorageAnalysis = { showStorageAnalysis = true },
                             onOpenPapierkorb = { showPapierkorb = true }
                         )
@@ -212,10 +209,7 @@ fun MainScaffold(initialBrowsePath: String? = null, initialStorageAnalysis: Bool
                 }
             }
             TAB_LIBRARY -> Column(Modifier.fillMaxSize().padding(padding)) {
-                LibraryScreen(
-                    initialCategory = libraryCategory,
-                    onConsumedInitial = { libraryCategory = null }
-                )
+                LibraryScreen()
             }
             else -> Column(
                 modifier = Modifier.fillMaxSize().padding(padding),

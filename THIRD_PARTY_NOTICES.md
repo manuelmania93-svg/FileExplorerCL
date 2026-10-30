@@ -3,6 +3,7 @@
 - Junrar 8.0.0 (https://github.com/junrar/junrar/releases/tag/v8.0.0), UnRAR license. Used only for RAR extraction. The code may not be used to develop a RAR (WinRAR) compatible archiver or re-create the proprietary RAR compression algorithm. Full license is included in the APK under assets/licenses/Junrar-UnRAR.txt.
 - AndroidX Media3 1.9.4 (https://developer.android.com/media/media3), Apache License 2.0. License included under assets/licenses/Media3-Apache-2.0.txt.
 - SLF4J 2.0.17 (https://www.slf4j.org/license.html), MIT License. License included under assets/licenses/SLF4J-MIT.txt.
+- Inter 4.1 (https://github.com/rsms/inter), SIL Open Font License 1.1. Used as the app typeface. License included under assets/licenses/Inter-OFL.txt.
 - ZIP extraction uses java.util.zip; PDF rendering and image decoding use Android platform APIs. No cloud conversion or file upload is performed.
 
 ## Current scope and bounds

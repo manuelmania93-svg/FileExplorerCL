@@ -193,4 +193,11 @@
     <string name="restricted_overwrite_run">Replace</string>
     <string name="restricted_replaced">Replaced %1$s. The previous version is kept as %2$s.</string>
     <string name="restricted_kept_files">Files left in the folder: %1$s</string>
+    <string name="papierkorb_empty_action">Empty Papierkorb</string>
+    <string name="papierkorb_empty_confirm_title">Empty the Papierkorb?</string>
+    <string name="papierkorb_empty_confirm_body">All items in the Papierkorb are permanently deleted. This cannot be undone.</string>
+    <string name="papierkorb_emptied">Papierkorb emptied</string>
+    <string name="downloads">Downloads</string>
+    <string name="cat_apk">APK</string>
+    <string name="no_launch_activity">This app cannot be opened</string>
 </resources>

@@ -171,26 +171,40 @@ class BackNavigationTest {
                 fail("Documents category row not found after scrolling")
             }
         }
-        // A tap on a still-flinging list is consumed as a scroll stop, not a click
-        // (standard Android behavior, users see it too) - so prove the row position
-        // is settled before tapping, then tap exactly once. A lost tap on a settled
-        // row is a product bug and must fail this test, not be retried away.
-        val rowBounds = run {
+        // The scroll loop's last swipe can fling the list past the found row
+        // (evidence: analysis-row-unstable screenshot showed the list several
+        // sections below the Categories section). Scroll back until the row is
+        // fully on screen and clear of the bottom bar, prove its position is
+        // settled, then tap exactly once. A lost tap on a settled row is a
+        // product bug and must fail this test, not be retried away.
+        val rb = run {
             var previous: android.graphics.Rect? = null
-            val deadline = android.os.SystemClock.elapsedRealtime() + 20000
-            while (android.os.SystemClock.elapsedRealtime() < deadline) {
+            val deadline = android.os.SystemClock.elapsedRealtime() + 120000
+            var settled: android.graphics.Rect? = null
+            while (android.os.SystemClock.elapsedRealtime() < deadline && settled == null) {
                 device.waitForIdle()
-                val row = device.findObject(By.res("analysis_category:DOCUMENTS"))
-                val b = try { row?.visibleBounds } catch (_: androidx.test.uiautomator.StaleObjectException) { null }
-                if (b != null && b == previous && b.centerY() in 0..device.displayHeight) return@run b
-                previous = b
-                Thread.sleep(500)
+                val b = try { device.findObject(By.res("analysis_category:DOCUMENTS"))?.visibleBounds } catch (_: androidx.test.uiautomator.StaleObjectException) { null }
+                if (b == null || b.height() < 40 || b.centerY() !in 0..device.displayHeight) {
+                    try { scroller.scrollBackward() } catch (_: Exception) { }
+                    previous = null
+                    continue
+                }
+                if (b.centerY() > device.displayHeight * 3 / 4) {
+                    try { device.findObject(By.scrollable(true))?.scroll(androidx.test.uiautomator.Direction.DOWN, 0.25f) } catch (_: Exception) { }
+                    previous = null
+                    Thread.sleep(400)
+                    continue
+                }
+                if (b == previous) settled = b else { previous = b; Thread.sleep(500) }
             }
-            null
+            settled
         }
-        val rb = rowBounds ?: run {
+        if (rb == null) {
             screenshot("analysis-row-unstable")
-            throw AssertionError("Documents row never settled to a stable position")
+            try {
+                device.executeShellCommand("uiautomator dump /sdcard/Download/sfe-back-${if (german) "de" else "en"}-hierarchy.xml")
+            } catch (_: Exception) { }
+            throw AssertionError("Documents row never settled to a stable on-screen position")
         }
         device.click(rb.centerX(), rb.centerY())
         if (!device.wait(Until.hasObject(By.res("sort_button")), 8000)) {

@@ -36,6 +36,7 @@ class FileActionsInstrumentedTest {
     // New actions make the bounded context menu scroll. Find bottom actions
     // through its real scroll container, rather than requiring all rows on screen.
     private fun revealMenuAction(value: String) {
+        if (device.hasObject(By.text(value))) return
         if (value in setOf("Select", "Auswählen", "Customize menu", "Menü anpassen")) {
             androidx.test.uiautomator.UiScrollable(androidx.test.uiautomator.UiSelector().scrollable(true))
                 .scrollIntoView(androidx.test.uiautomator.UiSelector().text(value))

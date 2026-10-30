@@ -150,10 +150,12 @@ class BackNavigationTest {
         start { putExtra("storage_analysis", true) }
         waitText(label("Storage analysis", "Speicheranalyse"))
 
-        // Wait for the report list and scroll the category row into view.
+        // Wait for the report list and scroll the clickable category row into view.
+        // Target its testTag: the pyramid legend has a non-clickable "Documents"
+        // line, so a text search can match the wrong row (and its tap goes nowhere).
         val scroller = UiScrollable(UiSelector().scrollable(true))
         assertTrue("analysis report list", scroller.waitForExists(90000))
-        assertTrue("Documents category row", scroller.scrollTextIntoView(label("Documents", "Dokumente")))
+        assertTrue("Documents category row", scroller.scrollIntoView(UiSelector().resourceId("analysis_category:DOCUMENTS")))
         // A tap on a still-flinging list is consumed as a scroll stop, not a click
         // (standard Android behavior, users see it too) - so prove the row position
         // is settled before tapping, then tap exactly once. A lost tap on a settled
@@ -163,7 +165,7 @@ class BackNavigationTest {
             val deadline = android.os.SystemClock.elapsedRealtime() + 20000
             while (android.os.SystemClock.elapsedRealtime() < deadline) {
                 device.waitForIdle()
-                val row = device.findObject(By.text(label("Documents", "Dokumente")))
+                val row = device.findObject(By.res("analysis_category:DOCUMENTS"))
                 val b = try { row?.visibleBounds } catch (_: androidx.test.uiautomator.StaleObjectException) { null }
                 if (b != null && b == previous && b.centerY() in 0..device.displayHeight) return@run b
                 previous = b

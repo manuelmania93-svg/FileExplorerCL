@@ -3,6 +3,7 @@ package com.stockfileexplorer.app.ui
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -140,7 +141,8 @@ fun StorageAnalysisScreen(
                 item { SectionTitle(stringResource(R.string.categories)) }
                 items(value.categories.entries.sortedByDescending { it.value }) { entry ->
                     AnalysisLine(categoryLabel(entry.key), FileLogic.formatSize(entry.value),
-                        onClick = if (entry.key == FileCategory.OTHER) null else ({ onOpenCategory(entry.key) }))
+                        onClick = if (entry.key == FileCategory.OTHER) null else ({ onOpenCategory(entry.key) }),
+                        tag = "analysis_category:" + entry.key.name)
                 }
 
                 item { SectionTitle(stringResource(R.string.largest_folders)) }
@@ -352,8 +354,8 @@ private fun SectionTitle(title: String) {
 }
 
 @Composable
-private fun AnalysisLine(label: String, value: String, subtitle: String? = null, onClick: (() -> Unit)? = null, trailing: (@Composable () -> Unit)? = null) {
-    Row(Modifier.fillMaxWidth().let { if (onClick != null) it.clickable { onClick() }.padding(vertical = 4.dp) else it },
+private fun AnalysisLine(label: String, value: String, subtitle: String? = null, onClick: (() -> Unit)? = null, trailing: (@Composable () -> Unit)? = null, tag: String? = null) {
+    Row(Modifier.fillMaxWidth().let { if (tag != null) it.testTag(tag) else it }.let { if (onClick != null) it.clickable { onClick() }.padding(vertical = 4.dp) else it },
         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis)

@@ -151,11 +151,25 @@ class BackNavigationTest {
         waitText(label("Storage analysis", "Speicheranalyse"))
 
         // Wait for the report list, scroll the category row into view and open it.
+        // The report updates while later analysis stages run, so re-scroll and re-tap
+        // until the category overlay actually opens.
         val scroller = UiScrollable(UiSelector().scrollable(true))
         assertTrue("analysis report list", scroller.waitForExists(90000))
-        assertTrue("Documents category row", scroller.scrollTextIntoView(label("Documents", "Dokumente")))
-        device.findObject(By.text(label("Documents", "Dokumente"))).click()
-        waitRes("sort_button") // category list opened on top of the analysis
+        val opened = (1..6).any {
+            try {
+                scroller.scrollTextIntoView(label("Documents", "Dokumente"))
+                val row = device.findObject(By.text(label("Documents", "Dokumente")))
+                if (row != null) {
+                    val b = row.visibleBounds
+                    device.click(b.centerX(), b.centerY())
+                }
+            } catch (_: androidx.test.uiautomator.StaleObjectException) { device.waitForIdle() }
+            device.wait(Until.hasObject(By.res("sort_button")), 5000)
+        }
+        if (!opened) {
+            screenshot("analysis-open-category-failed")
+            fail("Documents category did not open on top of the analysis")
+        }
 
         device.pressBack() // returns to the analysis with its report kept
         if (!device.wait(Until.gone(By.res("sort_button")), 5000)) fail("analysis not showing after Back")

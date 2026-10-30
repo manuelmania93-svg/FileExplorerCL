@@ -48,11 +48,9 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
     var totalBytes by remember(category) { mutableStateOf<Long?>(null) }
     var page by remember(category) { mutableStateOf(FileIndex.Page(emptyList(), false)) }
     var selection by remember(category) { mutableStateOf(setOf<String>()) }
-    // Floating Rename/Share quick actions (they replace the bar's old "More" menu):
-    // anchored to the held row, or top-right (anchor null) when the selection starts
-    // without a held row (Select-all, the file menu's Select).
+    // Floating Rename/Share quick actions card (replaces the bar's old "More" menu):
+    // opened by long-press, Select-all or the file menu's Select; leaves with the selection.
     var quickActionsOpen by remember(category) { mutableStateOf(false) }
-    var quickActionsAnchor by remember(category) { mutableStateOf<String?>(null) }
     var menu by remember { mutableStateOf<FileItem?>(null) }
     var rename by remember { mutableStateOf<FileItem?>(null) }
     var deletes by remember { mutableStateOf<List<java.io.File>>(emptyList()) }
@@ -64,8 +62,8 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
     val noApp = stringResource(R.string.no_app_to_open)
     val openWithTitle = stringResource(R.string.open_with)
     fun toggle(path: String) { selection = if (path in selection) selection - path else selection + path }
-    fun openQuickActions(anchor: String?) { quickActionsAnchor = anchor; quickActionsOpen = true }
-    fun closeQuickActions() { quickActionsOpen = false; quickActionsAnchor = null }
+    fun openQuickActions() { quickActionsOpen = true }
+    fun closeQuickActions() { quickActionsOpen = false }
     // The floating card is a selection companion: it leaves when the selection clears.
     LaunchedEffect(selection.isEmpty()) { if (selection.isEmpty()) closeQuickActions() }
     val quickActionsShare: () -> Unit = {
@@ -148,7 +146,7 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
                         scope.launch {
                             selection = FileIndex.page(category, Int.MAX_VALUE, sort, ascending, query).items
                                 .map { it.file.absolutePath }.toSet()
-                            openQuickActions(null)
+                            openQuickActions()
                         }
                     }, modifier = Modifier.testTag("selection_all")) { Icon(SfeIcons.CheckBox, stringResource(R.string.select_all)) }
                 }
@@ -169,13 +167,11 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
         } else LazyColumn(Modifier.weight(1f), state = listState) {
             items(page.items.size, key = { page.items[it].file.absolutePath }) { n ->
                 val item = page.items[n]
-                Box {
                 Row(Modifier.fillMaxWidth().combinedClickable(
                     onClick = { if (selection.isNotEmpty()) toggle(item.file.absolutePath) else openFile(context, item.file, noApp, page.items.map { it.file }) },
                     onLongClick = {
                         toggle(item.file.absolutePath)
-                        if (item.file.absolutePath in selection) openQuickActions(item.file.absolutePath)
-                        else if (quickActionsAnchor == item.file.absolutePath) closeQuickActions()
+                        quickActionsOpen = selection.isNotEmpty()
                     }
                 ).padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (selection.isNotEmpty()) Checkbox(item.file.absolutePath in selection, { toggle(item.file.absolutePath) })
@@ -197,14 +193,6 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
                         Text(item.file.parent ?: "", style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     IconButton(onClick = { menu = item }) { Icon(Icons.Filled.MoreVert, stringResource(R.string.file_actions_for, item.name)) }
-                }
-                if (selection.isNotEmpty() && quickActionsOpen && quickActionsAnchor == item.file.absolutePath) {
-                    SelectionQuickActionsPopup(
-                        renameEnabled = selection.size == 1,
-                        onShare = quickActionsShare,
-                        onRename = quickActionsRename,
-                    )
-                }
                 }
                 HorizontalDivider()
             }
@@ -231,14 +219,13 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
         }
     }
 
-    // Selections started without a held row (Select-all, the file menu's Select)
-    // anchor the floating Rename/Share card to the top-right instead.
-    if (selection.isNotEmpty() && quickActionsOpen && quickActionsAnchor == null) {
+    // The floating Rename/Share card sits on the right edge while the selection is active.
+    if (selection.isNotEmpty() && quickActionsOpen) {
         SelectionQuickActionsPopup(
             renameEnabled = selection.size == 1,
             onShare = quickActionsShare,
             onRename = quickActionsRename,
-            alignment = Alignment.TopEnd,
+            modifier = Modifier.align(Alignment.CenterEnd),
         )
     }
     }
@@ -276,7 +263,7 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
                 onDelete = { deletes = listOf(item.file) },
                 onSelect = {
                     selection = setOf(item.file.absolutePath)
-                    openQuickActions(item.file.absolutePath)
+                    openQuickActions()
                 },
                 onCustomize = { showMenuCustomization = true },
             ),

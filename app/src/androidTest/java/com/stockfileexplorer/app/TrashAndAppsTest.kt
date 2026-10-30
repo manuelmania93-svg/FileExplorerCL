@@ -105,13 +105,25 @@ class TrashAndAppsTest {
         waitText(appName)
 
         device.findObject(By.text(label("Apps", "Apps"))).click()
-        // The package query + icon decode load async; the LazyColumn only composes
-        // visible rows and this app sorts mid-list, so scroll until its row shows.
-        val appsList = device.wait(Until.findObject(By.scrollable(true)), 60000)
-            ?: throw AssertionError("installed-apps list did not load")
-        val found = try {
-            appsList.scrollUntil(androidx.test.uiautomator.Direction.DOWN, Until.hasObject(By.text(appName)))
-        } catch (_: Exception) { false }
+        // Rows carry "<package> • <size>"; their first appearance measures the
+        // async package-query + icon-decode load time.
+        val clickAt = android.os.SystemClock.elapsedRealtime()
+        if (!device.wait(Until.hasObject(By.textContains(" • ")), 60000)) {
+            screenshot("4-installed-apps-missing")
+            throw AssertionError("installed-apps list did not render any rows")
+        }
+        android.util.Log.i("SfeTest", "Apps list first rows after " + (android.os.SystemClock.elapsedRealtime() - clickAt) + " ms")
+        // LazyColumn composes only visible rows and this app sorts mid-list.
+        // Scroll with slow short drags: UiAutomator scrollUntil waits for
+        // scrollFinished events Compose never emits here (logcat: timeouts,
+        // list unmoved), and fast flicks overshoot the target rows.
+        var found = false
+        repeat(60) {
+            if (device.hasObject(By.text(appName))) { found = true; return@repeat }
+            device.swipe(540, 1400, 540, 900, 40)
+            Thread.sleep(300)
+        }
+        if (!found) found = device.hasObject(By.text(appName))
         if (!found) {
             screenshot("4-installed-apps-missing")
             throw AssertionError("Own app row missing from installed-apps list")

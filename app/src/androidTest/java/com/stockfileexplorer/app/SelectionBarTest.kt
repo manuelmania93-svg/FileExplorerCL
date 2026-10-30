@@ -92,7 +92,8 @@ class SelectionBarTest {
         // three before deleting them.
         waitText("sel-1.txt")
         device.findObject(By.text("sel-1.txt")).longClick()
-        device.findObject(By.res("selection_all")).click()
+        // The selection bar animates in after the hold; a no-wait lookup can beat it (NPE).
+        device.wait(Until.findObject(By.res("selection_all")), 5000).click()
         assertNotNull(device.wait(Until.findObject(By.text(label("3 selected", "3 ausgewählt"))), 5000))
 
         // Delete the whole selection; everything lands in the Papierkorb, copies stay.

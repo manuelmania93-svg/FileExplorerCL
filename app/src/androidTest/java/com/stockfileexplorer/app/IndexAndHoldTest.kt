@@ -173,9 +173,20 @@ class IndexAndHoldTest {
             // actions). Click the overflow on the NAMED file's own row instead.
             waitText(name)
             val nameBounds = device.findObject(By.text(name)).visibleBounds
-            val rowOverflow = device.findObjects(By.desc(label("File actions","Dateiaktionen")))
-                .firstOrNull { it.visibleBounds.centerY() in nameBounds.top..nameBounds.bottom }
-            requireNotNull(rowOverflow) { "No overflow button on the row for $name" }
+            // Rows are two lines tall (name over size/date) and the overflow icon is
+            // centered on the WHOLE row, so its center sits below the name text's bounds.
+            // Take the overflow nearest the name's vertical center instead; rows are
+            // uniform, so the nearest one is unambiguously this row's button.
+            val candidates = device.findObjects(By.desc(label("File actions","Dateiaktionen")))
+            val rowOverflow = candidates.minByOrNull {
+                kotlin.math.abs(it.visibleBounds.centerY() - nameBounds.centerY())
+            }?.takeIf {
+                kotlin.math.abs(it.visibleBounds.centerY() - nameBounds.centerY()) < nameBounds.height() * 4
+            }
+            requireNotNull(rowOverflow) {
+                "No overflow button on the row for $name; nameBounds=$nameBounds, " +
+                    "overflows=" + candidates.joinToString { it.visibleBounds.toShortString() }
+            }
             rowOverflow.click()
             waitText(label("Rename","Umbenennen"))
             screenshot(shot)

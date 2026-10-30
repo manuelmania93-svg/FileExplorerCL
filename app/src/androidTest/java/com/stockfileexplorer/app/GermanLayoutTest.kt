@@ -24,6 +24,19 @@ class GermanLayoutTest {
 
     // LazyColumn only composes visible rows; accumulated screenshots make the
     // image category longer than one screen, so scroll until the row appears.
+    // Slow, short drags: a fast flick flings the list several pages and jumps
+    // past the target rows before they are ever composed/checked (evidence:
+    // sfe-german-download-missing.png showed the list at its end while the
+    // fixture sits a few rows below the first screen).
+    private fun slowScrollToText(device: UiDevice, text: String): Boolean {
+        repeat(120) {
+            if (device.hasObject(By.textContains(text))) return true
+            device.swipe(540, 1400, 540, 1300, 100)
+            Thread.sleep(300)
+        }
+        return device.hasObject(By.textContains(text))
+    }
+
     private fun scrollToText(device: UiDevice, text: String): Boolean {
         repeat(40) {
             if (device.hasObject(By.textContains(text))) return true
@@ -66,10 +79,14 @@ class GermanLayoutTest {
         device.findObject(By.text("Interner Speicher")).click()
         assertTrue(device.wait(Until.hasObject(By.text("Download")), 8000))
         device.findObject(By.text("Download")).click()
-        assertTrue(
-            "PDF fixture visible in Download",
-            device.wait(Until.hasObject(By.textContains("sfe-fixture-report.pdf")), 8000)
-        )
+        // Name-sorted screenshots from earlier test classes (sfe-back-*) push the
+        // fixtures off the first screen; scroll like the gallery part below does.
+        // If still missing, capture evidence before failing.
+        if (!device.wait(Until.hasObject(By.textContains("sfe-fixture-report.pdf")), 8000) &&
+            !slowScrollToText(device, "sfe-fixture-report.pdf")) {
+            device.takeScreenshot(File("/sdcard/Download/sfe-german-download-missing.png"))
+            throw AssertionError("PDF fixture visible in Download")
+        }
         val actionButtons = device.findObjects(By.descContains("Dateiaktionen"))
         assertTrue("File rows expose an action menu button", actionButtons.isNotEmpty())
         actionButtons[0].click()

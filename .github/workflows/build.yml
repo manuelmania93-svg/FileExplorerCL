@@ -70,6 +70,10 @@ jobs:
             adb pull /sdcard/Download/ app/build/reports/device/
             ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.SelectionBarTest -Pandroid.testInstrumentationRunnerArguments.capture=select || (adb pull /sdcard/Download/ app/build/reports/device/; exit 1)
             adb pull /sdcard/Download/ app/build/reports/device/
+            ./gradlew installDebug
+            adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
+            ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.BackNavigationTest || (adb pull /sdcard/Download/ app/build/reports/device/; exit 1)
+            adb pull /sdcard/Download/ app/build/reports/device/
             ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.BuiltInViewersTest -Pandroid.testInstrumentationRunnerArguments.capture=viewers || (adb pull /sdcard/Download/ app/build/reports/device/; adb logcat -d > app/build/reports/device/logcat-viewers.txt || true; exit 1)
             adb pull /sdcard/Download/ app/build/reports/device/
             adb shell cmd uimode night yes

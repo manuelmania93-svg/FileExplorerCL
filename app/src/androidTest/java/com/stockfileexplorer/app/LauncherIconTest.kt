@@ -89,15 +89,26 @@ class LauncherIconTest {
         val pc = Canvas(probe)
         icon.setBounds(0, 0, 432, 432)
         icon.draw(pc)
-        val bgProbe = probe.getPixel(216, 90) // inside squircle, above the folder
+        // Statistical wiring guard (point probes are fragile because the
+        // folder, not the background, covers the icon center): the composed
+        // icon must be mostly the orange gradient with a bright cream folder.
+        var orange = 0
+        var cream = 0
+        val total = 432 * 432
+        val pixels = IntArray(total)
+        probe.getPixels(pixels, 0, 432, 0, 0, 432, 432)
+        for (px in pixels) {
+            val r = Color.red(px); val g = Color.green(px); val b = Color.blue(px)
+            if (r > 200 && g in 60..235 && b < 150 && r - g > 30) orange++
+            if (r > 230 && g > 210 && b > 120) cream++
+        }
         assertTrue(
-            "Icon background should be the artwork's orange gradient, got ${Integer.toHexString(bgProbe)}",
-            Color.red(bgProbe) > 200 && Color.green(bgProbe) in 60..235 && Color.blue(bgProbe) < 150
+            "Icon should be mostly orange gradient, was ${orange * 100 / total}%",
+            orange > total / 2
         )
-        val center = probe.getPixel(216, 216) // cream folder front
         assertTrue(
-            "Icon center should be the bright folder, got ${Integer.toHexString(center)}",
-            Color.red(center) > 220 && Color.green(center) > 180
+            "Icon should contain the bright folder, was ${cream * 100 / total}%",
+            cream > total / 20
         )
 
         save(renderMasked(icon, 192, circle = true, dark = false), File("/sdcard/Download/sfe-$suffix-circle-light.png"))

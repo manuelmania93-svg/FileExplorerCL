@@ -54,9 +54,11 @@ class FileActionsInstrumentedTest {
             val item = device.wait(Until.findObject(By.text(value)), 500)
             if (item != null) {
                 try {
-                    val rowCenterY = item.visibleBounds.centerY()
-                    val overflow = device.findObjects(By.desc(context.getString(R.string.file_actions)))
-                        .minByOrNull { kotlin.math.abs(it.visibleBounds.centerY() - rowCenterY) }
+                    // Each overflow button is described per item ("File actions for <name>"),
+                    // so the row is targeted exactly - no geometric nearest-row guessing.
+                    val overflow = device.findObject(
+                        By.desc(context.getString(R.string.file_actions_for, value))
+                    )
                     if (overflow != null) {
                         overflow.click()
                         device.waitForIdle()

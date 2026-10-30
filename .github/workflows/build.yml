@@ -72,6 +72,10 @@ jobs:
             adb pull /sdcard/Download/ app/build/reports/device/
             ./gradlew installDebug
             adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
+            ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.LauncherIconTest -Pandroid.testInstrumentationRunnerArguments.capture=icon || (adb pull /sdcard/Download/ app/build/reports/device/; exit 1)
+            adb pull /sdcard/Download/ app/build/reports/device/
+            ./gradlew installDebug
+            adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
             ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.BackNavigationTest || (adb pull /sdcard/Download/ app/build/reports/device/; exit 1)
             adb pull /sdcard/Download/ app/build/reports/device/
             ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.TrashAndAppsTest -Pandroid.testInstrumentationRunnerArguments.capture=trash || (adb pull /sdcard/Download/ app/build/reports/device/; exit 1)

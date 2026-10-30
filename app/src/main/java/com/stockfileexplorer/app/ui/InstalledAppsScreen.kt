@@ -6,6 +6,10 @@ import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -59,6 +63,8 @@ private data class InstalledApp(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InstalledAppsScreen(onBack: () -> Unit) {
+    var bySize by remember { mutableStateOf(false) }
+    var sortMenu by remember { mutableStateOf(false) }
     val context = LocalContext.current
     var apps by remember { mutableStateOf<List<InstalledApp>?>(null) }
 
@@ -91,12 +97,25 @@ fun InstalledAppsScreen(onBack: () -> Unit) {
         TopAppBar(
             title = { Text(stringResource(R.string.cat_apps)) },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, null) } },
+            actions = {
+                if (apps != null) Text(stringResource(R.string.apps_apk_total, FileLogic.formatSize(apps!!.sumOf { it.sizeBytes })),
+                    Modifier.testTag("apps_total"), style = MaterialTheme.typography.labelMedium)
+                Box {
+                    IconButton(onClick = { sortMenu = true }, modifier = Modifier.testTag("apps_sort")) {
+                        Icon(SfeIcons.Sort, stringResource(R.string.sort_by))
+                    }
+                    DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
+                        DropdownMenuItem(text = { Text(stringResource(R.string.sort_name)) }, onClick = { bySize = false; sortMenu = false })
+                        DropdownMenuItem(text = { Text(stringResource(R.string.apps_sort_size)) }, onClick = { bySize = true; sortMenu = false })
+                    }
+                }
+            },
         )
         val list = apps
         if (list == null) {
             Text(stringResource(R.string.loading), Modifier.padding(16.dp))
         } else LazyColumn(Modifier.fillMaxSize()) {
-            items(list, key = { it.packageName }) { app ->
+            items(if (bySize) list.sortedWith(compareByDescending<InstalledApp> { it.sizeBytes }.thenBy { it.label.lowercase() }) else list, key = { it.packageName }) { app ->
                 Row(
                     Modifier.fillMaxWidth().clickable {
                         val intent = context.packageManager.getLaunchIntentForPackage(app.packageName)
@@ -114,7 +133,7 @@ fun InstalledAppsScreen(onBack: () -> Unit) {
                     Column(Modifier.weight(1f)) {
                         Text(app.label, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(
-                            app.packageName + " • " + FileLogic.formatSize(app.sizeBytes),
+                            app.packageName + " • " + stringResource(R.string.apps_apk_size, FileLogic.formatSize(app.sizeBytes)),
                             style = MaterialTheme.typography.bodySmall,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis

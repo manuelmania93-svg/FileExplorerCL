@@ -77,6 +77,20 @@ class RemoteAndSearchTest {
         screenshot("video-end-clamped")
         device.pressBack(); text("remote-video.mp4")
     }
+    @Test fun appsSortBySizeAndShowClearlyLabeledApkTotal() {
+        setup()
+        text("Apps").click()
+        val total = tag("apps_total")
+        assertTrue(total.text.startsWith("APKs:"))
+        tag("apps_sort").click(); text("APK size (largest first)").click()
+        Thread.sleep(500)
+        screenshot("apps-size-sorted")
+        val rows = device.findObjects(By.textContains(" • APK "))
+        assertTrue("Size-sorted Apps rows visible", rows.isNotEmpty())
+        tag("apps_sort").click(); text("Name").click()
+        screenshot("apps-name-sorted")
+        device.pressBack(); text("Internal storage")
+    }
     @Test fun libraryTotalsIncludeRowsBeyondFirstPage() {
         setup()
         val bulk = File(root, "TotalsFixture").apply { mkdirs() }

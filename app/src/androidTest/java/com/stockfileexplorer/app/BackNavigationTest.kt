@@ -150,25 +150,35 @@ class BackNavigationTest {
         start { putExtra("storage_analysis", true) }
         waitText(label("Storage analysis", "Speicheranalyse"))
 
-        // Wait for the report list, scroll the category row into view and open it.
-        // The report updates while later analysis stages run, so re-scroll and re-tap
-        // until the category overlay actually opens.
+        // Wait for the report list and scroll the category row into view.
         val scroller = UiScrollable(UiSelector().scrollable(true))
         assertTrue("analysis report list", scroller.waitForExists(90000))
-        val opened = (1..6).any {
-            try {
-                scroller.scrollTextIntoView(label("Documents", "Dokumente"))
+        assertTrue("Documents category row", scroller.scrollTextIntoView(label("Documents", "Dokumente")))
+        // A tap on a still-flinging list is consumed as a scroll stop, not a click
+        // (standard Android behavior, users see it too) - so prove the row position
+        // is settled before tapping, then tap exactly once. A lost tap on a settled
+        // row is a product bug and must fail this test, not be retried away.
+        val rowBounds = run {
+            var previous: android.graphics.Rect? = null
+            val deadline = android.os.SystemClock.elapsedRealtime() + 20000
+            while (android.os.SystemClock.elapsedRealtime() < deadline) {
+                device.waitForIdle()
                 val row = device.findObject(By.text(label("Documents", "Dokumente")))
-                if (row != null) {
-                    val b = row.visibleBounds
-                    device.click(b.centerX(), b.centerY())
-                }
-            } catch (_: androidx.test.uiautomator.StaleObjectException) { device.waitForIdle() }
-            device.wait(Until.hasObject(By.res("sort_button")), 5000)
+                val b = try { row?.visibleBounds } catch (_: androidx.test.uiautomator.StaleObjectException) { null }
+                if (b != null && b == previous && b.centerY() in 0..device.displayHeight) return@run b
+                previous = b
+                Thread.sleep(500)
+            }
+            null
         }
-        if (!opened) {
-            screenshot("analysis-open-category-failed")
-            fail("Documents category did not open on top of the analysis")
+        if (rowBounds == null) {
+            screenshot("analysis-row-unstable")
+            fail("Documents row never settled to a stable position")
+        }
+        device.click(rowBounds.centerX(), rowBounds.centerY())
+        if (!device.wait(Until.hasObject(By.res("sort_button")), 8000)) {
+            screenshot("analysis-tap-lost")
+            fail("Tap on the settled Documents row did not open the category overlay")
         }
 
         device.pressBack() // returns to the analysis with its report kept

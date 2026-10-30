@@ -42,7 +42,7 @@ class SavedLocationsTest {
         runBlocking { FileIndex.verifyFixture(context, File("/sdcard/Download/SavedFixture"), clear = true) }
         tag("search_query").text = "saved-note"
         text("saved-note.txt")
-        device.findObject(By.desc("Actions for saved-note.txt")).click()
+        device.findObject(By.desc("File actions for saved-note.txt")).click()
         text("Open containing folder"); shot("containing-folder-menu")
         text("Open containing folder").click(); text("saved-note.txt"); shot("containing-folder-destination")
         device.pressBack(); text("Search files"); assertEquals("saved-note", tag("search_query").text)

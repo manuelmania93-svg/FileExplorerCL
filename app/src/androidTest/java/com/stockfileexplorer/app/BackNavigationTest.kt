@@ -103,8 +103,8 @@ class BackNavigationTest {
         waitText("top.txt")
         assertForeground()
 
-        device.pressBack() // second Back steps up to Download
-        waitText("SfeBack")
+        device.pressBack() // second Back: entry folder reached, browser closes to the dashboard
+        waitText(appName)
         assertForeground()
         screenshot("selection-then-up")
     }

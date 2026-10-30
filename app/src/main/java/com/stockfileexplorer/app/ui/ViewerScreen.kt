@@ -317,7 +317,10 @@ private fun VideoViewer(file: File) {
             true
         } else if (seek != null) {
             if (key.action == KeyEvent.ACTION_DOWN && duration > 0) {
-                val target = (player.currentPosition + seek).coerceIn(0L, duration.toLong())
+                // Seeking exactly to duration can enter ENDED without rendering a new
+                // paused frame. Stay within the final decodable interval instead.
+                val lastFramePosition = (duration.toLong() - 250L).coerceAtLeast(0L)
+                val target = (player.currentPosition + seek).coerceIn(0L, lastFramePosition)
                 player.seekTo(target)
             }
             true // consume both halves; hold repeats seek but never changes the pager page

@@ -52,6 +52,7 @@ import androidx.compose.ui.window.Dialog
 
 data class FileActionCallbacks(
     val onOpen: () -> Unit,
+    val onContainingFolder: (() -> Unit)? = null,
     val onCopy: () -> Unit,
     val onMove: () -> Unit,
     val onRename: () -> Unit,
@@ -90,7 +91,7 @@ fun FileActionMenu(
                 HorizontalDivider()
                 LazyColumn(Modifier.heightIn(max = (LocalConfiguration.current.screenHeightDp * 0.7f).dp)) {
                     items(FileMenuAction.entries) { action ->
-                        if (action !in visible || (action.filesOnly && isDirectory)) return@items
+                        if (action !in visible || (action.filesOnly && isDirectory) || (action == FileMenuAction.CONTAINING_FOLDER && callbacks.onContainingFolder == null)) return@items
                         val label = if (action == FileMenuAction.FAVORITE && isFavorite) {
                             stringResource(R.string.remove_favorite)
                         } else {
@@ -100,6 +101,7 @@ fun FileActionMenu(
                             onDismiss()
                             when (action) {
                                 FileMenuAction.OPEN -> callbacks.onOpen()
+                                FileMenuAction.CONTAINING_FOLDER -> callbacks.onContainingFolder?.invoke()
                                 FileMenuAction.COPY -> callbacks.onCopy()
                                 FileMenuAction.MOVE -> callbacks.onMove()
                                 FileMenuAction.RENAME -> callbacks.onRename()
@@ -127,6 +129,7 @@ fun FileActionMenu(
 
 private fun menuIcon(action: FileMenuAction): ImageVector = when (action) {
     FileMenuAction.OPEN -> Icons.Filled.PlayArrow
+    FileMenuAction.CONTAINING_FOLDER -> SfeIcons.Folder
     FileMenuAction.COPY -> SfeIcons.InsertDriveFile
     FileMenuAction.MOVE -> Icons.Filled.ArrowForward
     FileMenuAction.RENAME -> Icons.Filled.Edit

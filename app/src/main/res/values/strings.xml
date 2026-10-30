@@ -208,4 +208,5 @@
     <string name="apps_apk_total">APKs: %1$s</string>
     <string name="apps_apk_size">APK %1$s</string>
     <string name="apps_sort_size">APK size (largest first)</string>
+    <string name="open_containing_folder">Open containing folder</string>
 </resources>

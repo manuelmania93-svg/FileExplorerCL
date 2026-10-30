@@ -5,6 +5,7 @@ import android.content.Context
 /** User-selectable file actions shown in the long-press context menu. */
 enum class FileMenuAction(val labelRes: Int, val filesOnly: Boolean = false) {
     OPEN(R.string.menu_open),
+    CONTAINING_FOLDER(R.string.open_containing_folder, filesOnly = true),
     COPY(R.string.copy),
     MOVE(R.string.move_to),
     RENAME(R.string.rename),

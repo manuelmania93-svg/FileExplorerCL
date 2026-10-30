@@ -34,6 +34,8 @@ import kotlinx.coroutines.withContext
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Unit, searchMode: Boolean = false) {
+    var containingFolder by rememberSaveable { mutableStateOf<String?>(null) }
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     var query by rememberSaveable { mutableStateOf("") }
     val searchFocus = remember { androidx.compose.ui.focus.FocusRequester() }
     val context = LocalContext.current
@@ -81,10 +83,15 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
             }
         }
     }
-    BackHandler(selection.isNotEmpty()) { selection = emptySet() }
+    BackHandler(containingFolder == null && selection.isNotEmpty()) { selection = emptySet() }
     // With nothing selected, Back leaves the screen (category list, Recents caller or the
     // analysis) instead of falling through to the system and closing the whole app.
-    BackHandler(enabled = selection.isEmpty()) { onBack() }
+    BackHandler(enabled = containingFolder == null && selection.isEmpty()) { onBack() }
+    val folder = containingFolder
+    if (folder != null) {
+        BrowserScreen(startPath = folder, onNavigateUp = { containingFolder = null })
+        return
+    }
     Column(Modifier.fillMaxSize()) {
         TopAppBar(title = { Text(if (selection.isEmpty()) title else stringResource(R.string.selected_count, selection.size)) },
             navigationIcon = { IconButton(onClick = { if (selection.isEmpty()) onBack() else selection = emptySet() }) { Icon(Icons.Filled.ArrowBack, null) } },
@@ -140,7 +147,7 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
         }
         if (page.items.isEmpty()) {
             Text(stringResource(if (searchMode && query.isBlank()) R.string.search_prompt else if (status.refreshing || status.incomplete) R.string.index_no_results_yet else if (searchMode) R.string.search_no_results else R.string.empty_folder), Modifier.padding(16.dp))
-        } else LazyColumn(Modifier.weight(1f)) {
+        } else LazyColumn(Modifier.weight(1f), state = listState) {
             items(page.items.size, key = { page.items[it].file.absolutePath }) { n ->
                 val item = page.items[n]
                 Row(Modifier.fillMaxWidth().combinedClickable(
@@ -202,6 +209,7 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
             onDismiss = { menu = null },
             callbacks = FileActionCallbacks(
                 onOpen = { openFile(context, item.file, noApp, page.items.map { it.file }) },
+                onContainingFolder = { item.file.parent?.let { containingFolder = it } },
                 onCopy = {
                     transferSources = listOf(item)
                     transferMove = false

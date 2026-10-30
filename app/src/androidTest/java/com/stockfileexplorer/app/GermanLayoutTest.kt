@@ -72,7 +72,7 @@ class GermanLayoutTest {
         if (!device.wait(Until.hasObject(By.textContains("sfe-fixture-report.pdf")), 8000) &&
             !scrollToText(device, "sfe-fixture-report.pdf")) {
             device.takeScreenshot(File("/sdcard/Download/sfe-german-download-missing.png"))
-            fail("PDF fixture visible in Download")
+            throw AssertionError("PDF fixture visible in Download")
         }
         val actionButtons = device.findObjects(By.descContains("Dateiaktionen"))
         assertTrue("File rows expose an action menu button", actionButtons.isNotEmpty())

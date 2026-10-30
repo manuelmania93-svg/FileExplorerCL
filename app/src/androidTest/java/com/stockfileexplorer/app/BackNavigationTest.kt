@@ -70,24 +70,20 @@ class BackNavigationTest {
     }
 
     @Test
-    fun folderBackStepsUpOneLevelAtATime() {
+    fun folderBackStepsUpAndExitsAtEntryFolder() {
         grantAndFixtures()
-        start { putExtra("browse_path", sub.absolutePath) }
+        start { putExtra("browse_path", root.absolutePath) }
+        waitText("top.txt")
+
+        device.findObject(By.text("sub")).click() // navigate one level down
         waitText("inner.txt")
-
-        device.pressBack()
-        waitText("top.txt") // parent folder SfeBack
         assertForeground()
 
-        device.pressBack()
-        waitText("SfeBack") // Download listing shows the fixture folder
+        device.pressBack() // one folder up, back at the folder the browser opened at
+        waitText("top.txt")
         assertForeground()
 
-        device.pressBack()
-        waitText("Download") // storage-root listing
-        assertForeground()
-
-        device.pressBack() // root reached: browser closes to the dashboard
+        device.pressBack() // entry folder reached: browser closes to the dashboard
         waitText(appName)
         assertForeground()
         screenshot("stepped-up")
@@ -129,6 +125,23 @@ class BackNavigationTest {
         waitText(label("Images", "Bilder"))
         assertForeground()
         screenshot("library-back")
+    }
+
+    @Test
+    fun analysisFolderBackReturnsToAnalysis() {
+        grantAndFixtures()
+        // Same state as "Open containing folder" from the storage analysis: the browser
+        // sits on a folder with the analysis kept underneath.
+        start {
+            putExtra("browse_path", sub.absolutePath)
+            putExtra("storage_analysis", true)
+        }
+        waitText("inner.txt")
+
+        device.pressBack() // Back returns to the analysis, not up the folder tree
+        waitText(label("Storage analysis", "Speicheranalyse"))
+        assertForeground()
+        screenshot("analysis-folder-back")
     }
 
     @Test

@@ -257,10 +257,11 @@ fun BrowserScreen(
 
     val selecting = selection.isNotEmpty()
     BackHandler(selecting) { selection = emptySet() }
-    // System Back mirrors the toolbar arrow: one folder up, and the browser only closes at
-    // the storage root - a deep Back never jumps straight out of the folder tree.
+    // System Back mirrors the toolbar arrow: one folder up, and the browser closes at the
+    // folder it was opened at - Back always returns to wherever the browser was opened
+    // from (dashboard shortcut, or the storage analysis that opened a folder).
     BackHandler(enabled = !selecting) {
-        if (currentPath == rootPath) onNavigateUp()
+        if (currentPath == startPath) onNavigateUp()
         else File(currentPath).parent?.let { navigateTo(it) } ?: onNavigateUp()
     }
 
@@ -286,7 +287,7 @@ fun BrowserScreen(
             TopAppBar(
                 navigationIcon = {
                     IconButton(onClick = {
-                        if (currentPath == rootPath) onNavigateUp()
+                        if (currentPath == startPath) onNavigateUp()
                         else File(currentPath).parent?.let { navigateTo(it) } ?: onNavigateUp()
                     }) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = null)

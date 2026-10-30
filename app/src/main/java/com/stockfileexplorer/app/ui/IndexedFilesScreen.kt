@@ -141,7 +141,7 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
                         Text(FileLogic.formatSize(item.size) + " • " + FileLogic.formatDate(item.lastModified), style = MaterialTheme.typography.bodySmall)
                         Text(item.file.parent ?: "", style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
-                    IconButton(onClick = { menu = item }) { Icon(Icons.Filled.MoreVert, stringResource(R.string.file_actions)) }
+                    IconButton(onClick = { menu = item }) { Icon(Icons.Filled.MoreVert, stringResource(R.string.file_actions_for, item.name)) }
                 }
                 HorizontalDivider()
             }

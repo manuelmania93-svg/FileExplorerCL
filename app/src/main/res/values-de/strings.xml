@@ -21,6 +21,7 @@
     <string name="cat_etc">etc.</string>
     <string name="menu_open">Öffnen</string>
     <string name="file_actions">Dateiaktionen</string>
+    <string name="file_actions_for">Dateiaktionen für %1$s</string>
     <string name="recent_subtitle">Zuletzt geänderte Dateien im gemeinsamen Speicher</string>
     <string name="cat_other">Sonstige</string>
     <string name="scanning">Suche läuft…</string>

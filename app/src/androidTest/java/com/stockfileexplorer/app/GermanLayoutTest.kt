@@ -70,7 +70,7 @@ class GermanLayoutTest {
             "PDF fixture visible in Download",
             device.wait(Until.hasObject(By.textContains("sfe-fixture-report.pdf")), 8000)
         )
-        val actionButtons = device.findObjects(By.desc("Dateiaktionen"))
+        val actionButtons = device.findObjects(By.descContains("Dateiaktionen"))
         assertTrue("File rows expose an action menu button", actionButtons.isNotEmpty())
         actionButtons[0].click()
         assertTrue(

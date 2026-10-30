@@ -416,7 +416,7 @@ fun BrowserScreen(
                                 IconButton(onClick = { menuTarget = item }) {
                                     Icon(
                                         Icons.Filled.MoreVert,
-                                        contentDescription = stringResource(R.string.file_actions)
+                                        contentDescription = stringResource(R.string.file_actions_for, item.file.name)
                                     )
                                 }
 
@@ -765,7 +765,7 @@ fun FileGridCell(
                 } else {
                     Icon(
                         imageVector = Icons.Filled.MoreVert,
-                        contentDescription = stringResource(R.string.file_actions),
+                        contentDescription = stringResource(R.string.file_actions_for, item.file.name),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier
                             .align(Alignment.TopEnd)

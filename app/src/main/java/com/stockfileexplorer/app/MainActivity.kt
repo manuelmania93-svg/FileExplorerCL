@@ -107,15 +107,24 @@ fun MainScaffold(initialBrowsePath: String? = null, initialStorageAnalysis: Bool
     var tab by remember { mutableIntStateOf(TAB_LOCAL) }
     var browsePath by remember { mutableStateOf<String?>(initialBrowsePath) }
     var libraryCategory by remember { mutableStateOf<FileCategory?>(null) }
+    // A category opened out of the storage analysis overlays it on the Local tab (null = not open).
+    var analysisCategory by remember { mutableStateOf<FileCategory?>(null) }
     val analysisHolder = remember { com.stockfileexplorer.app.ui.AnalysisHolder() }
     var showRecent by remember { mutableStateOf(false) }
     var showPapierkorb by remember { mutableStateOf(initialPapierkorb) }
     var showStorageAnalysis by remember { mutableStateOf(initialStorageAnalysis) }
     val storageRoot = remember { Environment.getExternalStorageDirectory().absolutePath }
 
-    BackHandler(enabled = browsePath != null || showRecent || showStorageAnalysis || showPapierkorb) {
-        // An open folder always closes first, so Back from a folder opened out of the analysis returns to it.
-        if (browsePath != null) browsePath = null else if (showPapierkorb) showPapierkorb = false else if (showStorageAnalysis) { showStorageAnalysis = false; analysisHolder.report = null } else if (showRecent) showRecent = false else browsePath = null
+    // Intercept Back only while the screen it closes is visible - all of these live on the
+    // Local tab. Closing hidden state read as "Back does nothing, then the app exits".
+    BackHandler(enabled = tab == TAB_LOCAL && (browsePath != null || analysisCategory != null || showRecent || showStorageAnalysis || showPapierkorb)) {
+        // An open folder or category closes first, so Back from a destination opened out of
+        // the analysis returns to the analysis.
+        if (browsePath != null) browsePath = null
+        else if (analysisCategory != null) analysisCategory = null
+        else if (showPapierkorb) showPapierkorb = false
+        else if (showStorageAnalysis) { showStorageAnalysis = false; analysisHolder.report = null }
+        else if (showRecent) showRecent = false
     }
 
     Scaffold(
@@ -145,9 +154,20 @@ fun MainScaffold(initialBrowsePath: String? = null, initialStorageAnalysis: Bool
         when (tab) {
             TAB_LOCAL -> {
                 val path = browsePath
+                val analysisCat = analysisCategory
                 if (showPapierkorb && path == null) {
                     Column(Modifier.fillMaxSize().padding(padding)) {
                         PapierkorbScreen(onBack = { showPapierkorb = false })
+                    }
+                } else if (analysisCat != null && path == null) {
+                    Column(Modifier.fillMaxSize().padding(padding)) {
+                        // Overlaid on the analysis instead of a tab switch, so Back returns to
+                        // the finished report (kept in analysisHolder) instead of losing it.
+                        com.stockfileexplorer.app.ui.IndexedFilesScreen(
+                            category = analysisCat,
+                            title = com.stockfileexplorer.app.ui.categoryLabel(analysisCat),
+                            onBack = { analysisCategory = null }
+                        )
                     }
                 } else if (showStorageAnalysis && path == null) {
                     Column(Modifier.fillMaxSize().padding(padding)) {
@@ -155,7 +175,7 @@ fun MainScaffold(initialBrowsePath: String? = null, initialStorageAnalysis: Bool
                             onBack = { showStorageAnalysis = false; analysisHolder.report = null },
                             analysisHolder = analysisHolder,
                             onOpenFolder = { browsePath = it },
-                            onOpenCategory = { cat -> libraryCategory = cat; tab = TAB_LIBRARY }
+                            onOpenCategory = { cat -> analysisCategory = cat }
                         )
                     }
                 } else if (showRecent && path == null) {

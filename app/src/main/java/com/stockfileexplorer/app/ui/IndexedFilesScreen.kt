@@ -70,6 +70,9 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
         }
     }
     BackHandler(selection.isNotEmpty()) { selection = emptySet() }
+    // With nothing selected, Back leaves the screen (category list, Recents caller or the
+    // analysis) instead of falling through to the system and closing the whole app.
+    BackHandler(enabled = selection.isEmpty()) { onBack() }
     Column(Modifier.fillMaxSize()) {
         TopAppBar(title = { Text(if (selection.isEmpty()) title else stringResource(R.string.selected_count, selection.size)) },
             navigationIcon = { IconButton(onClick = { if (selection.isEmpty()) onBack() else selection = emptySet() }) { Icon(Icons.Filled.ArrowBack, null) } },

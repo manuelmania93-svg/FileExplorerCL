@@ -113,17 +113,22 @@ class TrashAndAppsTest {
             throw AssertionError("installed-apps list did not render any rows")
         }
         android.util.Log.i("SfeTest", "Apps list first rows after " + (android.os.SystemClock.elapsedRealtime() - clickAt) + " ms")
-        // LazyColumn composes only visible rows and this app sorts mid-list.
-        // Scroll with slow short drags: UiAutomator scrollUntil waits for
-        // scrollFinished events Compose never emits here (logcat: timeouts,
-        // list unmoved), and fast flicks overshoot the target rows.
-        var found = false
-        repeat(60) {
-            if (device.hasObject(By.text(appName))) { found = true; return@repeat }
-            device.swipe(540, 1400, 540, 900, 40)
-            Thread.sleep(300)
+        // Labels resolve progressively after the first row appears, so an
+        // instantaneous hasObject can miss a row that is already visible
+        // (run 41028986158 logcat: first check 21 ms after first rows rendered,
+        // instant miss; the one-way downward scroll then never re-encountered
+        // the row, list ended at the bottom - see sfe-trash-4-installed-apps-missing).
+        // The app sorts alphabetically near the top, so wait at the current
+        // position first and only then scan downward in short drags with a
+        // bounded wait per position. UiAutomator scrollUntil still does not work
+        // here: Compose emits no scrollFinished events.
+        var found = device.wait(Until.hasObject(By.text(appName)), 10000)
+        var steps = 0
+        while (!found && steps < 40) {
+            device.swipe(540, 1400, 540, 1150, 30)
+            steps++
+            found = device.wait(Until.hasObject(By.text(appName)), 1500)
         }
-        if (!found) found = device.hasObject(By.text(appName))
         if (!found) {
             screenshot("4-installed-apps-missing")
             throw AssertionError("Own app row missing from installed-apps list")

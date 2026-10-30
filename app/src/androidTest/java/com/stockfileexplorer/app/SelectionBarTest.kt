@@ -82,7 +82,7 @@ class SelectionBarTest {
         device.wait(Until.findObject(By.text(label("Copy here", "Hierher kopieren"))), 5000).click()
         if (!device.wait(Until.gone(By.text(label("Choose copy destination", "Ziel zum Kopieren wählen"))), 15000)) {
             screenshot("picker-still-open")
-            fail<Unit>("Folder picker closes")
+            fail("Folder picker closes")
         }
         Thread.sleep(2000)
         files.forEach { assertTrue("copied ${it.name}", File(dest, it.name).exists()) }

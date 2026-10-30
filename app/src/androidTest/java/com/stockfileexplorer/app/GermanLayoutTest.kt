@@ -117,14 +117,37 @@ class GermanLayoutTest {
         assertFalse("No More step in the selection bar", device.hasObject(By.text("Mehr")))
         device.takeScreenshot(File("/sdcard/Download/sfe-$suffix-4-quick-actions.png"))
         // Enlarged system font: both German action labels must stay fully visible.
+        // The font change recreates MainActivity (fontScale is not in configChanges),
+        // which clears the selection, so navigate back and select the fixture again.
         instrumentation.uiAutomation.executeShellCommand("settings put system font_scale 1.3")
         Thread.sleep(2000)
+        assertTrue(
+            "Dashboard again after font-scale recreation",
+            device.wait(Until.hasObject(By.text("Interner Speicher")), 10000)
+        )
+        device.findObject(By.text("Hauptspeicher")).click()
+        assertTrue(device.wait(Until.hasObject(By.text("Download")), 8000))
+        device.findObject(By.text("Download")).click()
+        if (!device.wait(Until.hasObject(By.textContains("sfe-fixture-report.pdf")), 8000) &&
+            !slowScrollToText(device, "sfe-fixture-report.pdf")) {
+            throw AssertionError("PDF fixture visible in Download at 1.3 font")
+        }
+        device.findObject(By.textContains("sfe-fixture-report.pdf")).longClick()
+        assertTrue(
+            "Floating quick actions at 1.3 font",
+            device.wait(Until.hasObject(By.res("selection_quick_popup")), 5000)
+        )
         assertTrue("Umbenennen visible at 1.3 font", device.hasObject(By.text("Umbenennen")))
         assertTrue("Teilen visible at 1.3 font", device.hasObject(By.text("Teilen")))
         device.takeScreenshot(File("/sdcard/Download/sfe-$suffix-5-quick-actions-largefont.png"))
         instrumentation.uiAutomation.executeShellCommand("settings put system font_scale 1.0")
         Thread.sleep(1500)
-        device.pressBack()
+        // Restoring the font recreates the activity once more; the gallery section
+        // below navigates from the dashboard, so just wait for it to settle.
+        assertTrue(
+            "Dashboard again after font restore",
+            device.wait(Until.hasObject(By.text("Interner Speicher")), 10000)
+        )
 
         // Image category lists the sample picture (thumbnail verified visually).
         device.findObject(By.text("Bibliothek")).click()

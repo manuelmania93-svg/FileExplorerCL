@@ -112,7 +112,12 @@ class DocumentVisibilitySmokeTest {
 
         // Returning to the dashboard must reuse the shared scan snapshot:
         // no second full scan ("Scanning" state) on re-entry.
-        // System back from the browser goes straight to the dashboard.
+        // System back now steps up one folder at a time: Download -> root -> dashboard.
+        device.pressBack()
+        assertTrue(
+            "Back from Download reaches the storage-root listing",
+            device.wait(Until.hasObject(By.text("Download")), 5000)
+        )
         device.pressBack()
         assertTrue(
             "Back on dashboard",

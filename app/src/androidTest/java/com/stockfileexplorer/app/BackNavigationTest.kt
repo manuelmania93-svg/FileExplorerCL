@@ -171,11 +171,11 @@ class BackNavigationTest {
             }
             null
         }
-        if (rowBounds == null) {
+        val rb = rowBounds ?: run {
             screenshot("analysis-row-unstable")
-            fail("Documents row never settled to a stable position")
+            throw AssertionError("Documents row never settled to a stable position")
         }
-        device.click(rowBounds.centerX(), rowBounds.centerY())
+        device.click(rb.centerX(), rb.centerY())
         if (!device.wait(Until.hasObject(By.res("sort_button")), 8000)) {
             screenshot("analysis-tap-lost")
             fail("Tap on the settled Documents row did not open the category overlay")

@@ -301,6 +301,18 @@ object FileIndex {
         rows
     }
 
+    /** Aggregate the whole result set, never the currently paged UI rows. */
+    suspend fun totalSize(category: FileCategory?, query: String = ""): Long = withContext(Dispatchers.IO) {
+        val clauses = ArrayList<String>()
+        val args = ArrayList<String>()
+        if (category != null) { clauses.add("category=?"); args.add(category.ordinal.toString()) }
+        if (query.isNotBlank()) { clauses.add("instr(lower(name),lower(?)) > 0"); args.add(query.trim()) }
+        val where = if (clauses.isEmpty()) "" else " WHERE " + clauses.joinToString(" AND ")
+        helper?.readableDatabase?.rawQuery("SELECT COALESCE(SUM(size),0) FROM files$where", args.toTypedArray())?.use {
+            if (it.moveToFirst()) it.getLong(0) else 0L
+        } ?: 0L
+    }
+
     suspend fun sizes(): LongArray = withContext(Dispatchers.IO) {
         val values = LongArray(FileCategory.entries.size)
         helper?.readableDatabase?.rawQuery("SELECT category,SUM(size) FROM files GROUP BY category", null)?.use {

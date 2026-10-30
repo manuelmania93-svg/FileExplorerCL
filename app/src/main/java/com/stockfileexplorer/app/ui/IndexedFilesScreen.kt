@@ -43,6 +43,7 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
     var sort by rememberSaveable(category) { mutableStateOf(FileIndex.Sort.DATE) }
     var ascending by rememberSaveable(category) { mutableStateOf(false) }
     var sortMenu by remember { mutableStateOf(false) }
+    var totalBytes by remember(category) { mutableStateOf<Long?>(null) }
     var page by remember(category) { mutableStateOf(FileIndex.Page(emptyList(), false)) }
     var selection by remember(category) { mutableStateOf(setOf<String>()) }
     var menu by remember { mutableStateOf<FileItem?>(null) }
@@ -66,6 +67,7 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
             kotlinx.coroutines.delay(200)
         }
         page = FileIndex.page(category, limit, sort, ascending, query)
+        totalBytes = FileIndex.totalSize(category, query)
         var last = android.os.SystemClock.elapsedRealtime()
         var seen = FileIndex.state.value.revision
         FileIndex.state.collect { st ->
@@ -75,6 +77,7 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
             if (!st.refreshing || now - last >= 1000) {
                 last = now
                 page = FileIndex.page(category, limit, sort, ascending, query)
+                totalBytes = FileIndex.totalSize(category, query)
             }
         }
     }
@@ -87,6 +90,9 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
             navigationIcon = { IconButton(onClick = { if (selection.isEmpty()) onBack() else selection = emptySet() }) { Icon(Icons.Filled.ArrowBack, null) } },
             actions = {
                 if (selection.isEmpty()) {
+                    if (totalBytes != null && (!searchMode || query.isNotBlank())) Text(
+                        (if (status.refreshing || status.incomplete) "≈ " else "") + FileLogic.formatSize(totalBytes!!),
+                        Modifier.testTag("category_total"), style = MaterialTheme.typography.labelMedium)
                     Box {
                         IconButton(onClick = { sortMenu = true }, modifier = Modifier.testTag("sort_button")) {
                             Icon(SfeIcons.Sort, stringResource(R.string.sort_by))

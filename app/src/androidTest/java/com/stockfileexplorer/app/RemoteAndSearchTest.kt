@@ -77,6 +77,24 @@ class RemoteAndSearchTest {
         screenshot("video-end-clamped")
         device.pressBack(); text("remote-video.mp4")
     }
+    @Test fun libraryTotalsIncludeRowsBeyondFirstPage() {
+        setup()
+        val bulk = File(root, "TotalsFixture").apply { mkdirs() }
+        repeat(230) { File(bulk, "total-$it.mp3").writeBytes(ByteArray(1024)) }
+        runBlocking { FileIndex.verifyFixture(context, root, clear = true) }
+        val first = runBlocking { FileIndex.page(com.stockfileexplorer.app.data.FileCategory.AUDIO, 200) }
+        val total = runBlocking { FileIndex.totalSize(com.stockfileexplorer.app.data.FileCategory.AUDIO) }
+        assertEquals(200, first.items.size)
+        assertTrue(first.hasMore)
+        assertEquals(230L * 1024, total)
+        assertTrue(total > first.items.sumOf { it.size })
+        text("Library").click(); text("Audio").click()
+        assertEquals(com.stockfileexplorer.app.data.FileLogic.formatSize(total), tag("category_total").text)
+        screenshot("audio-full-category-total")
+        device.pressBack()
+        text("Videos").click(); tag("category_total"); screenshot("video-category-total")
+        device.pressBack()
+    }
     @Test fun headerSearchFindsIndexedFilesLiterallyAndBackReturnsHome() {
         setup()
         screenshot("home-search-icon")

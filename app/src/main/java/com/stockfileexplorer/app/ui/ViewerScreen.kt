@@ -309,7 +309,13 @@ private fun VideoViewer(file: File) {
             KeyEvent.KEYCODE_DPAD_RIGHT -> 10_000L
             else -> null
         }
-        if (seek != null) {
+        if (surfaceFocused && key.keyCode == KeyEvent.KEYCODE_DPAD_UP) {
+            if (key.action == KeyEvent.ACTION_DOWN && key.repeatCount == 0) playFocus.requestFocus()
+            true
+        } else if (playFocused && key.keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
+            if (key.action == KeyEvent.ACTION_DOWN && key.repeatCount == 0) videoFocus.requestFocus()
+            true
+        } else if (seek != null) {
             if (key.action == KeyEvent.ACTION_DOWN && duration > 0) {
                 val target = (player.currentPosition + seek).coerceIn(0L, duration.toLong())
                 player.seekTo(target)

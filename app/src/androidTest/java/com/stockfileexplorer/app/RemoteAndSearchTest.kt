@@ -68,10 +68,13 @@ class RemoteAndSearchTest {
         text("Playing")
         device.pressDPadCenter(); text("Paused")
         screenshot("video-seek-paused")
-        device.pressDPadUp(); screenshot("video-play-button-focus")
+        device.pressDPadUp()
+        assertTrue("Up moves focus to Play/Pause", device.wait(Until.hasObject(By.res("video_play_pause").focused(true)), 3000))
+        screenshot("video-play-button-focus")
         device.pressDPadCenter(); text("Playing")
         device.pressDPadCenter(); text("Paused")
         device.pressDPadDown()
+        assertTrue("Down returns focus to video", device.wait(Until.hasObject(By.res("video_remote_surface").focused(true)), 3000))
         repeat(5) { device.pressDPadRight() }
         waitPosition { it in 29..30 }
         screenshot("video-end-clamped")

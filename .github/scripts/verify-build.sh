@@ -1,18 +1,27 @@
 #!/bin/bash
 set -e
+capture() {
+  mkdir -p app/build/reports/device/Download
+  # Copy evidence only; recursive Download pulls include fixture/provider paths
+  # whose transient permissions can make adb pull fail after tests passed.
+  adb shell 'find /sdcard/Download -maxdepth 1 -type f -name "sfe-*.png"' | tr -d '\r' > /tmp/sfe-capture-list
+  while IFS= read -r path; do
+    [ -n "$path" ] && adb pull "$path" app/build/reports/device/Download/
+  done < /tmp/sfe-capture-list
+}
 mkdir -p app/build/reports/device
 ./gradlew installDebug
 adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
-./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.RemoteAndSearchTest -Pandroid.testInstrumentationRunnerArguments.capture=remote-search || (adb pull /sdcard/Download/ app/build/reports/device/; adb logcat -d > app/build/reports/device/logcat-remote-search.txt || true; exit 1)
-adb pull /sdcard/Download/ app/build/reports/device/
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.RemoteAndSearchTest -Pandroid.testInstrumentationRunnerArguments.capture=remote-search || (capture; adb logcat -d > app/build/reports/device/logcat-remote-search.txt || true; exit 1)
+capture
 ./gradlew installDebug
-./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.SavedLocationsTest || (adb pull /sdcard/Download/ app/build/reports/device/; exit 1)
-adb pull /sdcard/Download/ app/build/reports/device/
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.SavedLocationsTest || (capture; exit 1)
+capture
 if [ "${1:-false}" = "true" ]; then exit 0; fi
-./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.GateFlowTest -Pandroid.testInstrumentationRunnerArguments.capture=gate || (adb pull /sdcard/Download/ app/build/reports/device/; exit 1)
-adb pull /sdcard/Download/ app/build/reports/device/
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.GateFlowTest -Pandroid.testInstrumentationRunnerArguments.capture=gate || (capture; exit 1)
+capture
 adb shell cmd uimode night yes
-./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.GateFlowTest -Pandroid.testInstrumentationRunnerArguments.capture=gate-night || (adb pull /sdcard/Download/ app/build/reports/device/; exit 1)
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.GateFlowTest -Pandroid.testInstrumentationRunnerArguments.capture=gate-night || (capture; exit 1)
 adb shell cmd uimode night no
 adb shell am force-stop com.stockfileexplorer.app || true
 ./gradlew installDebug
@@ -22,31 +31,31 @@ adb push app/src/androidTest/assets/fixtures/sfe-fixture-notes.docx /sdcard/Down
 adb push app/src/androidTest/assets/fixtures/sfe-fixture-todo.txt /sdcard/Download/sfe-fixture-todo.txt
 adb push app/src/androidTest/assets/viewers/sample-picture.jpg /sdcard/Download/sfe-sample-picture.jpg
 adb shell ls -la /sdcard/Download
-./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.DocumentVisibilitySmokeTest -Pandroid.testInstrumentationRunnerArguments.capture=portrait || (adb pull /sdcard/Download/ app/build/reports/device/; exit 1)
-adb pull /sdcard/Download/ app/build/reports/device/
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.DocumentVisibilitySmokeTest -Pandroid.testInstrumentationRunnerArguments.capture=portrait || (capture; exit 1)
+capture
 adb shell cmd uimode night yes
 ./gradlew installDebug
 adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
-./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.DocumentVisibilitySmokeTest -Pandroid.testInstrumentationRunnerArguments.capture=night || (adb pull /sdcard/Download/ app/build/reports/device/; exit 1)
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.DocumentVisibilitySmokeTest -Pandroid.testInstrumentationRunnerArguments.capture=night || (capture; exit 1)
 adb shell cmd uimode night no
-adb pull /sdcard/Download/ app/build/reports/device/
-./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.SelectionBarTest -Pandroid.testInstrumentationRunnerArguments.capture=select || (adb pull /sdcard/Download/ app/build/reports/device/; exit 1)
-adb pull /sdcard/Download/ app/build/reports/device/
+capture
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.SelectionBarTest -Pandroid.testInstrumentationRunnerArguments.capture=select || (capture; exit 1)
+capture
 ./gradlew installDebug
 adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
-./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.LauncherIconTest -Pandroid.testInstrumentationRunnerArguments.capture=icon || (adb pull /sdcard/Download/ app/build/reports/device/; exit 1)
-adb pull /sdcard/Download/ app/build/reports/device/
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.LauncherIconTest -Pandroid.testInstrumentationRunnerArguments.capture=icon || (capture; exit 1)
+capture
 ./gradlew installDebug
 adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
-./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.BackNavigationTest || (adb pull /sdcard/Download/ app/build/reports/device/; exit 1)
-adb pull /sdcard/Download/ app/build/reports/device/
-./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.TrashAndAppsTest -Pandroid.testInstrumentationRunnerArguments.capture=trash || (adb pull /sdcard/Download/ app/build/reports/device/; exit 1)
-adb pull /sdcard/Download/ app/build/reports/device/
-./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.BuiltInViewersTest -Pandroid.testInstrumentationRunnerArguments.capture=viewers || (adb pull /sdcard/Download/ app/build/reports/device/; adb logcat -d > app/build/reports/device/logcat-viewers.txt || true; exit 1)
-adb pull /sdcard/Download/ app/build/reports/device/
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.BackNavigationTest || (capture; exit 1)
+capture
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.TrashAndAppsTest -Pandroid.testInstrumentationRunnerArguments.capture=trash || (capture; exit 1)
+capture
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.BuiltInViewersTest -Pandroid.testInstrumentationRunnerArguments.capture=viewers || (capture; adb logcat -d > app/build/reports/device/logcat-viewers.txt || true; exit 1)
+capture
 adb shell cmd uimode night yes
-./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.BuiltInViewersTest -Pandroid.testInstrumentationRunnerArguments.capture=viewers-night || (adb pull /sdcard/Download/ app/build/reports/device/; adb logcat -d > app/build/reports/device/logcat-viewers-night.txt || true; exit 1)
-adb pull /sdcard/Download/ app/build/reports/device/
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.BuiltInViewersTest -Pandroid.testInstrumentationRunnerArguments.capture=viewers-night || (capture; adb logcat -d > app/build/reports/device/logcat-viewers-night.txt || true; exit 1)
+capture
 adb shell cmd uimode night no
 # German-locale layout run via per-app language: no reboot and no
 # root, so the installed package and the all-files grant stay in
@@ -60,8 +69,8 @@ adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
 adb shell cmd locale set-app-locales com.stockfileexplorer.app --locales de-AT
 adb shell am force-stop com.stockfileexplorer.app
 echo "app locales: $(adb shell cmd locale get-app-locales com.stockfileexplorer.app | tr -d '\r')"
-./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.GermanLayoutTest -Pandroid.testInstrumentationRunnerArguments.capture=german || (adb pull /sdcard/Download/ app/build/reports/device/; exit 1)
-adb pull /sdcard/Download/ app/build/reports/device/
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.GermanLayoutTest -Pandroid.testInstrumentationRunnerArguments.capture=german || (capture; exit 1)
+capture
 adb shell cmd locale set-app-locales com.stockfileexplorer.app --locales "" || true
 # Upgrade from the immediately previous published version too.
 curl -fL --retry 3 -o "$RUNNER_TEMP/sfe-0.2.9.apk" https://github.com/manuelmania93-svg/FileExplorerControl/releases/download/v0.2.9/File-Explorer-Control-0.2.9.apk

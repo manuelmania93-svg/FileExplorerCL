@@ -29,8 +29,19 @@ class IndexAndHoldTest {
     private val root = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "SfePerf")
     private val german get() = context.resources.configuration.locales[0].language == "de"
     private fun label(en: String, de: String) = if (german) de else en
-    private fun waitText(value: String): UiObject2 = device.wait(Until.findObject(By.text(value)), 15000)
-        ?: throw AssertionError("Missing UI text: $value")
+    // New actions make the bounded context menu scroll. Find bottom actions
+    // through its real scroll container, rather than requiring all rows on screen.
+    private fun revealMenuAction(value: String) {
+        if (value in setOf("Select", "Auswählen", "Customize menu", "Menü anpassen")) {
+            androidx.test.uiautomator.UiScrollable(androidx.test.uiautomator.UiSelector().scrollable(true))
+                .scrollIntoView(androidx.test.uiautomator.UiSelector().text(value))
+        }
+    }
+    private fun waitText(value: String): UiObject2 {
+        revealMenuAction(value)
+        return device.wait(Until.findObject(By.text(value)), 15000)
+            ?: throw AssertionError("Missing UI text: $value")
+    }
     private fun waitTextContains(value: String): UiObject2 = device.wait(Until.findObject(By.textContains(value)), 15000)
         ?: throw AssertionError("Missing UI text containing: $value")
     private fun openLibrary() {

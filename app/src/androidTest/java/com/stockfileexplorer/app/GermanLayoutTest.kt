@@ -99,6 +99,33 @@ class GermanLayoutTest {
         device.takeScreenshot(File("/sdcard/Download/sfe-$suffix-2-file-menu.png"))
         device.pressBack()
 
+        // Long-press floats the Rename/Share quick actions on the right side; the bottom
+        // selection bar keeps Copy/Move/Delete only - no More step.
+        val fixtureRow = device.findObject(By.textContains("sfe-fixture-report.pdf"))
+            ?: throw AssertionError("PDF fixture row still visible for long press")
+        fixtureRow.longClick()
+        assertTrue(
+            "Selection bar after long press",
+            device.wait(Until.hasObject(By.res("selection_bar")), 5000)
+        )
+        assertTrue(
+            "Floating quick actions after long press",
+            device.wait(Until.hasObject(By.res("selection_quick_popup")), 5000)
+        )
+        assertTrue("Umbenennen visible", device.hasObject(By.text("Umbenennen")))
+        assertTrue("Teilen visible", device.hasObject(By.text("Teilen")))
+        assertFalse("No More step in the selection bar", device.hasObject(By.text("Mehr")))
+        device.takeScreenshot(File("/sdcard/Download/sfe-$suffix-4-quick-actions.png"))
+        // Enlarged system font: both German action labels must stay fully visible.
+        instrumentation.uiAutomation.executeShellCommand("settings put system font_scale 1.3")
+        Thread.sleep(2000)
+        assertTrue("Umbenennen visible at 1.3 font", device.hasObject(By.text("Umbenennen")))
+        assertTrue("Teilen visible at 1.3 font", device.hasObject(By.text("Teilen")))
+        device.takeScreenshot(File("/sdcard/Download/sfe-$suffix-5-quick-actions-largefont.png"))
+        instrumentation.uiAutomation.executeShellCommand("settings put system font_scale 1.0")
+        Thread.sleep(1500)
+        device.pressBack()
+
         // Image category lists the sample picture (thumbnail verified visually).
         device.findObject(By.text("Bibliothek")).click()
         assertTrue(device.wait(Until.hasObject(By.text("Bilder")), 5000))

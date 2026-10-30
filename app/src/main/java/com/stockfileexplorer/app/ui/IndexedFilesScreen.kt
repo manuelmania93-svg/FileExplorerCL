@@ -48,6 +48,11 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
     var totalBytes by remember(category) { mutableStateOf<Long?>(null) }
     var page by remember(category) { mutableStateOf(FileIndex.Page(emptyList(), false)) }
     var selection by remember(category) { mutableStateOf(setOf<String>()) }
+    // Floating Rename/Share quick actions (they replace the bar's old "More" menu):
+    // anchored to the held row, or top-right (anchor null) when the selection starts
+    // without a held row (Select-all, the file menu's Select).
+    var quickActionsOpen by remember(category) { mutableStateOf(false) }
+    var quickActionsAnchor by remember(category) { mutableStateOf<String?>(null) }
     var menu by remember { mutableStateOf<FileItem?>(null) }
     var rename by remember { mutableStateOf<FileItem?>(null) }
     var deletes by remember { mutableStateOf<List<java.io.File>>(emptyList()) }
@@ -59,6 +64,18 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
     val noApp = stringResource(R.string.no_app_to_open)
     val openWithTitle = stringResource(R.string.open_with)
     fun toggle(path: String) { selection = if (path in selection) selection - path else selection + path }
+    fun openQuickActions(anchor: String?) { quickActionsAnchor = anchor; quickActionsOpen = true }
+    fun closeQuickActions() { quickActionsOpen = false; quickActionsAnchor = null }
+    // The floating card is a selection companion: it leaves when the selection clears.
+    LaunchedEffect(selection.isEmpty()) { if (selection.isEmpty()) closeQuickActions() }
+    val quickActionsShare = {
+        closeQuickActions()
+        shareFiles(context, selection.map { java.io.File(it) })
+    }
+    val quickActionsRename = {
+        closeQuickActions()
+        page.items.firstOrNull { it.file.absolutePath == selection.first() }?.let { rename = it }
+    }
     // Query immediately when the user changes category, sort or page size. While the index is
     // still refreshing, reload at most once a second instead of on every 250 ms scan batch.
     LaunchedEffect(category, sort, ascending, limit, query) {
@@ -92,6 +109,7 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
         BrowserScreen(startPath = folder, onNavigateUp = { containingFolder = null })
         return
     }
+    Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize()) {
         TopAppBar(title = { Text(if (selection.isEmpty()) title else stringResource(R.string.selected_count, selection.size)) },
             navigationIcon = { IconButton(onClick = { if (selection.isEmpty()) onBack() else selection = emptySet() }) { Icon(Icons.Filled.ArrowBack, null) } },
@@ -130,6 +148,7 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
                         scope.launch {
                             selection = FileIndex.page(category, Int.MAX_VALUE, sort, ascending, query).items
                                 .map { it.file.absolutePath }.toSet()
+                            openQuickActions(null)
                         }
                     }, modifier = Modifier.testTag("selection_all")) { Icon(SfeIcons.CheckBox, stringResource(R.string.select_all)) }
                 }
@@ -150,9 +169,14 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
         } else LazyColumn(Modifier.weight(1f), state = listState) {
             items(page.items.size, key = { page.items[it].file.absolutePath }) { n ->
                 val item = page.items[n]
+                Box {
                 Row(Modifier.fillMaxWidth().combinedClickable(
                     onClick = { if (selection.isNotEmpty()) toggle(item.file.absolutePath) else openFile(context, item.file, noApp, page.items.map { it.file }) },
-                    onLongClick = { toggle(item.file.absolutePath) }
+                    onLongClick = {
+                        toggle(item.file.absolutePath)
+                        if (item.file.absolutePath in selection) openQuickActions(item.file.absolutePath)
+                        else if (quickActionsAnchor == item.file.absolutePath) closeQuickActions()
+                    }
                 ).padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (selection.isNotEmpty()) Checkbox(item.file.absolutePath in selection, { toggle(item.file.absolutePath) })
                     Box {
@@ -174,6 +198,14 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
                     }
                     IconButton(onClick = { menu = item }) { Icon(Icons.Filled.MoreVert, stringResource(R.string.file_actions_for, item.name)) }
                 }
+                if (selection.isNotEmpty() && quickActionsOpen && quickActionsAnchor == item.file.absolutePath) {
+                    SelectionQuickActionsPopup(
+                        renameEnabled = selection.size == 1,
+                        onShare = quickActionsShare,
+                        onRename = quickActionsRename,
+                    )
+                }
+                }
                 HorizontalDivider()
             }
             if (page.hasMore) item {
@@ -192,14 +224,23 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
                 }
             }
             SelectionActionBar(
-                renameEnabled = selection.size == 1,
                 onCopy = { collectSelected { transferSources = it; transferMove = false } },
                 onMove = { collectSelected { transferSources = it; transferMove = true } },
                 onDelete = { deletes = selection.map { java.io.File(it) } },
-                onShare = { shareFiles(context, selection.map { java.io.File(it) }) },
-                onRename = { page.items.firstOrNull { it.file.absolutePath == selection.first() }?.let { rename = it } },
             )
         }
+    }
+
+    // Selections started without a held row (Select-all, the file menu's Select)
+    // anchor the floating Rename/Share card to the top-right instead.
+    if (selection.isNotEmpty() && quickActionsOpen && quickActionsAnchor == null) {
+        SelectionQuickActionsPopup(
+            renameEnabled = selection.size == 1,
+            onShare = quickActionsShare,
+            onRename = quickActionsRename,
+            alignment = Alignment.TopEnd,
+        )
+    }
     }
     menu?.let { item ->
         FileActionMenu(
@@ -233,7 +274,10 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
                 onShare = { shareFiles(context, listOf(item.file)) },
                 onOpenWith = { openFileWithChooser(context, item.file, openWithTitle, noApp) },
                 onDelete = { deletes = listOf(item.file) },
-                onSelect = { selection = setOf(item.file.absolutePath) },
+                onSelect = {
+                    selection = setOf(item.file.absolutePath)
+                    openQuickActions(item.file.absolutePath)
+                },
                 onCustomize = { showMenuCustomization = true },
             ),
         )

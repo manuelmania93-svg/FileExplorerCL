@@ -195,6 +195,11 @@ fun BrowserScreen(
     var gridView by remember { mutableStateOf(false) }
     var refreshTick by remember { mutableIntStateOf(0) }
     var selection by remember { mutableStateOf(setOf<String>()) }
+    // Floating Rename/Share quick actions (they replace the bar's old "More" menu):
+    // anchored to the held row, or top-right (anchor null) when the selection starts
+    // without a held row (Select-all, the file menu's Select).
+    var quickActionsOpen by remember { mutableStateOf(false) }
+    var quickActionsAnchor by remember { mutableStateOf<String?>(null) }
     var menuOpen by remember { mutableStateOf(false) }
     var showNewFolder by remember { mutableStateOf(false) }
     var renameTarget by remember { mutableStateOf<FileItem?>(null) }
@@ -255,8 +260,30 @@ fun BrowserScreen(
         selection = if (selection.contains(path)) selection - path else selection + path
     }
 
+    fun openQuickActions(anchor: String?) {
+        quickActionsAnchor = anchor
+        quickActionsOpen = true
+    }
+
+    fun closeQuickActions() {
+        quickActionsOpen = false
+        quickActionsAnchor = null
+    }
+
     val selecting = selection.isNotEmpty()
     BackHandler(selecting) { selection = emptySet() }
+    // The floating card is a selection companion: it leaves when the selection clears.
+    LaunchedEffect(selecting) {
+        if (!selecting) closeQuickActions()
+    }
+    val quickActionsShare = {
+        closeQuickActions()
+        shareFiles(context, selection.map { File(it) })
+    }
+    val quickActionsRename = {
+        closeQuickActions()
+        items.firstOrNull { it.file.absolutePath == selection.first() }?.let { renameTarget = it }
+    }
     // System Back mirrors the toolbar arrow: one folder up, and the browser closes at the
     // folder it was opened at - Back always returns to wherever the browser was opened
     // from (dashboard shortcut, or the storage analysis that opened a folder).
@@ -265,6 +292,7 @@ fun BrowserScreen(
         else File(currentPath).parent?.let { navigateTo(it) } ?: onNavigateUp()
     }
 
+    Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize()) {
         if (selecting) {
             TopAppBar(
@@ -276,7 +304,10 @@ fun BrowserScreen(
                 },
                 actions = {
                     IconButton(
-                        onClick = { selection = items.map { it.file.absolutePath }.toSet() },
+                        onClick = {
+                            selection = items.map { it.file.absolutePath }.toSet()
+                            openQuickActions(null)
+                        },
                         modifier = Modifier.testTag("selection_all"),
                     ) {
                         Icon(SfeIcons.CheckBox, contentDescription = stringResource(R.string.select_all))
@@ -388,6 +419,7 @@ fun BrowserScreen(
             ) {
                 items(items.size, key = { items[it].file.absolutePath }) { index ->
                     val item = items[index]
+                    Box {
                     FileGridCell(
                         item = item,
                         favorite = item.file.absolutePath in favoritePaths,
@@ -401,14 +433,27 @@ fun BrowserScreen(
                             else if (item.isDirectory) navigateTo(item.file.absolutePath)
                             else openFile(context, item.file, noAppMessage, items.filter { !it.isDirectory }.map { it.file })
                         },
-                        onLongClick = { toggleSelection(item.file.absolutePath) },
+                        onLongClick = {
+                            toggleSelection(item.file.absolutePath)
+                            if (item.file.absolutePath in selection) openQuickActions(item.file.absolutePath)
+                            else if (quickActionsAnchor == item.file.absolutePath) closeQuickActions()
+                        },
                         onMenu = { menuTarget = item }
                     )
+                    if (selecting && quickActionsOpen && quickActionsAnchor == item.file.absolutePath) {
+                        SelectionQuickActionsPopup(
+                            renameEnabled = selection.size == 1,
+                            onShare = quickActionsShare,
+                            onRename = quickActionsRename,
+                        )
+                    }
+                    }
                 }
             }
             else -> LazyColumn(Modifier.weight(1f)) {
                 items(items.size, key = { items[it].file.absolutePath }) { index ->
                     val item = items[index]
+                    Box {
                     FileListRow(
                         item = item,
                         favorite = item.file.absolutePath in favoritePaths,
@@ -422,7 +467,11 @@ fun BrowserScreen(
                             else if (item.isDirectory) navigateTo(item.file.absolutePath)
                             else openFile(context, item.file, noAppMessage, items.filter { !it.isDirectory }.map { it.file })
                         },
-                        onLongClick = { toggleSelection(item.file.absolutePath) },
+                        onLongClick = {
+                            toggleSelection(item.file.absolutePath)
+                            if (item.file.absolutePath in selection) openQuickActions(item.file.absolutePath)
+                            else if (quickActionsAnchor == item.file.absolutePath) closeQuickActions()
+                        },
                         trailing = {
                             Box {
                                 IconButton(onClick = { menuTarget = item }) {
@@ -435,12 +484,19 @@ fun BrowserScreen(
                             }
                         }
                     )
+                    if (selecting && quickActionsOpen && quickActionsAnchor == item.file.absolutePath) {
+                        SelectionQuickActionsPopup(
+                            renameEnabled = selection.size == 1,
+                            onShare = quickActionsShare,
+                            onRename = quickActionsRename,
+                        )
+                    }
+                    }
                 }
             }
         }
         if (selecting) {
             SelectionActionBar(
-                renameEnabled = selection.size == 1,
                 onCopy = {
                     transferSources = items.filter { it.file.absolutePath in selection }
                     transferMove = false
@@ -450,12 +506,20 @@ fun BrowserScreen(
                     transferMove = true
                 },
                 onDelete = { showDeleteConfirm = true },
-                onShare = { shareFiles(context, selection.map { File(it) }) },
-                onRename = {
-                    items.firstOrNull { it.file.absolutePath == selection.first() }?.let { renameTarget = it }
-                },
             )
         }
+    }
+
+    // Selections started without a held row (Select-all, the file menu's Select)
+    // anchor the floating Rename/Share card to the top-right instead.
+    if (selecting && quickActionsOpen && quickActionsAnchor == null) {
+        SelectionQuickActionsPopup(
+            renameEnabled = selection.size == 1,
+            onShare = quickActionsShare,
+            onRename = quickActionsRename,
+            alignment = Alignment.TopEnd,
+        )
+    }
     }
 
     menuTarget?.let { item ->
@@ -500,7 +564,10 @@ fun BrowserScreen(
                     selection = setOf(item.file.absolutePath)
                     showDeleteConfirm = true
                 },
-                onSelect = { selection = setOf(item.file.absolutePath) },
+                onSelect = {
+                    selection = setOf(item.file.absolutePath)
+                    openQuickActions(item.file.absolutePath)
+                },
                 onCustomize = { showMenuCustomization = true },
             ),
         )

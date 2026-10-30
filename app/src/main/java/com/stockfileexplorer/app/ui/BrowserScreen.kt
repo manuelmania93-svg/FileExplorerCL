@@ -276,11 +276,11 @@ fun BrowserScreen(
     LaunchedEffect(selecting) {
         if (!selecting) closeQuickActions()
     }
-    val quickActionsShare = {
+    val quickActionsShare: () -> Unit = {
         closeQuickActions()
         shareFiles(context, selection.map { File(it) })
     }
-    val quickActionsRename = {
+    val quickActionsRename: () -> Unit = {
         closeQuickActions()
         items.firstOrNull { it.file.absolutePath == selection.first() }?.let { renameTarget = it }
     }

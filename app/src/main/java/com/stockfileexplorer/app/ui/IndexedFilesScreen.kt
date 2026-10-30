@@ -68,11 +68,11 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
     fun closeQuickActions() { quickActionsOpen = false; quickActionsAnchor = null }
     // The floating card is a selection companion: it leaves when the selection clears.
     LaunchedEffect(selection.isEmpty()) { if (selection.isEmpty()) closeQuickActions() }
-    val quickActionsShare = {
+    val quickActionsShare: () -> Unit = {
         closeQuickActions()
         shareFiles(context, selection.map { java.io.File(it) })
     }
-    val quickActionsRename = {
+    val quickActionsRename: () -> Unit = {
         closeQuickActions()
         page.items.firstOrNull { it.file.absolutePath == selection.first() }?.let { rename = it }
     }

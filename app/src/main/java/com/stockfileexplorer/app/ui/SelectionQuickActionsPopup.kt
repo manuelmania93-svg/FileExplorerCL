@@ -3,6 +3,8 @@ package com.stockfileexplorer.app.ui
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -39,14 +41,25 @@ fun SelectionQuickActionsPopup(
         modifier = modifier.padding(4.dp).testTag("selection_quick_popup"),
     ) {
         Column {
+            // Same readable label color as the selection bar buttons, not the yellow
+            // primary: yellow-on-cream was too low contrast here.
+            val actionColors = ButtonDefaults.textButtonColors(
+                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+            )
             TextButton(
                 onClick = onRename,
                 enabled = renameEnabled,
+                colors = actionColors,
                 modifier = Modifier.testTag("quick_rename"),
             ) {
                 Text(stringResource(R.string.rename))
             }
-            TextButton(onClick = onShare, modifier = Modifier.testTag("quick_share")) {
+            TextButton(
+                onClick = onShare,
+                colors = actionColors,
+                modifier = Modifier.testTag("quick_share"),
+            ) {
                 Text(stringResource(R.string.share))
             }
         }

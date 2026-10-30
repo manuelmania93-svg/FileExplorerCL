@@ -155,7 +155,22 @@ class BackNavigationTest {
         // line, so a text search can match the wrong row (and its tap goes nowhere).
         val scroller = UiScrollable(UiSelector().scrollable(true))
         assertTrue("analysis report list", scroller.waitForExists(90000))
-        assertTrue("Documents category row", scroller.scrollIntoView(UiSelector().resourceId("analysis_category:DOCUMENTS")))
+        run {
+            val deadline = android.os.SystemClock.elapsedRealtime() + 90000
+            var found = device.findObject(By.res("analysis_category:DOCUMENTS")) != null
+            while (!found && android.os.SystemClock.elapsedRealtime() < deadline) {
+                try { scroller.scrollForward() } catch (_: Exception) { }
+                device.waitForIdle()
+                found = device.findObject(By.res("analysis_category:DOCUMENTS")) != null
+            }
+            if (!found) {
+                screenshot("analysis-row-missing")
+                try {
+                    device.executeShellCommand("uiautomator dump /sdcard/Download/sfe-back-${if (german) "de" else "en"}-hierarchy.xml")
+                } catch (_: Exception) { }
+                fail("Documents category row not found after scrolling")
+            }
+        }
         // A tap on a still-flinging list is consumed as a scroll stop, not a click
         // (standard Android behavior, users see it too) - so prove the row position
         // is settled before tapping, then tap exactly once. A lost tap on a settled

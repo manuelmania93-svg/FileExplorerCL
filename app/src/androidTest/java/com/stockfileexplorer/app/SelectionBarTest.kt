@@ -79,7 +79,21 @@ class SelectionBarTest {
         waitText(label("Choose copy destination", "Ziel zum Kopieren wählen"))
         waitText("Download").click()
         waitText("SfeSelectDest").click()
-        device.wait(Until.findObject(By.text(label("Copy here", "Hierher kopieren"))), 5000).click()
+        // The dialog just navigated into the picked folder; a tap during that
+        // transition can be consumed (evidence: picker-still-open screenshot).
+        // Prove the button settled, then tap exactly once - if the picker still
+        // stays open after a settled tap, that is a product bug and fails loud.
+        val copyHere = device.wait(Until.findObject(By.text(label("Copy here", "Hierher kopieren"))), 5000)
+            ?: throw AssertionError("Copy here button missing")
+        val before = copyHere.visibleBounds
+        device.waitForIdle()
+        Thread.sleep(400)
+        val after = device.findObject(By.text(label("Copy here", "Hierher kopieren")))
+        if (after == null || after.visibleBounds != before) {
+            device.waitForIdle()
+            Thread.sleep(400)
+        }
+        device.findObject(By.text(label("Copy here", "Hierher kopieren"))).click()
         if (!device.wait(Until.gone(By.text(label("Choose copy destination", "Ziel zum Kopieren wählen"))), 15000)) {
             screenshot("picker-still-open")
             fail("Folder picker closes")

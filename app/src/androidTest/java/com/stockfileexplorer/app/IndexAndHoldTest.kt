@@ -181,7 +181,9 @@ class IndexAndHoldTest {
             val rowOverflow = candidates.minByOrNull {
                 kotlin.math.abs(it.visibleBounds.centerY() - nameBounds.centerY())
             }?.takeIf {
-                kotlin.math.abs(it.visibleBounds.centerY() - nameBounds.centerY()) < nameBounds.height() * 4
+                // Bound at 2 line-heights: accepts this row's icon, rejects a
+                // neighboring row's if the target row somehow has no overflow.
+                kotlin.math.abs(it.visibleBounds.centerY() - nameBounds.centerY()) < nameBounds.height() * 2
             }
             requireNotNull(rowOverflow) {
                 "No overflow button on the row for $name; nameBounds=$nameBounds, " +
@@ -254,10 +256,12 @@ class IndexAndHoldTest {
         screenshot("multi-select")
         device.pressBack()
         // The menu's explicit Select path still works alongside hold-to-select.
+        assertTrue(device.wait(Until.hasObject(By.desc(label("File actions","Dateiaktionen"))),5000))
         device.findObject(By.desc(label("File actions","Dateiaktionen"))).click()
         waitText(label("Select","Auswählen")).click()
         waitText(if(german) "1 ausgewählt" else "1 selected")
         device.pressBack()
+        assertTrue(device.wait(Until.hasObject(By.desc(label("File actions","Dateiaktionen"))),5000))
         device.findObject(By.desc(label("File actions","Dateiaktionen"))).click()
         waitText(label("Rename","Umbenennen")).click()
         val input = device.wait(Until.findObject(By.clazz("android.widget.EditText")),5000)

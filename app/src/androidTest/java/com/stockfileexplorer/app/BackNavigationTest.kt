@@ -41,7 +41,12 @@ class BackNavigationTest {
         }
     }
     private fun screenshot(name: String) {
-        device.takeScreenshot(File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "sfe-back-${if (german) "de" else "en"}-$name.png"))
+        // Subdirectory: top-level Download files name-sort before the sfe-fixture-*
+        // fixtures and would push them off the first screen for later test classes
+        // (CI pulls /sdcard/Download recursively, so artifacts are still uploaded).
+        val dir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "SfeBackShots")
+        dir.mkdirs()
+        device.takeScreenshot(File(dir, "sfe-back-${if (german) "de" else "en"}-$name.png"))
     }
     private fun finishAll() {
         val monitor = androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry.getInstance()

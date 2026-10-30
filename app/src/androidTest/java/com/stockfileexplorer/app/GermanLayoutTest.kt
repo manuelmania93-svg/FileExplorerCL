@@ -29,9 +29,9 @@ class GermanLayoutTest {
     // sfe-german-download-missing.png showed the list at its end while the
     // fixture sits a few rows below the first screen).
     private fun slowScrollToText(device: UiDevice, text: String): Boolean {
-        repeat(40) {
+        repeat(120) {
             if (device.hasObject(By.textContains(text))) return true
-            device.swipe(540, 1400, 540, 900, 40)
+            device.swipe(540, 1400, 540, 1300, 100)
             Thread.sleep(300)
         }
         return device.hasObject(By.textContains(text))

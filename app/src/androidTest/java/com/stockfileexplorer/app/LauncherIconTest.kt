@@ -1,6 +1,5 @@
 package com.stockfileexplorer.app
 
-import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
@@ -8,11 +7,8 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
-import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.drawable.AdaptiveIconDrawable
-import android.net.Uri
-import android.provider.Settings
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
@@ -93,10 +89,15 @@ class LauncherIconTest {
         val pc = Canvas(probe)
         icon.setBounds(0, 0, 432, 432)
         icon.draw(pc)
-        val center = probe.getPixel(216, 216)
+        val bgProbe = probe.getPixel(216, 90) // inside squircle, above the folder
         assertTrue(
-            "Icon center should be the artwork's orange, got ${Integer.toHexString(center)}",
-            Color.red(center) > 200 && Color.green(center) in 60..235 && Color.blue(center) < 150
+            "Icon background should be the artwork's orange gradient, got ${Integer.toHexString(bgProbe)}",
+            Color.red(bgProbe) > 200 && Color.green(bgProbe) in 60..235 && Color.blue(bgProbe) < 150
+        )
+        val center = probe.getPixel(216, 216) // cream folder front
+        assertTrue(
+            "Icon center should be the bright folder, got ${Integer.toHexString(center)}",
+            Color.red(center) > 220 && Color.green(center) > 180
         )
 
         save(renderMasked(icon, 192, circle = true, dark = false), File("/sdcard/Download/sfe-$suffix-circle-light.png"))
@@ -112,16 +113,15 @@ class LauncherIconTest {
         val context = instrumentation.targetContext
         val suffix = InstrumentationRegistry.getArguments().getString("capture", "icon")
 
-        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-            .setData(Uri.parse("package:${context.packageName}"))
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        instrumentation.startActivitySync(intent)
         val device = UiDevice.getInstance(instrumentation)
+        device.executeShellCommand(
+            "am start -a android.settings.APPLICATION_DETAILS_SETTINGS -d package:${context.packageName}"
+        )
         assertTrue(
             "System app details opened",
-            device.wait(Until.hasObject(By.pkg("com.android.settings").depth(0)), 10000)
+            device.wait(Until.hasObject(By.pkg("com.android.settings").depth(0)), 15000)
         )
-        device.wait(Until.hasObject(By.textContains("File Explorer")), 10000)
+        device.wait(Until.hasObject(By.textContains("File Explorer")), 15000)
         device.takeScreenshot(File("/sdcard/Download/sfe-$suffix-app-details.png"))
         device.pressBack()
     }

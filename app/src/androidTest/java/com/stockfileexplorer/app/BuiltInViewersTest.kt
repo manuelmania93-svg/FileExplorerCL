@@ -68,7 +68,14 @@ class BuiltInViewersTest {
             repeat(10) { if (!device.hasObject(By.text(name))) device.swipe(300, 900, 300, 300, 20) }
             repeat(12) { if (!device.hasObject(By.text(name))) device.swipe(300, 300, 300, 900, 20) }
         }
-        waitText(name);device.findObject(By.text(name)).click()
+        waitText(name)
+        // A click can land while the index refresh recomposes the list and get
+        // swallowed (seen on the Library > Images route). Click and wait for the
+        // viewer window; retry once on a fresh node when nothing opened.
+        if (device.findObject(By.text(name))?.clickAndWait(Until.newWindow(), 10000) != true) {
+            waitText(name)
+            device.findObject(By.text(name))?.clickAndWait(Until.newWindow(), 10000)
+        }
         assertTrue(device.wait(Until.hasObject(By.pkg(context.packageName)), 5000))
     }
     @Test fun openRenderPlayAndExtractThroughFolderUi() {

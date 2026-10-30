@@ -21,7 +21,25 @@ private val Inter = FontFamily(
     Font(R.font.inter_bold, FontWeight.Bold),
 )
 
-private val SfeTypography = Typography(defaultFontFamily = Inter)
+private val SfeTypography = with(Typography()) {
+    Typography(
+        displayLarge = displayLarge.copy(fontFamily = Inter),
+        displayMedium = displayMedium.copy(fontFamily = Inter),
+        displaySmall = displaySmall.copy(fontFamily = Inter),
+        headlineLarge = headlineLarge.copy(fontFamily = Inter),
+        headlineMedium = headlineMedium.copy(fontFamily = Inter),
+        headlineSmall = headlineSmall.copy(fontFamily = Inter),
+        titleLarge = titleLarge.copy(fontFamily = Inter),
+        titleMedium = titleMedium.copy(fontFamily = Inter),
+        titleSmall = titleSmall.copy(fontFamily = Inter),
+        bodyLarge = bodyLarge.copy(fontFamily = Inter),
+        bodyMedium = bodyMedium.copy(fontFamily = Inter),
+        bodySmall = bodySmall.copy(fontFamily = Inter),
+        labelLarge = labelLarge.copy(fontFamily = Inter),
+        labelMedium = labelMedium.copy(fontFamily = Inter),
+        labelSmall = labelSmall.copy(fontFamily = Inter),
+    )
+}
 
 // The user explicitly chose a yellow accent on a light look, so the app keeps this
 // light scheme regardless of the system dark-mode setting. Background is a soft

@@ -32,7 +32,7 @@ class IndexAndHoldTest {
     // New actions make the bounded context menu scroll. Find bottom actions
     // through its real scroll container, rather than requiring all rows on screen.
     private fun revealMenuAction(value: String) {
-        if (value in setOf("Select", "Auswählen", "Customize menu", "Menü anpassen")) {
+        if (value in setOf("Open", "Öffnen", "Select", "Auswählen", "Customize menu", "Menü anpassen")) {
             androidx.test.uiautomator.UiScrollable(androidx.test.uiautomator.UiSelector().scrollable(true))
                 .scrollIntoView(androidx.test.uiautomator.UiSelector().text(value))
         }
@@ -237,7 +237,7 @@ class IndexAndHoldTest {
             waitText(label("Share","Teilen"))
             screenshot("$shot-share")
             waitText(label("Select","Auswählen"))
-            assertTrue("Overflow menu offers Open",device.hasObject(By.text(label("Open","Öffnen"))))
+            waitText(label("Open","Öffnen"))
             device.pressBack()
         }
         launch(root.absolutePath)

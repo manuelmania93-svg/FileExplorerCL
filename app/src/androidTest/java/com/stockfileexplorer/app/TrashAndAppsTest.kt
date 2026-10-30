@@ -113,30 +113,27 @@ class TrashAndAppsTest {
             throw AssertionError("installed-apps list did not render any rows")
         }
         android.util.Log.i("SfeTest", "Apps list first rows after " + (android.os.SystemClock.elapsedRealtime() - clickAt) + " ms")
-        // Rows always carry the package in their subtitle ("<package> • <size>"),
-        // even while labels and icons still load asynchronously (run 41031503561
-        // evidence: visible rows showed package-as-title, e.g. the
-        // "com.stockfileexplorer.app.test" row, and the list reorders as labels
-        // resolve, so a label-based search is racy at any scroll position).
-        // Match the package with its bullet suffix so the test-APK row
-        // (".test") cannot false-match. Scan from the top in short drags with
-        // bounded settle waits, and restart from the top between passes: a label
-        // resolving below the viewport can move the own row above it mid-scan.
+        // Code-grounded behavior (InstalledAppsScreen): the whole package list is
+        // loaded atomically on Dispatchers.IO - every label AND icon resolved up
+        // front - and exposed as ONE sorted list (sortedBy label.lowercase()).
+        // There is no per-row lazy loading and no reordering; packages without a
+        // label show their package name as title (normal loadLabel behavior), so
+        // the own row sorts mid-list under "file explorer control".
+        // UiDevice.swipe throttles to 5 ms/step: few-step swipes are flings that
+        // overshoot whole screens (run 41028986158 ended at the list bottom),
+        // while 40 x 250px under-reached the mid-list row (run 41031503561).
+        // Use 100-step drags (real slow drags, ~500 px each) with a bounded
+        // settle wait per position, covering 80 x 500 px >> full list length.
+        // Match the package subtitle ("<package> • <size>") with the bullet
+        // suffix so the ".test" package row cannot false-match. A missing row
+        // can never pass: every position check must find it exactly once.
         val ownRow = By.textContains("$pkg • ")
-        var found = device.wait(Until.hasObject(ownRow), 10000)
-        var pass = 0
-        while (!found && pass < 3) {
-            pass++
-            var drags = 0
-            while (!found && drags < 70) {
-                device.swipe(540, 1400, 540, 1000, 35)
-                drags++
-                found = device.wait(Until.hasObject(ownRow), 1200)
-            }
-            if (!found) repeat(35) {
-                device.swipe(540, 300, 540, 1200, 25)
-                Thread.sleep(150)
-            }
+        var found = device.wait(Until.hasObject(ownRow), 1500)
+        var drags = 0
+        while (!found && drags < 80) {
+            device.swipe(540, 1500, 540, 1000, 100)
+            drags++
+            found = device.wait(Until.hasObject(ownRow), 800)
         }
         if (!found) {
             screenshot("4-installed-apps-missing")

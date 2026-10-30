@@ -166,6 +166,22 @@ class IndexAndHoldTest {
         val directStats = FileIndex.directoryStats(listOf(statsFolder.absolutePath))
         assertEquals(2L, directStats.getValue(statsFolder.absolutePath).fileCount)
         assertEquals(15L, directStats.getValue(statsFolder.absolutePath).totalBytes)
+        fun clickOverflow(desc: BySelector) {
+            // Rows recompose under the test (view toggles, selection exit, background
+            // index refresh), so a found node can go stale before click() lands -
+            // retry briefly, the same pattern FileActionsInstrumentedTest uses.
+            val deadline = SystemClock.uptimeMillis() + 10000
+            while (true) {
+                assertTrue("Overflow visible", device.wait(Until.hasObject(desc), 5000))
+                try {
+                    device.findObject(desc).click()
+                    return
+                } catch (stale: StaleObjectException) {
+                    if (SystemClock.uptimeMillis() > deadline) throw stale
+                    SystemClock.sleep(150)
+                }
+            }
+        }
         fun assertPopup(name: String, shot: String) {
             // Hold now starts multi-select directly; the file action menu lives behind each
             // row's overflow button. Each overflow's content description names its file
@@ -174,8 +190,7 @@ class IndexAndHoldTest {
             // match cannot survive both list rows and grid cells.
             waitText(name)
             val rowDesc = label("File actions for $name", "Dateiaktionen für $name")
-            assertTrue("Overflow button on $name's row", device.wait(Until.hasObject(By.desc(rowDesc)), 5000))
-            device.findObject(By.desc(rowDesc)).click()
+            clickOverflow(By.desc(rowDesc))
             waitText(label("Rename","Umbenennen"))
             screenshot(shot)
             // The action list is a LazyColumn capped at 70% of the screen height; Share can
@@ -217,8 +232,7 @@ class IndexAndHoldTest {
         device.pressBack()
         // Overflow reaches the same popup.
         device.findObject(By.desc(label("List view","Listenansicht"))).click()
-        assertTrue(device.wait(Until.hasObject(By.descContains(label("File actions","Dateiaktionen"))),5000))
-        device.findObject(By.descContains(label("File actions","Dateiaktionen"))).click()
+        clickOverflow(By.descContains(label("File actions","Dateiaktionen")))
         waitText(label("Rename","Umbenennen")); waitText(label("Select","Auswählen")); device.pressBack()
         launch()
         clickTile(label("Images","Bilder"))
@@ -242,13 +256,11 @@ class IndexAndHoldTest {
         screenshot("multi-select")
         device.pressBack()
         // The menu's explicit Select path still works alongside hold-to-select.
-        assertTrue(device.wait(Until.hasObject(By.descContains(label("File actions","Dateiaktionen"))),5000))
-        device.findObject(By.descContains(label("File actions","Dateiaktionen"))).click()
+        clickOverflow(By.descContains(label("File actions","Dateiaktionen")))
         waitText(label("Select","Auswählen")).click()
         waitText(if(german) "1 ausgewählt" else "1 selected")
         device.pressBack()
-        assertTrue(device.wait(Until.hasObject(By.descContains(label("File actions","Dateiaktionen"))),5000))
-        device.findObject(By.descContains(label("File actions","Dateiaktionen"))).click()
+        clickOverflow(By.descContains(label("File actions","Dateiaktionen")))
         waitText(label("Rename","Umbenennen")).click()
         val input = device.wait(Until.findObject(By.clazz("android.widget.EditText")),5000)
         assertTrue("Rename dialog shows the current name", input != null && input.text.isNotEmpty())

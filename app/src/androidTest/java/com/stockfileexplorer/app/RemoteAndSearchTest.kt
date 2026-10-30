@@ -57,7 +57,11 @@ class RemoteAndSearchTest {
         // Default focus is the video. The press that opened it must not immediately pause it.
         device.pressDPadCenter(); text("Paused")
         device.pressDPadRight(); waitPosition { it in 10..12 }
+        Thread.sleep(1500) // seekTo is asynchronous; inspect the decoded fixture burn-in, not optimistic UI
+        screenshot("video-paused-decoded-10s")
         device.pressDPadRight(); waitPosition { it in 20..22 }
+        Thread.sleep(1500)
+        screenshot("video-paused-decoded-20s")
         device.pressDPadLeft(); waitPosition { it in 10..12 }
         device.pressDPadLeft(); waitPosition { it in 0..2 }
         device.pressDPadLeft(); waitPosition { it == 0 }
@@ -77,6 +81,7 @@ class RemoteAndSearchTest {
         assertTrue("Down returns focus to video", device.wait(Until.hasObject(By.res("video_remote_surface").focused(true)), 3000))
         repeat(5) { device.pressDPadRight() }
         waitPosition { it in 29..30 }
+        Thread.sleep(1500)
         screenshot("video-end-clamped")
         device.pressBack(); text("remote-video.mp4")
     }

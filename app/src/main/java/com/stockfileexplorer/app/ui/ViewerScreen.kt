@@ -319,7 +319,6 @@ private fun VideoViewer(file: File) {
             if (key.action == KeyEvent.ACTION_DOWN && duration > 0) {
                 val target = (player.currentPosition + seek).coerceIn(0L, duration.toLong())
                 player.seekTo(target)
-                position = target.toFloat()
             }
             true // consume both halves; hold repeats seek but never changes the pager page
         } else if (surfaceFocused && key.keyCode in listOf(KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER)) {

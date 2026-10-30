@@ -200,4 +200,9 @@
     <string name="downloads">Downloads</string>
     <string name="cat_apk">APK</string>
     <string name="no_launch_activity">Diese App kann nicht geöffnet werden</string>
+    <string name="viewer_remote_hint">◀ / ▶ 10 s  •  OK Start / Pause  •  ↑ Steuerung</string>
+    <string name="search_files">Dateien suchen</string>
+    <string name="search_filename">Dateiname</string>
+    <string name="search_prompt">Dateinamen eingeben, um den gemeinsamen Speicher zu durchsuchen.</string>
+    <string name="search_no_results">Keine passenden Dateien.</string>
 </resources>

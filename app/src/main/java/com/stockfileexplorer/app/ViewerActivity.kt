@@ -1,5 +1,7 @@
 package com.stockfileexplorer.app
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
@@ -12,6 +14,7 @@ import com.stockfileexplorer.app.theme.AppTheme
 import com.stockfileexplorer.app.ui.ViewerScreen
 import java.io.File
 
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 class ViewerActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -19,7 +22,7 @@ class ViewerActivity : ComponentActivity() {
         val file = File(path)
         val context = (intent.getStringArrayListExtra("paths") ?: arrayListOf()).map { File(it) }
         val files = swipeSet(file, context)
-        setContent { AppTheme { Surface(Modifier.fillMaxSize()) { ViewerScreen(files, files.indexOf(file).coerceAtLeast(0), onBack = { finish() }) } } }
+        setContent { AppTheme { Surface(Modifier.fillMaxSize().semantics { testTagsAsResourceId = true }) { ViewerScreen(files, files.indexOf(file).coerceAtLeast(0), onBack = { finish() }) } } }
     }
     companion object {
         fun kind(file: File): String? = when (file.extension.lowercase()) {

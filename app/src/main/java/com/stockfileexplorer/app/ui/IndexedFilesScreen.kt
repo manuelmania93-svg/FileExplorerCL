@@ -12,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -32,7 +33,9 @@ import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Unit) {
+fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Unit, searchMode: Boolean = false) {
+    var query by rememberSaveable { mutableStateOf("") }
+    val searchFocus = remember { androidx.compose.ui.focus.FocusRequester() }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val status by FileIndex.state.collectAsState()
@@ -55,8 +58,14 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
     fun toggle(path: String) { selection = if (path in selection) selection - path else selection + path }
     // Query immediately when the user changes category, sort or page size. While the index is
     // still refreshing, reload at most once a second instead of on every 250 ms scan batch.
-    LaunchedEffect(category, sort, ascending, limit) {
-        page = FileIndex.page(category, limit, sort, ascending)
+    LaunchedEffect(category, sort, ascending, limit, query) {
+        if (searchMode) {
+            selection = emptySet()
+            page = FileIndex.Page(emptyList(), false)
+            if (query.isBlank()) return@LaunchedEffect
+            kotlinx.coroutines.delay(200)
+        }
+        page = FileIndex.page(category, limit, sort, ascending, query)
         var last = android.os.SystemClock.elapsedRealtime()
         var seen = FileIndex.state.value.revision
         FileIndex.state.collect { st ->
@@ -65,7 +74,7 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
             val now = android.os.SystemClock.elapsedRealtime()
             if (!st.refreshing || now - last >= 1000) {
                 last = now
-                page = FileIndex.page(category, limit, sort, ascending)
+                page = FileIndex.page(category, limit, sort, ascending, query)
             }
         }
     }
@@ -106,19 +115,25 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
                 if (selection.isNotEmpty()) {
                     IconButton(onClick = {
                         scope.launch {
-                            selection = FileIndex.page(category, Int.MAX_VALUE, sort, ascending).items
+                            selection = FileIndex.page(category, Int.MAX_VALUE, sort, ascending, query).items
                                 .map { it.file.absolutePath }.toSet()
                         }
                     }, modifier = Modifier.testTag("selection_all")) { Icon(SfeIcons.CheckBox, stringResource(R.string.select_all)) }
                 }
             })
+        if (searchMode) {
+            OutlinedTextField(value = query, onValueChange = { query = it; limit = 200 }, singleLine = true,
+                label = { Text(stringResource(R.string.search_filename)) },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).testTag("search_query").focusRequester(searchFocus))
+            LaunchedEffect(Unit) { searchFocus.requestFocus() }
+        }
         if (status.refreshing || status.incomplete) {
             Text(stringResource(if (status.refreshing) R.string.index_updating else R.string.index_incomplete),
                 style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
             if (status.refreshing) LinearProgressIndicator(Modifier.fillMaxWidth())
         }
         if (page.items.isEmpty()) {
-            Text(stringResource(if (status.refreshing || status.incomplete) R.string.index_no_results_yet else R.string.empty_folder), Modifier.padding(16.dp))
+            Text(stringResource(if (searchMode && query.isBlank()) R.string.search_prompt else if (status.refreshing || status.incomplete) R.string.index_no_results_yet else if (searchMode) R.string.search_no_results else R.string.empty_folder), Modifier.padding(16.dp))
         } else LazyColumn(Modifier.weight(1f)) {
             items(page.items.size, key = { page.items[it].file.absolutePath }) { n ->
                 val item = page.items[n]
@@ -159,7 +174,7 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
                 val loaded = page.items.filter { it.file.absolutePath in selection }
                 if (loaded.size == selection.size) { onReady(loaded); return }
                 scope.launch {
-                    val all = FileIndex.page(category, Int.MAX_VALUE, sort, ascending).items
+                    val all = FileIndex.page(category, Int.MAX_VALUE, sort, ascending, query).items
                     onReady(all.filter { it.file.absolutePath in selection })
                 }
             }

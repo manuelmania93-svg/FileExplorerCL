@@ -209,6 +209,7 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
             onDismiss = { menu = null },
             callbacks = FileActionCallbacks(
                 onOpen = { openFile(context, item.file, noApp, page.items.map { it.file }) },
+                onSaveLocation = { item.file.parent?.let { FileActionPreferences.saveShortcut(context, it) }; Toast.makeText(context, R.string.location_saved, Toast.LENGTH_SHORT).show() },
                 onContainingFolder = { item.file.parent?.let { containingFolder = it } },
                 onCopy = {
                     transferSources = listOf(item)

@@ -209,4 +209,11 @@
     <string name="apps_apk_size">APK %1$s</string>
     <string name="apps_sort_size">APK-Größe (größte zuerst)</string>
     <string name="open_containing_folder">Dateiordner öffnen</string>
+    <string name="save_location">Ort als Verknüpfung speichern</string>
+    <string name="location_saved">Ordnerverknüpfung gespeichert</string>
+    <string name="saved_locations">Ordnerverknüpfungen</string>
+    <string name="saved_favorite_files">Favorisierte Dateien</string>
+    <string name="saved_empty">Noch nichts gespeichert.</string>
+    <string name="saved_missing">Nicht mehr verfügbar</string>
+    <string name="remove_saved">Verknüpfung entfernen</string>
 </resources>

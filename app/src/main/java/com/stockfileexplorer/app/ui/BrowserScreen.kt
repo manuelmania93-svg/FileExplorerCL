@@ -314,6 +314,11 @@ fun BrowserScreen(
                             Icon(Icons.Filled.MoreVert, contentDescription = null)
                         }
                         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            DropdownMenuItem(text = { Text(stringResource(R.string.save_location)) }, leadingIcon = { Icon(SfeIcons.Link, null) }, onClick = {
+                                com.stockfileexplorer.app.FileActionPreferences.saveShortcut(context, currentPath)
+                                Toast.makeText(context, R.string.location_saved, Toast.LENGTH_SHORT).show()
+                                menuOpen = false
+                            })
                             Text(
                                 text = stringResource(R.string.sort_by),
                                 style = MaterialTheme.typography.labelSmall,
@@ -460,6 +465,12 @@ fun BrowserScreen(
             isFavorite = item.file.absolutePath in favoritePaths,
             onDismiss = { menuTarget = null },
             callbacks = FileActionCallbacks(
+                onSaveLocation = {
+                    val location = if (item.isDirectory) item.file.absolutePath else item.file.parent
+                    location?.let { com.stockfileexplorer.app.FileActionPreferences.saveShortcut(context, it) }
+                    Toast.makeText(context, R.string.location_saved, Toast.LENGTH_SHORT).show()
+                },
+                onContainingFolder = { item.file.parent?.let { navigateTo(it) } },
                 onOpen = {
                     if (item.isDirectory) navigateTo(item.file.absolutePath)
                     else openFile(context, item.file, noAppMessage, items.filter { !it.isDirectory }.map { it.file })

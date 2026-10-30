@@ -209,4 +209,11 @@
     <string name="apps_apk_size">APK %1$s</string>
     <string name="apps_sort_size">APK size (largest first)</string>
     <string name="open_containing_folder">Open containing folder</string>
+    <string name="save_location">Save location as shortcut</string>
+    <string name="location_saved">Folder shortcut saved</string>
+    <string name="saved_locations">Folder shortcuts</string>
+    <string name="saved_favorite_files">Favorite files</string>
+    <string name="saved_empty">Nothing saved yet.</string>
+    <string name="saved_missing">No longer available</string>
+    <string name="remove_saved">Remove saved link</string>
 </resources>

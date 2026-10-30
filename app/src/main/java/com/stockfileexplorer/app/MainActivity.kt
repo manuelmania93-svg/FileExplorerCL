@@ -20,6 +20,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.platform.testTag
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -109,6 +112,7 @@ fun MainScaffold(initialBrowsePath: String? = null, initialStorageAnalysis: Bool
     // A category opened out of the storage analysis overlays it on the Local tab (null = not open).
     var analysisCategory by remember { mutableStateOf<FileCategory?>(null) }
     val analysisHolder = remember { com.stockfileexplorer.app.ui.AnalysisHolder() }
+    var showSearch by remember { mutableStateOf(false) }
     var showApps by remember { mutableStateOf(false) }
     var showPapierkorb by remember { mutableStateOf(initialPapierkorb) }
     var showStorageAnalysis by remember { mutableStateOf(initialStorageAnalysis) }
@@ -117,10 +121,11 @@ fun MainScaffold(initialBrowsePath: String? = null, initialStorageAnalysis: Bool
 
     // Intercept Back only while the screen it closes is visible - all of these live on the
     // Local tab. Closing hidden state read as "Back does nothing, then the app exits".
-    BackHandler(enabled = tab == TAB_LOCAL && (browsePath != null || analysisCategory != null || showApps || showStorageAnalysis || showPapierkorb)) {
+    BackHandler(enabled = tab == TAB_LOCAL && (showSearch || browsePath != null || analysisCategory != null || showApps || showStorageAnalysis || showPapierkorb)) {
         // An open folder or category closes first, so Back from a destination opened out of
         // the analysis returns to the analysis.
-        if (browsePath != null) browsePath = null
+        if (showSearch) showSearch = false
+        else if (browsePath != null) browsePath = null
         else if (analysisCategory != null) analysisCategory = null
         else if (showPapierkorb) showPapierkorb = false
         else if (showStorageAnalysis) { showStorageAnalysis = false; analysisHolder.report = null }
@@ -155,7 +160,11 @@ fun MainScaffold(initialBrowsePath: String? = null, initialStorageAnalysis: Bool
             TAB_LOCAL -> {
                 val path = browsePath
                 val analysisCat = analysisCategory
-                if (showPapierkorb && path == null) {
+                if (showSearch) {
+                    Column(Modifier.fillMaxSize().padding(padding)) {
+                        com.stockfileexplorer.app.ui.IndexedFilesScreen(null, stringResource(R.string.search_files), { showSearch = false }, searchMode = true)
+                    }
+                } else if (showPapierkorb && path == null) {
                     Column(Modifier.fillMaxSize().padding(padding)) {
                         PapierkorbScreen(onBack = { showPapierkorb = false })
                     }
@@ -189,6 +198,11 @@ fun MainScaffold(initialBrowsePath: String? = null, initialStorageAnalysis: Bool
                         TopAppBar(title = {
                             Text(stringResource(R.string.app_name))
                         },
+                            actions = {
+                                IconButton(onClick = { showSearch = true }, modifier = Modifier.testTag("home_search")) {
+                                    Icon(Icons.Filled.Search, stringResource(R.string.search_files), modifier = Modifier.size(22.dp))
+                                }
+                            },
                             colors = TopAppBarDefaults.topAppBarColors(containerColor = androidx.compose.ui.graphics.Color.Transparent))
                         DashboardScreen(
                             onOpenStorage = { browsePath = storageRoot },

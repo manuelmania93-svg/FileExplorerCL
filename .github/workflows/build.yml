@@ -3,6 +3,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      playback_only:
+        description: Run the scoped remote/search/totals tests only
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -42,11 +47,17 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
+          target: google_apis
           arch: x86_64
           profile: pixel_2
           disable-animations: true
           script: |
             mkdir -p app/build/reports/device
+            ./gradlew installDebug
+            adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
+            ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.RemoteAndSearchTest -Pandroid.testInstrumentationRunnerArguments.capture=remote-search || (adb pull /sdcard/Download/ app/build/reports/device/; adb logcat -d > app/build/reports/device/logcat-remote-search.txt || true; exit 1)
+            adb pull /sdcard/Download/ app/build/reports/device/
+            if [ '${{ inputs.playback_only }}' = 'true' ]; then exit 0; fi
             ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.GateFlowTest -Pandroid.testInstrumentationRunnerArguments.capture=gate || (adb pull /sdcard/Download/ app/build/reports/device/; exit 1)
             adb pull /sdcard/Download/ app/build/reports/device/
             adb shell cmd uimode night yes

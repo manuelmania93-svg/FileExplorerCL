@@ -6,6 +6,18 @@ import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import android.os.ParcelFileDescriptor
 import android.view.ViewGroup
+import android.view.KeyEvent
+import androidx.compose.foundation.border
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -250,6 +262,10 @@ private fun PdfViewer(file: File) {
 private fun VideoViewer(file: File) {
     val context = LocalContext.current
     val owner = LocalLifecycleOwner.current
+    val playFocus = remember(file.path) { FocusRequester() }
+    val videoFocus = remember(file.path) { FocusRequester() }
+    var surfaceFocused by remember(file.path) { mutableStateOf(false) }
+    var playFocused by remember(file.path) { mutableStateOf(false) }
     var error by remember(file.path) { mutableStateOf(false) }
     var rendered by remember(file.path) { mutableStateOf(false) }
     var playing by remember(file.path) { mutableStateOf(false) }
@@ -283,24 +299,64 @@ private fun VideoViewer(file: File) {
             delay(250)
         }
     }
+    LaunchedEffect(file.path, error) { if (!error) videoFocus.requestFocus() }
     if (error) ViewerError(stringResource(R.string.viewer_video_error))
-    else Column(Modifier.fillMaxSize()) {
+    else Column(Modifier.fillMaxSize().onPreviewKeyEvent { event ->
+        // Only this video subtree owns shortcuts. Header/actions/dialogs keep their own keys.
+        val key = event.nativeKeyEvent
+        val seek = when (key.keyCode) {
+            KeyEvent.KEYCODE_DPAD_LEFT -> -10_000L
+            KeyEvent.KEYCODE_DPAD_RIGHT -> 10_000L
+            else -> null
+        }
+        if (surfaceFocused && key.keyCode == KeyEvent.KEYCODE_DPAD_UP) {
+            if (key.action == KeyEvent.ACTION_DOWN && key.repeatCount == 0) playFocus.requestFocus()
+            true
+        } else if (playFocused && key.keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
+            if (key.action == KeyEvent.ACTION_DOWN && key.repeatCount == 0) videoFocus.requestFocus()
+            true
+        } else if (seek != null) {
+            if (key.action == KeyEvent.ACTION_DOWN && duration > 0) {
+                // Seeking exactly to duration can enter ENDED without rendering a new
+                // paused frame. Stay within the final decodable interval instead.
+                val lastFramePosition = (duration.toLong() - 250L).coerceAtLeast(0L)
+                val target = (player.currentPosition + seek).coerceIn(0L, lastFramePosition)
+                player.seekTo(target)
+            }
+            true // consume both halves; hold repeats seek but never changes the pager page
+        } else if (surfaceFocused && key.keyCode in listOf(KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER)) {
+            if (key.action == KeyEvent.ACTION_DOWN && key.repeatCount == 0) {
+                if (player.playWhenReady) player.pause() else player.play()
+            }
+            true
+        } else false
+    }) {
         Text(stringResource(if (!rendered) R.string.viewer_video_loading else if (playing) R.string.viewer_video_playing else R.string.viewer_video_paused),
             Modifier.padding(horizontal = 16.dp, vertical = 4.dp), style = MaterialTheme.typography.labelMedium)
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Button(onClick = { if (player.isPlaying) player.pause() else player.play() }) {
+            Button(onClick = { if (player.playWhenReady) player.pause() else player.play() },
+                modifier = Modifier.testTag("video_play_pause").focusRequester(playFocus).focusProperties { down = videoFocus }.onFocusChanged { playFocused = it.isFocused }
+                    .border(if (playFocused) 3.dp else 0.dp, if (playFocused) MaterialTheme.colorScheme.onSurface else Color.Transparent, RoundedCornerShape(24.dp))) {
                 Text(stringResource(if (playing) R.string.viewer_pause else R.string.viewer_play))
             }
             Spacer(Modifier.width(12.dp))
-            Text("${(position / 1000).toInt()} / ${(duration / 1000).toInt()} s", style = MaterialTheme.typography.labelMedium)
+            Text("${(position / 1000).toInt()} / ${(duration / 1000).toInt()} s", Modifier.testTag("video_position"), style = MaterialTheme.typography.labelMedium)
         }
         Slider(value = position.coerceIn(0f, duration.coerceAtLeast(1f)),
             onValueChange = { player.seekTo(it.toLong()); position = it },
             valueRange = 0f..duration.coerceAtLeast(1f), enabled = duration > 0,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
+            modifier = Modifier.testTag("video_seek").fillMaxWidth().padding(horizontal = 16.dp))
+        val focusLabel = stringResource(R.string.viewer_remote_hint)
+        Box(Modifier.fillMaxWidth().weight(1f)
+            .testTag("video_remote_surface")
+            .focusRequester(videoFocus).focusProperties { up = playFocus }.onFocusChanged { surfaceFocused = it.isFocused }
+            .border(if (surfaceFocused) 3.dp else 0.dp, if (surfaceFocused) MaterialTheme.colorScheme.primary else Color.Transparent)
+            .semantics { contentDescription = focusLabel }.focusable()) {
         AndroidView(factory = { ctx ->
             PlayerView(ctx).apply {
                 this.player = player
+                isFocusable = false
+                descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
                 useController = false
                 controllerAutoShow = true
                 controllerShowTimeoutMs = 0
@@ -308,7 +364,11 @@ private fun VideoViewer(file: File) {
                 showController()
                 layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
             }
-        }, modifier = Modifier.fillMaxWidth().weight(1f))
+        }, modifier = Modifier.fillMaxSize().padding(3.dp))
+        if (surfaceFocused) Text(focusLabel, color = Color.White,
+            modifier = Modifier.align(Alignment.BottomCenter).background(Color.Black.copy(alpha = 0.75f)).padding(8.dp),
+            style = MaterialTheme.typography.labelMedium)
+        }
     }
 }
 

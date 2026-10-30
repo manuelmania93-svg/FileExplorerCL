@@ -264,11 +264,15 @@ object FileIndex {
         }
     }
 
-    suspend fun page(category: FileCategory?, limit: Int, sort: Sort = Sort.DATE, ascending: Boolean = false): Page = withContext(Dispatchers.IO) {
+    suspend fun page(category: FileCategory?, limit: Int, sort: Sort = Sort.DATE, ascending: Boolean = false, query: String = ""): Page = withContext(Dispatchers.IO) {
         val db = helper?.readableDatabase ?: return@withContext Page(emptyList(), false)
         val rows = ArrayList<FileItem>()
+        val clauses = ArrayList<String>()
+        val args = ArrayList<String>()
+        if (category != null) { clauses.add("category=?"); args.add(category.ordinal.toString()) }
+        if (query.isNotBlank()) { clauses.add("instr(lower(name),lower(?)) > 0"); args.add(query.trim()) }
         db.query("files", arrayOf("path", "name", "size", "modified", "category"),
-            if (category == null) null else "category=?", category?.let { arrayOf(it.ordinal.toString()) },
+            clauses.takeIf { it.isNotEmpty() }?.joinToString(" AND "), args.takeIf { it.isNotEmpty() }?.toTypedArray(),
             null, null, orderBy(sort, ascending), (limit + 1).toString()).use { c ->
             while (c.moveToNext()) rows.add(FileItem(File(c.getString(0)), c.getString(1), false,
                 c.getLong(2), c.getLong(3), 0, FileCategory.entries[c.getInt(4)]))
@@ -295,6 +299,18 @@ object FileIndex {
                 c.getLong(2), c.getLong(3), 0, FileCategory.entries[c.getInt(4)]))
         }
         rows
+    }
+
+    /** Aggregate the whole result set, never the currently paged UI rows. */
+    suspend fun totalSize(category: FileCategory?, query: String = ""): Long = withContext(Dispatchers.IO) {
+        val clauses = ArrayList<String>()
+        val args = ArrayList<String>()
+        if (category != null) { clauses.add("category=?"); args.add(category.ordinal.toString()) }
+        if (query.isNotBlank()) { clauses.add("instr(lower(name),lower(?)) > 0"); args.add(query.trim()) }
+        val where = if (clauses.isEmpty()) "" else " WHERE " + clauses.joinToString(" AND ")
+        helper?.readableDatabase?.rawQuery("SELECT COALESCE(SUM(size),0) FROM files$where", args.toTypedArray())?.use {
+            if (it.moveToFirst()) it.getLong(0) else 0L
+        } ?: 0L
     }
 
     suspend fun sizes(): LongArray = withContext(Dispatchers.IO) {

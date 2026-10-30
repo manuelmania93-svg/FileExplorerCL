@@ -200,4 +200,12 @@
     <string name="downloads">Downloads</string>
     <string name="cat_apk">APK</string>
     <string name="no_launch_activity">This app cannot be opened</string>
+    <string name="viewer_remote_hint">◀ / ▶ 10 s  •  OK Play / Pause  •  ↑ Controls</string>
+    <string name="search_files">Search files</string>
+    <string name="search_filename">Filename</string>
+    <string name="search_prompt">Enter a filename to search shared storage.</string>
+    <string name="search_no_results">No matching files.</string>
+    <string name="apps_apk_total">APKs: %1$s</string>
+    <string name="apps_apk_size">APK %1$s</string>
+    <string name="apps_sort_size">APK size (largest first)</string>
 </resources>

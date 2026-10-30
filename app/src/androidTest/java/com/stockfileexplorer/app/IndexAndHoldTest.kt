@@ -168,9 +168,15 @@ class IndexAndHoldTest {
         assertEquals(15L, directStats.getValue(statsFolder.absolutePath).totalBytes)
         fun assertPopup(name: String, shot: String) {
             // Hold now starts multi-select directly; the file action menu lives behind each
-            // row's overflow button (sorted views put the named fixture first).
+            // row's overflow button. Folders sort before files, so the FIRST overflow belongs
+            // to stats-folder - and a directory menu has no Share/Open with (filesOnly
+            // actions). Click the overflow on the NAMED file's own row instead.
             waitText(name)
-            device.findObject(By.desc(label("File actions","Dateiaktionen"))).click()
+            val nameBounds = device.findObject(By.text(name)).visibleBounds
+            val rowOverflow = device.findObjects(By.desc(label("File actions","Dateiaktionen")))
+                .firstOrNull { it.visibleBounds.centerY() in nameBounds.top..nameBounds.bottom }
+            requireNotNull(rowOverflow) { "No overflow button on the row for $name" }
+            rowOverflow.click()
             waitText(label("Rename","Umbenennen"))
             screenshot(shot)
             // The action list is a LazyColumn capped at 70% of the screen height; Share can
@@ -185,6 +191,7 @@ class IndexAndHoldTest {
                 shareSwipes++
             }
             waitText(label("Share","Teilen"))
+            screenshot("$shot-share")
             waitText(label("Select","Auswählen"))
             assertTrue("Overflow menu offers Open",device.hasObject(By.text(label("Open","Öffnen"))))
             device.pressBack()

@@ -68,7 +68,14 @@ class BuiltInViewersTest {
             repeat(10) { if (!device.hasObject(By.text(name))) device.swipe(300, 900, 300, 300, 20) }
             repeat(12) { if (!device.hasObject(By.text(name))) device.swipe(300, 300, 300, 900, 20) }
         }
-        waitText(name);device.findObject(By.text(name)).click()
+        waitText(name)
+        // A click can land while the index refresh recomposes the list and get
+        // swallowed (seen on the Library > Images route). Click and wait for the
+        // viewer window; retry once on a fresh node when nothing opened.
+        if (device.findObject(By.text(name))?.clickAndWait(Until.newWindow(), 10000) != true) {
+            waitText(name)
+            device.findObject(By.text(name))?.clickAndWait(Until.newWindow(), 10000)
+        }
         assertTrue(device.wait(Until.hasObject(By.pkg(context.packageName)), 5000))
     }
     @Test fun openRenderPlayAndExtractThroughFolderUi() {
@@ -130,7 +137,7 @@ class BuiltInViewersTest {
         fixtures();mainAndDownload()
         openInList("rename-me.mp4").longClick()
         // Long-press selects the file directly (CX behavior); single-file rename lives
-        // in the selection bar's "More" menu. Match the bar by its resource tags (the
+        // in the floating quick-actions card on the right. Match it by resource tags (the
         // language-proof form SelectionBarTest already proves) rather than English text.
         val bar = device.wait(Until.findObject(By.res("selection_bar")), 8000)
         if (bar == null) {
@@ -140,9 +147,12 @@ class BuiltInViewersTest {
             }
         }
         assertNotNull("Selection bar after long press", bar)
-        device.findObject(By.res("selection_more")).click()
-        val renameAction = device.wait(Until.findObject(By.text("Rename")), 5000)
-        assertNotNull("Rename action in More menu", renameAction)
+        assertNotNull(
+            "Quick actions popup after long press",
+            device.wait(Until.findObject(By.res("selection_quick_popup")), 5000)
+        )
+        val renameAction = device.wait(Until.findObject(By.res("quick_rename")), 5000)
+        assertNotNull("Rename action in quick actions popup", renameAction)
         renameAction.click()
         val input = device.wait(Until.findObject(By.clazz("android.widget.EditText")), 5000)
         assertEquals("rename-me.mp4", input.text)

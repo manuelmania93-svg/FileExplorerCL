@@ -13,13 +13,18 @@ mkdir -p app/build/reports/device
 ./gradlew installDebug
 adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
 ./gradlew installDebug
+# Warm the cold emulator: the first real launch can take >20s (dex2oat/JIT on a
+# fresh boot) and outlast the tests' launch wait. Force-stop so tests see a clean start.
+adb shell monkey -p com.stockfileexplorer.app -c android.intent.category.LAUNCHER 1 >/dev/null
+sleep 25
+adb shell am force-stop com.stockfileexplorer.app
 ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.SavedLocationsTest || (capture; exit 1)
 capture
 ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.RemoteAndSearchTest -Pandroid.testInstrumentationRunnerArguments.capture=remote-search || (capture; adb logcat -d > app/build/reports/device/logcat-remote-search.txt || true; exit 1)
 capture
 # Verify the exact immediately previous public APK upgrades without uninstalling.
-curl -fL --retry 3 -o "$RUNNER_TEMP/sfe-0.2.10.apk" https://github.com/manuelmania93-svg/FileExplorerControl/releases/download/v0.2.10/File-Explorer-Control-0.2.10.apk
-out=$(adb install -r -d "$RUNNER_TEMP/sfe-0.2.10.apk"); echo "$out"; echo "$out" | grep -q Success
+curl -fL --retry 3 -o "$RUNNER_TEMP/sfe-0.2.11.apk" https://github.com/manuelmania93-svg/FileExplorerControl/releases/download/v0.2.11/File-Explorer-Control-0.2.11.apk
+out=$(adb install -r -d "$RUNNER_TEMP/sfe-0.2.11.apk"); echo "$out"; echo "$out" | grep -q Success
 out=$(adb install -r app/build/outputs/apk/debug/app-debug.apk); echo "$out"; echo "$out" | grep -q Success
 adb shell dumpsys package com.stockfileexplorer.app | grep -E 'versionCode|versionName'
 if [ "${1:-false}" = "true" ]; then exit 0; fi

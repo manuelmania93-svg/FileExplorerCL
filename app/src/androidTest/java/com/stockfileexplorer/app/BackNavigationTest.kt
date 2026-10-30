@@ -119,10 +119,12 @@ class BackNavigationTest {
         grantAndFixtures()
         start()
         waitText(appName)
-        device.findObject(By.text(label("Library", "Bibliothek"))).click()
+        // Wait for the tab itself: a bare findObject right after the dashboard title can
+        // beat the bottom bar composition (NPE flake at this line on API 35).
+        waitText(label("Library", "Bibliothek")).click()
         waitText(label("Images", "Bilder"))
 
-        device.findObject(By.text(label("Documents", "Dokumente"))).click()
+        waitText(label("Documents", "Dokumente")).click()
         waitRes("sort_button") // category file list open
 
         device.pressBack() // back to the category list, not out of the app

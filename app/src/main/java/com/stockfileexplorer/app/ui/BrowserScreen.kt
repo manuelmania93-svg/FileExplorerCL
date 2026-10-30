@@ -195,6 +195,9 @@ fun BrowserScreen(
     var gridView by remember { mutableStateOf(false) }
     var refreshTick by remember { mutableIntStateOf(0) }
     var selection by remember { mutableStateOf(setOf<String>()) }
+    // Floating Rename/Share quick actions card (replaces the bar's old "More" menu):
+    // opened by long-press, Select-all or the file menu's Select; leaves with the selection.
+    var quickActionsOpen by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
     var showNewFolder by remember { mutableStateOf(false) }
     var renameTarget by remember { mutableStateOf<FileItem?>(null) }
@@ -255,8 +258,28 @@ fun BrowserScreen(
         selection = if (selection.contains(path)) selection - path else selection + path
     }
 
+    fun openQuickActions() {
+        quickActionsOpen = true
+    }
+
+    fun closeQuickActions() {
+        quickActionsOpen = false
+    }
+
     val selecting = selection.isNotEmpty()
     BackHandler(selecting) { selection = emptySet() }
+    // The floating card is a selection companion: it leaves when the selection clears.
+    LaunchedEffect(selecting) {
+        if (!selecting) closeQuickActions()
+    }
+    val quickActionsShare: () -> Unit = {
+        closeQuickActions()
+        shareFiles(context, selection.map { File(it) })
+    }
+    val quickActionsRename: () -> Unit = {
+        closeQuickActions()
+        items.firstOrNull { it.file.absolutePath == selection.first() }?.let { renameTarget = it }
+    }
     // System Back mirrors the toolbar arrow: one folder up, and the browser closes at the
     // folder it was opened at - Back always returns to wherever the browser was opened
     // from (dashboard shortcut, or the storage analysis that opened a folder).
@@ -265,6 +288,7 @@ fun BrowserScreen(
         else File(currentPath).parent?.let { navigateTo(it) } ?: onNavigateUp()
     }
 
+    Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize()) {
         if (selecting) {
             TopAppBar(
@@ -276,7 +300,10 @@ fun BrowserScreen(
                 },
                 actions = {
                     IconButton(
-                        onClick = { selection = items.map { it.file.absolutePath }.toSet() },
+                        onClick = {
+                            selection = items.map { it.file.absolutePath }.toSet()
+                            openQuickActions()
+                        },
                         modifier = Modifier.testTag("selection_all"),
                     ) {
                         Icon(SfeIcons.CheckBox, contentDescription = stringResource(R.string.select_all))
@@ -401,7 +428,10 @@ fun BrowserScreen(
                             else if (item.isDirectory) navigateTo(item.file.absolutePath)
                             else openFile(context, item.file, noAppMessage, items.filter { !it.isDirectory }.map { it.file })
                         },
-                        onLongClick = { toggleSelection(item.file.absolutePath) },
+                        onLongClick = {
+                            toggleSelection(item.file.absolutePath)
+                            quickActionsOpen = selection.isNotEmpty()
+                        },
                         onMenu = { menuTarget = item }
                     )
                 }
@@ -422,7 +452,10 @@ fun BrowserScreen(
                             else if (item.isDirectory) navigateTo(item.file.absolutePath)
                             else openFile(context, item.file, noAppMessage, items.filter { !it.isDirectory }.map { it.file })
                         },
-                        onLongClick = { toggleSelection(item.file.absolutePath) },
+                        onLongClick = {
+                            toggleSelection(item.file.absolutePath)
+                            quickActionsOpen = selection.isNotEmpty()
+                        },
                         trailing = {
                             Box {
                                 IconButton(onClick = { menuTarget = item }) {
@@ -440,7 +473,6 @@ fun BrowserScreen(
         }
         if (selecting) {
             SelectionActionBar(
-                renameEnabled = selection.size == 1,
                 onCopy = {
                     transferSources = items.filter { it.file.absolutePath in selection }
                     transferMove = false
@@ -450,12 +482,19 @@ fun BrowserScreen(
                     transferMove = true
                 },
                 onDelete = { showDeleteConfirm = true },
-                onShare = { shareFiles(context, selection.map { File(it) }) },
-                onRename = {
-                    items.firstOrNull { it.file.absolutePath == selection.first() }?.let { renameTarget = it }
-                },
             )
         }
+    }
+
+    // The floating Rename/Share card sits on the right edge while the selection is active.
+    if (selecting && quickActionsOpen) {
+        SelectionQuickActionsPopup(
+            renameEnabled = selection.size == 1,
+            onShare = quickActionsShare,
+            onRename = quickActionsRename,
+            modifier = Modifier.align(Alignment.CenterEnd),
+        )
+    }
     }
 
     menuTarget?.let { item ->
@@ -500,7 +539,10 @@ fun BrowserScreen(
                     selection = setOf(item.file.absolutePath)
                     showDeleteConfirm = true
                 },
-                onSelect = { selection = setOf(item.file.absolutePath) },
+                onSelect = {
+                    selection = setOf(item.file.absolutePath)
+                    openQuickActions()
+                },
                 onCustomize = { showMenuCustomization = true },
             ),
         )

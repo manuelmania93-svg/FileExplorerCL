@@ -65,6 +65,14 @@ class SelectionBarTest {
         waitRes("selection_bar")
         assertNotNull(device.findObject(By.text(label("1 selected", "1 ausgewählt"))))
 
+        // The floating Rename/Share quick actions appear on the right side directly;
+        // the selection bar keeps Copy/Move/Delete and no longer has a More step.
+        waitRes("selection_quick_popup")
+        assertNotNull(device.findObject(By.res("quick_rename")))
+        assertNotNull(device.findObject(By.res("quick_share")))
+        assertNull("More button removed from selection bar", device.findObject(By.res("selection_more")))
+        screenshot("quick-actions")
+
         // A tap adds another file.
         device.findObject(By.text("sel-2.txt")).click()
         assertNotNull(device.wait(Until.findObject(By.text(label("2 selected", "2 ausgewählt"))), 5000))

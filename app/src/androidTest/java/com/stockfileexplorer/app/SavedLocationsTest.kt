@@ -44,6 +44,10 @@ class SavedLocationsTest {
         text("saved-note.txt")
         device.findObject(By.desc("File actions for saved-note.txt")).click()
         text("Open containing folder"); shot("containing-folder-menu")
+        // Menu must remain scrollable, including the last action and customization.
+        repeat(4) { device.swipe(600, 1100, 600, 480, 35) }
+        text("Customize menu"); shot("menu-bottom-scroll")
+        repeat(4) { device.swipe(600, 480, 600, 1100, 35) }
         text("Save location as shortcut").click()
         assertTrue(FileActionPreferences.shortcutPaths(context).contains(root.absolutePath))
         device.findObject(By.desc("File actions for saved-note.txt")).click()
@@ -51,4 +55,17 @@ class SavedLocationsTest {
         device.pressBack(); text("Search files"); assertEquals("saved-note", tag("search_query").text)
         shot("returned-search")
     }
+    @Test fun germanLargeFontHeaderAndSmallScreenMenuRemainUsable() {
+        device.executeShellCommand("appops set ${context.packageName} MANAGE_EXTERNAL_STORAGE allow")
+        try {
+            device.executeShellCommand("settings put system font_scale 1.3")
+            device.executeShellCommand("cmd locale set-app-locales ${context.packageName} --locales de-AT")
+            home(); shot("home-german-large-font")
+            assertNotNull(tag("home_favorites")); assertNotNull(tag("home_shortcuts")); assertNotNull(tag("home_search"))
+        } finally {
+            device.executeShellCommand("settings put system font_scale 1.0")
+            device.executeShellCommand("cmd locale set-app-locales ${context.packageName} --locales ''")
+        }
+    }
+
 }

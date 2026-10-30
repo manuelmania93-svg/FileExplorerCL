@@ -105,8 +105,17 @@ class TrashAndAppsTest {
         waitText(appName)
 
         device.findObject(By.text(label("Apps", "Apps"))).click()
-        // The app itself is always installed and always visible to itself.
-        waitText(appName)
+        // The package query + icon decode load async; the LazyColumn only composes
+        // visible rows and this app sorts mid-list, so scroll until its row shows.
+        val appsList = device.wait(Until.findObject(By.scrollable(true)), 60000)
+            ?: throw AssertionError("installed-apps list did not load")
+        val found = try {
+            appsList.scrollUntil(androidx.test.uiautomator.Direction.DOWN, Until.hasObject(By.text(appName)))
+        } catch (_: Exception) { false }
+        if (!found) {
+            screenshot("4-installed-apps-missing")
+            throw AssertionError("Own app row missing from installed-apps list")
+        }
         // Row subtitle is "<package> • <size>", so match a substring.
         device.wait(Until.findObject(By.textContains(context.packageName)), 15000)
             ?: throw AssertionError("Own package row missing from installed-apps list")

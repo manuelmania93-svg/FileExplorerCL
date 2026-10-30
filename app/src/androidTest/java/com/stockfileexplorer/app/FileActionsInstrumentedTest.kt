@@ -33,8 +33,20 @@ class FileActionsInstrumentedTest {
     private val categoryImage = File(root, "actions-image.jpg")
     private val categoryDestination = File(root, "category-destination")
 
-    private fun waitText(value: String, timeout: Long = 15_000) = device.wait(Until.findObject(By.text(value)), timeout)
-        ?: throw AssertionError("Missing UI text: $value")
+    // New actions make the bounded context menu scroll. Find bottom actions
+    // through its real scroll container, rather than requiring all rows on screen.
+    private fun revealMenuAction(value: String) {
+        if (device.hasObject(By.text(value))) return
+        if (value in setOf("Select", "Auswählen", "Customize menu", "Menü anpassen")) {
+            androidx.test.uiautomator.UiScrollable(androidx.test.uiautomator.UiSelector().scrollable(true))
+                .scrollIntoView(androidx.test.uiautomator.UiSelector().text(value))
+        }
+    }
+    private fun waitText(value: String, timeout: Long = 15_000): androidx.test.uiautomator.UiObject2 {
+        revealMenuAction(value)
+        return device.wait(Until.findObject(By.text(value)), timeout)
+            ?: throw AssertionError("Missing UI text: $value")
+    }
 
     private fun waitTextContains(value: String, timeout: Long = 15_000) = device.wait(Until.findObject(By.textContains(value)), timeout)
         ?: throw AssertionError("Missing UI text containing: $value")
@@ -74,6 +86,7 @@ class FileActionsInstrumentedTest {
     }
 
     private fun tapText(value: String, timeout: Long, long: Boolean) {
+        revealMenuAction(value)
         val deadline = SystemClock.uptimeMillis() + timeout
         var lastError: Throwable? = null
         while (SystemClock.uptimeMillis() < deadline) {

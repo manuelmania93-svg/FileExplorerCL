@@ -112,6 +112,7 @@ fun MainScaffold(initialBrowsePath: String? = null, initialStorageAnalysis: Bool
     // A category opened out of the storage analysis overlays it on the Local tab (null = not open).
     var analysisCategory by remember { mutableStateOf<FileCategory?>(null) }
     val analysisHolder = remember { com.stockfileexplorer.app.ui.AnalysisHolder() }
+    var savedView by remember { mutableStateOf<String?>(null) }
     var showSearch by remember { mutableStateOf(false) }
     var showApps by remember { mutableStateOf(false) }
     var showPapierkorb by remember { mutableStateOf(initialPapierkorb) }
@@ -121,10 +122,11 @@ fun MainScaffold(initialBrowsePath: String? = null, initialStorageAnalysis: Bool
 
     // Intercept Back only while the screen it closes is visible - all of these live on the
     // Local tab. Closing hidden state read as "Back does nothing, then the app exits".
-    BackHandler(enabled = tab == TAB_LOCAL && (showSearch || browsePath != null || analysisCategory != null || showApps || showStorageAnalysis || showPapierkorb)) {
+    BackHandler(enabled = tab == TAB_LOCAL && (savedView != null || showSearch || browsePath != null || analysisCategory != null || showApps || showStorageAnalysis || showPapierkorb)) {
         // An open folder or category closes first, so Back from a destination opened out of
         // the analysis returns to the analysis.
-        if (showSearch) showSearch = false
+        if (savedView != null) savedView = null
+        else if (showSearch) showSearch = false
         else if (browsePath != null) browsePath = null
         else if (analysisCategory != null) analysisCategory = null
         else if (showPapierkorb) showPapierkorb = false
@@ -160,7 +162,11 @@ fun MainScaffold(initialBrowsePath: String? = null, initialStorageAnalysis: Bool
             TAB_LOCAL -> {
                 val path = browsePath
                 val analysisCat = analysisCategory
-                if (showSearch) {
+                if (savedView != null) {
+                    Column(Modifier.fillMaxSize().padding(padding)) {
+                        com.stockfileexplorer.app.ui.SavedLocationsScreen(shortcuts = savedView == "shortcuts", onBack = { savedView = null })
+                    }
+                } else if (showSearch) {
                     Column(Modifier.fillMaxSize().padding(padding)) {
                         com.stockfileexplorer.app.ui.IndexedFilesScreen(null, stringResource(R.string.search_files), { showSearch = false }, searchMode = true)
                     }
@@ -196,9 +202,15 @@ fun MainScaffold(initialBrowsePath: String? = null, initialStorageAnalysis: Bool
                       com.stockfileexplorer.app.ui.FolderBackdrop(Modifier.fillMaxWidth().height(190.dp))
                       Column(Modifier.fillMaxSize()) {
                         TopAppBar(title = {
-                            Text(stringResource(R.string.app_name))
+                            Text(stringResource(R.string.app_name), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                         },
                             actions = {
+                                IconButton(onClick = { savedView = "favorites" }, modifier = Modifier.testTag("home_favorites")) {
+                                    Icon(SfeIcons.Star, stringResource(R.string.saved_favorite_files), modifier = Modifier.size(22.dp))
+                                }
+                                IconButton(onClick = { savedView = "shortcuts" }, modifier = Modifier.testTag("home_shortcuts")) {
+                                    Icon(SfeIcons.Link, stringResource(R.string.saved_locations), modifier = Modifier.size(22.dp))
+                                }
                                 IconButton(onClick = { showSearch = true }, modifier = Modifier.testTag("home_search")) {
                                     Icon(Icons.Filled.Search, stringResource(R.string.search_files), modifier = Modifier.size(22.dp))
                                 }

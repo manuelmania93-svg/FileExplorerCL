@@ -5,6 +5,8 @@ import android.content.Context
 /** User-selectable file actions shown in the long-press context menu. */
 enum class FileMenuAction(val labelRes: Int, val filesOnly: Boolean = false) {
     OPEN(R.string.menu_open),
+    SAVE_LOCATION(R.string.save_location),
+    CONTAINING_FOLDER(R.string.open_containing_folder, filesOnly = true),
     COPY(R.string.copy),
     MOVE(R.string.move_to),
     RENAME(R.string.rename),
@@ -24,11 +26,18 @@ object FileActionPreferences {
     fun visibleActions(context: Context): Set<FileMenuAction> {
         val stored = preferences(context).getStringSet(VISIBLE_ACTIONS, null)
         if (stored == null) return FileMenuAction.entries.toSet()
-        return stored.mapNotNull { name -> FileMenuAction.entries.firstOrNull { it.name == name } }.toSet()
+        val actions = stored.mapNotNull { name -> FileMenuAction.entries.firstOrNull { it.name == name } }.toSet()
+        if (!preferences(context).getBoolean("location-actions-added", false)) {
+            val updated = actions + FileMenuAction.CONTAINING_FOLDER + FileMenuAction.SAVE_LOCATION
+            preferences(context).edit().putStringSet(VISIBLE_ACTIONS, updated.mapTo(mutableSetOf()) { it.name })
+                .putBoolean("location-actions-added", true).apply()
+            return updated
+        }
+        return actions
     }
 
     fun setVisibleActions(context: Context, actions: Set<FileMenuAction>) {
-        preferences(context).edit()
+        preferences(context).edit().putBoolean("location-actions-added", true)
             .putStringSet(VISIBLE_ACTIONS, actions.mapTo(mutableSetOf()) { it.name })
             .apply()
     }
@@ -44,6 +53,14 @@ object FileActionPreferences {
         if (!nowFavorite) favorites.remove(path)
         preferences(context).edit().putStringSet(FAVORITES, favorites).apply()
         return nowFavorite
+    }
+
+    fun shortcutPaths(context: Context): Set<String> = preferences(context).getStringSet("folder-shortcuts", emptySet()).orEmpty()
+    fun saveShortcut(context: Context, path: String) {
+        preferences(context).edit().putStringSet("folder-shortcuts", shortcutPaths(context) + path).apply()
+    }
+    fun removeShortcut(context: Context, path: String) {
+        preferences(context).edit().putStringSet("folder-shortcuts", shortcutPaths(context) - path).apply()
     }
 
     private fun preferences(context: Context) =

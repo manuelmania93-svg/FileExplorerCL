@@ -52,6 +52,8 @@ import androidx.compose.ui.window.Dialog
 
 data class FileActionCallbacks(
     val onOpen: () -> Unit,
+    val onSaveLocation: (() -> Unit)? = null,
+    val onContainingFolder: (() -> Unit)? = null,
     val onCopy: () -> Unit,
     val onMove: () -> Unit,
     val onRename: () -> Unit,
@@ -90,7 +92,7 @@ fun FileActionMenu(
                 HorizontalDivider()
                 LazyColumn(Modifier.heightIn(max = (LocalConfiguration.current.screenHeightDp * 0.7f).dp)) {
                     items(FileMenuAction.entries) { action ->
-                        if (action !in visible || (action.filesOnly && isDirectory)) return@items
+                        if (action !in visible || (action.filesOnly && isDirectory) || (action == FileMenuAction.SAVE_LOCATION && callbacks.onSaveLocation == null) || (action == FileMenuAction.CONTAINING_FOLDER && callbacks.onContainingFolder == null)) return@items
                         val label = if (action == FileMenuAction.FAVORITE && isFavorite) {
                             stringResource(R.string.remove_favorite)
                         } else {
@@ -99,7 +101,9 @@ fun FileActionMenu(
                         MenuAction(menuIcon(action), label) {
                             onDismiss()
                             when (action) {
+                                FileMenuAction.SAVE_LOCATION -> callbacks.onSaveLocation?.invoke()
                                 FileMenuAction.OPEN -> callbacks.onOpen()
+                                FileMenuAction.CONTAINING_FOLDER -> callbacks.onContainingFolder?.invoke()
                                 FileMenuAction.COPY -> callbacks.onCopy()
                                 FileMenuAction.MOVE -> callbacks.onMove()
                                 FileMenuAction.RENAME -> callbacks.onRename()
@@ -126,7 +130,9 @@ fun FileActionMenu(
 }
 
 private fun menuIcon(action: FileMenuAction): ImageVector = when (action) {
+    FileMenuAction.SAVE_LOCATION -> SfeIcons.Link
     FileMenuAction.OPEN -> Icons.Filled.PlayArrow
+    FileMenuAction.CONTAINING_FOLDER -> SfeIcons.Folder
     FileMenuAction.COPY -> SfeIcons.InsertDriveFile
     FileMenuAction.MOVE -> Icons.Filled.ArrowForward
     FileMenuAction.RENAME -> Icons.Filled.Edit

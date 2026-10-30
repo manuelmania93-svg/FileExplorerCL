@@ -62,6 +62,17 @@ class SavedLocationsTest {
             device.executeShellCommand("cmd locale set-app-locales ${context.packageName} --locales de-AT")
             home(); shot("home-german-large-font")
             assertNotNull(tag("home_favorites")); assertNotNull(tag("home_shortcuts")); assertNotNull(tag("home_search"))
+            val root = File("/sdcard/Download/SavedGermanFixture").apply { mkdirs() }
+            File(root, "german-menu-note.txt").writeText("menu fixture")
+            runBlocking { FileIndex.verifyFixture(context, root, clear = true) }
+            tag("home_search").click(); tag("search_query").text = "german-menu-note"
+            text("german-menu-note.txt")
+            device.findObject(By.descContains("german-menu-note.txt")).click()
+            text("Dateiordner öffnen"); shot("menu-german-large-font-top")
+            repeat(5) { device.swipe(600, 1100, 600, 450, 35) }
+            text(context.getString(com.stockfileexplorer.app.R.string.customize_menu))
+            shot("menu-german-large-font-bottom")
+            device.pressBack()
         } finally {
             device.executeShellCommand("settings put system font_scale 1.0")
             device.executeShellCommand("cmd locale set-app-locales ${context.packageName} --locales ''")

@@ -58,12 +58,27 @@ class IncomingFileActivity : ComponentActivity() {
             return if (f.isFile && f.canRead()) f else null
         }
         if (uri.scheme != "content") return null
+        val name = copyName(uri, contentResolver.getType(uri))
+        // Archives are copied into Download instead of the cache: "Extract all" writes beside the archive,
+        // and a result in the cache would be pruned. Other types are only viewed, so the cache is enough.
+        if (ViewerActivity.kind(File(name)) == "archive") return copyToDownload(uri, name)
         val dir = File(cacheDir, "incoming")
         pruneOld(dir)
         dir.mkdirs()
-        val name = copyName(uri, contentResolver.getType(uri))
         // A fresh numbered folder keeps two files with the same name apart.
         val target = File(File(dir, System.currentTimeMillis().toString()).apply { mkdirs() }, name)
+        contentResolver.openInputStream(uri)?.use { input -> target.outputStream().use { input.copyTo(it) } } ?: return null
+        return target
+    }
+
+    private fun copyToDownload(uri: Uri, name: String): File? {
+        val downloads = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+        downloads.mkdirs()
+        val stem = name.substringBeforeLast('.', name)
+        val ext = name.substringAfterLast('.', "")
+        var target = File(downloads, name)
+        var n = 1
+        while (target.exists()) { target = File(downloads, "$stem ($n)" + if (ext.isEmpty()) "" else ".$ext"); n++ }
         contentResolver.openInputStream(uri)?.use { input -> target.outputStream().use { input.copyTo(it) } } ?: return null
         return target
     }

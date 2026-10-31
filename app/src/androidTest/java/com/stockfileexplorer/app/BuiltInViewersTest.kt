@@ -56,6 +56,12 @@ class BuiltInViewersTest {
         // The storage card opens the analysis now; the folder browser opens via its shortcut.
         device.findObject(By.text("Main storage")).click()
         waitText("Download");device.findObject(By.text("Download")).click()
+        FileActionPreferences.saveBrowserSort(context, "NAME")
+        // Other suites leave sibling folders in Download, so ViewerSamples can sit below the fold.
+        run {
+            val end = android.os.SystemClock.uptimeMillis() + 30000
+            while (!device.hasObject(By.text("ViewerSamples")) && android.os.SystemClock.uptimeMillis() < end) device.swipe(300, 1000, 300, 400, 20)
+        }
         waitText("ViewerSamples");device.findObject(By.text("ViewerSamples")).click()
     }
     private fun open(name: String) {

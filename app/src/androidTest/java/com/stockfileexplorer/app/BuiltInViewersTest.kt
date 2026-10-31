@@ -49,7 +49,13 @@ class BuiltInViewersTest {
         android.os.ParcelFileDescriptor.AutoCloseInputStream(fd).use { it.readBytes() }
         device.pressHome()
         context.startActivity(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
-        if (!device.wait(Until.hasObject(By.text("Internal storage")), 15000)) {
+        var shown = device.wait(Until.hasObject(By.text("Internal storage")), 15000)
+        if (!shown) {
+            // The launch can be swallowed while the previous test's activity is torn down: launch once more.
+            context.startActivity(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
+            shown = device.wait(Until.hasObject(By.text("Internal storage")), 20000)
+        }
+        if (!shown) {
             screenshot("dashboard-missing")
             throw AssertionError("Dashboard absent: " + device.currentPackageName)
         }

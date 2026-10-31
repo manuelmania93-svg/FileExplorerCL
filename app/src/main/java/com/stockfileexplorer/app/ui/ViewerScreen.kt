@@ -389,20 +389,33 @@ private fun ArchiveViewer(file: File) {
     }
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         Text(stringResource(R.string.viewer_extract_policy), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 8.dp))
-        Button(enabled = entries != null && !busy && extracted == null, onClick = {
+        var pickFolder by remember { mutableStateOf(false) }
+        fun runExtract(destination: File?) {
             busy = true
             error = null
             scope.launch {
                 try {
                     val jobContext = coroutineContext
                     extracted = withContext(Dispatchers.IO) {
-                        Archives.extract(file, { jobContext.ensureActive() }, { name -> current = name })
+                        Archives.extract(file, { jobContext.ensureActive() }, { name -> current = name }, destination)
                     }
                     com.stockfileexplorer.app.data.ScanStore.invalidate()
                 } catch (e: Exception) { error = failed + "\n" + (e.message ?: "") }
                 finally { busy = false }
             }
-        }) { Text(stringResource(if (busy) R.string.viewer_extracting else R.string.viewer_extract)) }
+        }
+        val canExtract = entries != null && !busy && extracted == null
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(enabled = canExtract, onClick = { runExtract(null) }) { Text(stringResource(if (busy) R.string.viewer_extracting else R.string.viewer_extract_here)) }
+            OutlinedButton(enabled = canExtract, onClick = { pickFolder = true }) { Text(stringResource(R.string.viewer_extract_choose)) }
+        }
+        if (pickFolder) FolderPickerDialog(
+            title = stringResource(R.string.viewer_extract_choose),
+            confirmLabel = stringResource(R.string.viewer_extract_here_short),
+            rootPath = android.os.Environment.getExternalStorageDirectory().absolutePath,
+            blockedPaths = emptySet(),
+            onConfirm = { pickFolder = false; runExtract(it) },
+            onDismiss = { pickFolder = false })
         if (busy) { LinearProgressIndicator(Modifier.fillMaxWidth()); Text(current, maxLines = 1, overflow = TextOverflow.Ellipsis) }
         extracted?.let { folder ->
             Text(stringResource(R.string.viewer_extracted, folder.absolutePath), Modifier.padding(vertical = 8.dp), style = MaterialTheme.typography.bodyMedium)

@@ -121,6 +121,7 @@ out=$(adb install -r -d "$RUNNER_TEMP/sfe-0.2.0.apk"); echo "$out"; echo "$out" 
 out=$(adb install -r app/build/outputs/apk/debug/app-debug.apk); echo "$out"; echo "$out" | grep -q Success
 adb shell dumpsys package com.stockfileexplorer.app | grep -E 'versionCode|versionName' 
 capture
+bash .github/scripts/verify-upgrade-published.sh || FAILED_SUITES="$FAILED_SUITES upgrade-from-published-0.2.12"
 # The screenshots that prove the incoming-file, sort, extract and disk flows must exist: a skipped pull must not hide them.
 missing=""
 for f in sfe-flows-sort-4-after-rebuild.png sfe-flows-extract-5-done.png sfe-flows-chooser-2-text-viewer.png sfe-disk-1-before.png sfe-disk-3-after.png; do

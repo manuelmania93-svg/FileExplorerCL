@@ -216,4 +216,9 @@
     <string name="saved_empty">Nothing saved yet.</string>
     <string name="saved_missing">No longer available</string>
     <string name="remove_saved">Remove saved link</string>
+    <string name="viewer_text_error">This text file cannot be read.</string>
+    <string name="viewer_text_truncated">Showing the first 2 MB of this file.</string>
+    <string name="incoming_opening">Opening…</string>
+    <string name="incoming_unsupported">This file type cannot be opened here.</string>
+    <string name="incoming_failed">Could not read this file.</string>
 </resources>

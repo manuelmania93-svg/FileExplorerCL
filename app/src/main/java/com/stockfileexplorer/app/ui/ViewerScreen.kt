@@ -117,6 +117,7 @@ fun ViewerScreen(initialFiles: List<File>, startIndex: Int, onBack: () -> Unit) 
                     // Only the settled page owns a player, so swiping never leaves two videos playing.
                     "video" -> if (index == pager.settledPage) VideoViewer(file)
                     "archive" -> ArchiveViewer(file)
+                    "text" -> TextViewer(file)
                 }
             }
         }
@@ -423,6 +424,48 @@ private fun ArchiveViewer(file: File) {
                     }
                     HorizontalDivider()
                 }
+            }
+        }
+    }
+}
+
+
+/** Plain-text viewer. Reads at most [TEXT_VIEW_LIMIT_BYTES] and says so when the file is longer. */
+private const val TEXT_VIEW_LIMIT_BYTES = 2L * 1024 * 1024
+
+@Composable
+private fun TextViewer(file: File) {
+    var text by remember(file.path) { mutableStateOf<String?>(null) }
+    var truncated by remember(file.path) { mutableStateOf(false) }
+    var failed by remember(file.path) { mutableStateOf(false) }
+    LaunchedEffect(file.path) {
+        withContext(Dispatchers.IO) {
+            try {
+                val total = file.length()
+                val bytes = file.inputStream().use { input ->
+                    val buffer = ByteArray(minOf(total, TEXT_VIEW_LIMIT_BYTES).toInt())
+                    var read = 0
+                    while (read < buffer.size) {
+                        val n = input.read(buffer, read, buffer.size - read)
+                        if (n < 0) break
+                        read += n
+                    }
+                    buffer.copyOf(read)
+                }
+                truncated = total > TEXT_VIEW_LIMIT_BYTES
+                text = String(bytes, Charsets.UTF_8)
+            } catch (e: Exception) {
+                failed = true
+            }
+        }
+    }
+    when {
+        failed -> ViewerError(stringResource(R.string.viewer_text_error))
+        text == null -> Text(stringResource(R.string.viewer_video_loading), Modifier.padding(20.dp))
+        else -> androidx.compose.foundation.text.selection.SelectionContainer {
+            Column(Modifier.fillMaxSize().verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(12.dp)) {
+                if (truncated) Text(stringResource(R.string.viewer_text_truncated), style = MaterialTheme.typography.labelMedium)
+                Text(text.orEmpty(), style = MaterialTheme.typography.bodySmall.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace))
             }
         }
     }

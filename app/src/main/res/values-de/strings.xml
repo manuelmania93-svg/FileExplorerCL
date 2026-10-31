@@ -216,4 +216,9 @@
     <string name="saved_empty">Noch nichts gespeichert.</string>
     <string name="saved_missing">Nicht mehr verfügbar</string>
     <string name="remove_saved">Verknüpfung entfernen</string>
+    <string name="viewer_text_error">Diese Textdatei kann nicht gelesen werden.</string>
+    <string name="viewer_text_truncated">Es werden die ersten 2 MB dieser Datei angezeigt.</string>
+    <string name="incoming_opening">Wird geöffnet…</string>
+    <string name="incoming_unsupported">Dieser Dateityp kann hier nicht geöffnet werden.</string>
+    <string name="incoming_failed">Diese Datei konnte nicht gelesen werden.</string>
 </resources>

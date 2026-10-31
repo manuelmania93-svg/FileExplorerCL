@@ -60,8 +60,20 @@ class OpenSpeedBaselineTest {
         log("folder 3000 files (ms per run): " + timeTo("file-0000.txt", 5, "browse_path" to big.absolutePath))
         log("storage analysis title (ms per run): " + timeTo(context.getString(R.string.storage_analysis), 5, "storage_analysis" to true))
         log("storage analysis first rows: ${firstAnalysisContent()}")
+        log("Apps list first row (ms per run): " + timeToApps(5))
         big.deleteRecursively(); small.deleteRecursively()
         device.takeScreenshot(File("/sdcard/Download/sfe-open-speed-end.png"))
+    }
+
+    /** From launching the dashboard to the app's own row in the Apps list, which needs the whole list. */
+    private fun timeToApps(runs: Int): List<Long> = (0 until runs).map {
+        device.pressHome()
+        launch()
+        device.wait(Until.hasObject(By.text(context.getString(R.string.cat_apps))), 30000)
+        val start = SystemClock.elapsedRealtime()
+        device.findObject(By.text(context.getString(R.string.cat_apps)))?.click()
+        val found = device.wait(Until.hasObject(By.textContains(context.packageName)), 60000)
+        if (found) SystemClock.elapsedRealtime() - start else -1L
     }
 
     private fun firstAnalysisContent(): String {

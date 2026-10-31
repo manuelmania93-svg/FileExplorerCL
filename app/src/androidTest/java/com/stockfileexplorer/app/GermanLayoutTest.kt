@@ -158,8 +158,11 @@ class GermanLayoutTest {
             device.wait(Until.hasObject(By.text("Interner Speicher")), 10000)
         )
         device.findObject(By.text("Hauptspeicher")).click()
-        assertTrue("Download folder row visible in the root listing",
-            device.wait(Until.hasObject(By.text("Download")), 8000) || scrollToText(device, "Download").also { if (!it) { device.takeScreenshot(File("/sdcard/Download/sfe-german-root-download-missing.png")); println("SFE-DIAG root rows seen: " + seenWhileScanning.joinToString(" | ")) } })
+        val rootRowFoundAgain = device.wait(Until.hasObject(By.text("Download")), 8000) || scrollToText(device, "Download")
+        if (!rootRowFoundAgain) {
+            device.takeScreenshot(File("/sdcard/Download/sfe-german-root-download-missing.png"))
+            throw AssertionError("Download folder row visible in the root listing after font change; rows seen while scanning: " + seenWhileScanning.joinToString(" | "))
+        }
         device.findObject(By.text("Download")).click()
         if (!findFixture(device, "sfe-fixture-report.pdf")) {
             throw AssertionError("PDF fixture visible in Download at 1.3 font")

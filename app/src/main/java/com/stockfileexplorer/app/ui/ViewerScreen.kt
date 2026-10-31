@@ -84,19 +84,24 @@ fun ViewerScreen(initialFiles: List<File>, startIndex: Int, onBack: () -> Unit) 
     var moreMenu by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val current = files.getOrNull(pager.currentPage)
+    // A file opened from another app is a temporary copy in our cache: viewing and sharing only, so no
+    // action here can look like it changes or deletes the original.
+    val incomingDir = remember { File(context.cacheDir, "incoming").absolutePath + "/" }
+    val viewOnly = current != null && current.absolutePath.startsWith(incomingDir)
     Scaffold(topBar = {
         TopAppBar(
             title = {
                 Column {
                     if (files.size > 1) Text(stringResource(R.string.viewer_count, pager.currentPage + 1, files.size), style = MaterialTheme.typography.labelMedium)
                     Text(current?.name ?: "", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (viewOnly) Text(stringResource(R.string.incoming_view_only), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             },
             navigationIcon = { TextButton(colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface), onClick = onBack) { Text(stringResource(R.string.viewer_back)) } })
     }, bottomBar = {
         if (current != null) Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(vertical = 4.dp)) {
             ViewerAction(Icons.Filled.Share, stringResource(R.string.share), Modifier.weight(1f)) { shareFiles(context, listOf(current)) }
-            ViewerAction(Icons.Filled.Delete, stringResource(R.string.delete), Modifier.weight(1f)) { confirmDelete = true }
+            if (!viewOnly) ViewerAction(Icons.Filled.Delete, stringResource(R.string.delete), Modifier.weight(1f)) { confirmDelete = true }
             ViewerAction(Icons.Filled.Info, stringResource(R.string.viewer_info), Modifier.weight(1f)) { showInfo = true }
             Box(Modifier.weight(1f)) {
                 ViewerAction(Icons.Filled.MoreVert, stringResource(R.string.viewer_more), Modifier.fillMaxWidth()) { moreMenu = true }

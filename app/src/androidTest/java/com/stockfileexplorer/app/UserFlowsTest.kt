@@ -105,5 +105,10 @@ class UserFlowsTest {
         device.findObject(By.text(label)).click()
         assertTrue("Text viewer did not show the file", device.wait(Until.hasObject(By.textContains("chooser-text-marker")), 20000))
         shot("chooser-2-text-viewer")
+        // The viewer holds a temporary copy: no Delete action, a view-only note, and the original is untouched.
+        assertTrue("View-only note missing", device.hasObject(By.textContains("View-only copy")))
+        assertFalse("Delete must not be offered for an incoming copy", device.hasObject(By.text("Delete")))
+        assertTrue("Share should stay available", device.hasObject(By.text("Share")))
+        assertEquals("chooser-text-marker\nline two", file.readText())
     }
 }

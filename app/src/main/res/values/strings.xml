@@ -220,6 +220,7 @@
     <string name="viewer_text_truncated">Showing the first 2 MB of this file.</string>
     <string name="incoming_opening">Opening…</string>
     <string name="incoming_unsupported">This file type cannot be opened here.</string>
+    <string name="incoming_view_only">View-only copy. The original file is not changed.</string>
     <string name="incoming_failed">Could not read this file.</string>
     <string name="viewer_extract_here">Extract here</string>
     <string name="viewer_extract_choose">Choose folder</string>

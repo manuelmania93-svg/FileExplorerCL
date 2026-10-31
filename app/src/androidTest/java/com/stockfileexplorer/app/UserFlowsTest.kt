@@ -48,7 +48,7 @@ class UserFlowsTest {
         shot("sort-1-by-name")
         val gridButton = device.findObject(By.desc(context.getString(R.string.view_grid)))
         val b = gridButton.visibleBounds
-        device.click(b.centerX() + b.width(), b.centerY())   // the three-dot menu sits right of the grid button
+        device.click((device.displayWidth * 0.93).toInt(), b.centerY())   // the three-dot menu is the right-most toolbar icon
         waitText("Size"); shot("sort-2-menu")
         device.findObject(By.text("Size")).click()
         device.wait(Until.hasObject(By.text("z-large.txt")), 5000)
@@ -82,7 +82,9 @@ class UserFlowsTest {
         device.findObject(By.text("target-folder")).click()
         waitText("Extract to this folder"); shot("extract-4-picker-target")
         device.findObject(By.text("Extract to this folder")).click()
-        waitText("Extracted to " + File(target, "bundle_extracted").absolutePath); shot("extract-5-done")
+        if (!device.wait(Until.hasObject(By.textStartsWith("Extracted to")), 30000)) { shot("extract-5-missing"); throw AssertionError("Extraction did not finish") }
+        shot("extract-5-done")
+        assertTrue("result text names the chosen folder", device.findObject(By.textStartsWith("Extracted to")).text.endsWith("/Download/FlowSamples/target-folder/bundle_extracted"))
         assertEquals("ZIP extraction works.\n", File(target, "bundle_extracted/notes/hello.txt").readText())
         assertFalse("nothing may be extracted beside the archive", File(root, "bundle_extracted").exists())
     }

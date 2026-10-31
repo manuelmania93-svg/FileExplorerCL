@@ -63,15 +63,15 @@ capture
 capture
 ./gradlew installDebug
 adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.OpenSpeedBaselineTest || (capture; exit 1)
+adb pull /sdcard/Download/sfe-open-speed.txt app/build/reports/device/ || true
+capture
+./gradlew installDebug
+adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
 ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.SortPersistenceTest || (capture; exit 1)
 ./gradlew installDebug
 adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
 ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.UserFlowsTest || (capture; adb logcat -d > app/build/reports/device/logcat-flows.txt || true; exit 1)
-capture
-./gradlew installDebug
-adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
-./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.OpenSpeedBaselineTest || (capture; exit 1)
-adb pull /sdcard/Download/sfe-open-speed.txt app/build/reports/device/ || true
 capture
 ./gradlew installDebug
 adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow

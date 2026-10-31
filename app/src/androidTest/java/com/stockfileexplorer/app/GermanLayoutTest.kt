@@ -88,7 +88,8 @@ class GermanLayoutTest {
         // (The "Interner Speicher" card now opens the storage analysis; the folder
         // browser opens via the "Hauptspeicher" shortcut.)
         device.findObject(By.text("Hauptspeicher")).click()
-        assertTrue(device.wait(Until.hasObject(By.text("Download")), 8000))
+        assertTrue("Download folder row visible in the root listing",
+            device.wait(Until.hasObject(By.text("Download")), 8000) || scrollToText(device, "Download").also { if (!it) device.takeScreenshot(File("/sdcard/Download/sfe-german-root-download-missing.png")) })
         device.findObject(By.text("Download")).click()
         // Name-sorted screenshots from earlier test classes (sfe-back-*) push the
         // fixtures off the first screen; scroll like the gallery part below does.
@@ -135,7 +136,8 @@ class GermanLayoutTest {
             device.wait(Until.hasObject(By.text("Interner Speicher")), 10000)
         )
         device.findObject(By.text("Hauptspeicher")).click()
-        assertTrue(device.wait(Until.hasObject(By.text("Download")), 8000))
+        assertTrue("Download folder row visible in the root listing",
+            device.wait(Until.hasObject(By.text("Download")), 8000) || scrollToText(device, "Download").also { if (!it) device.takeScreenshot(File("/sdcard/Download/sfe-german-root-download-missing.png")) })
         device.findObject(By.text("Download")).click()
         if (!findFixture(device, "sfe-fixture-report.pdf")) {
             throw AssertionError("PDF fixture visible in Download at 1.3 font")

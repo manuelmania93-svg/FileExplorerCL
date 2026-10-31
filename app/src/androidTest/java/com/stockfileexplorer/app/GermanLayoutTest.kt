@@ -38,6 +38,12 @@ class GermanLayoutTest {
     }
 
     private fun scrollToText(device: UiDevice, text: String): Boolean {
+        if (device.hasObject(By.textContains(text))) return true
+        // The list can come back already scrolled past the target (state kept across recreation): go to top first.
+        repeat(15) {
+            device.swipe(300, 400, 300, 1100, 20)
+            Thread.sleep(150)
+        }
         repeat(40) {
             if (device.hasObject(By.textContains(text))) return true
             device.swipe(300, 900, 300, 300, 20)

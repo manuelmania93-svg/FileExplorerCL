@@ -8,6 +8,7 @@ import android.os.ParcelFileDescriptor
 import android.view.ViewGroup
 import android.view.KeyEvent
 import androidx.compose.foundation.border
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.focus.FocusRequester

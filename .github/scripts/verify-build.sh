@@ -61,6 +61,10 @@ adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
 capture
 ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.TrashAndAppsTest -Pandroid.testInstrumentationRunnerArguments.capture=trash || (capture; exit 1)
 capture
+./gradlew installDebug
+adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.IncomingFileTest -Pandroid.testInstrumentationRunnerArguments.capture=incoming || (capture; adb logcat -d > app/build/reports/device/logcat-incoming.txt || true; exit 1)
+capture
 ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.BuiltInViewersTest -Pandroid.testInstrumentationRunnerArguments.capture=viewers || (capture; adb logcat -d > app/build/reports/device/logcat-viewers.txt || true; exit 1)
 capture
 adb shell cmd uimode night yes

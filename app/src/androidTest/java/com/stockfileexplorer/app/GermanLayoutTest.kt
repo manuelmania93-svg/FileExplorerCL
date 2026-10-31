@@ -41,7 +41,12 @@ class GermanLayoutTest {
     private val seenWhileScanning = linkedSetOf<String>()
 
     private fun noteVisibleTexts(device: UiDevice) {
-        device.findObjects(By.textContains("")).forEach { o -> o.text?.let { t -> if (seenWhileScanning.size < 400) seenWhileScanning.add(t.take(40)) } }
+        // Rows recompose while being read; a stale node is skipped, never allowed to fail the scan.
+        try {
+            device.findObjects(By.textContains("")).forEach { o ->
+                try { o.text?.let { t -> if (seenWhileScanning.size < 400) seenWhileScanning.add(t.take(40)) } } catch (_: androidx.test.uiautomator.StaleObjectException) {}
+            }
+        } catch (_: androidx.test.uiautomator.StaleObjectException) {}
     }
 
     // Short swipes only: a long fast swipe flings the list past the target between two checks (the earlier

@@ -40,6 +40,14 @@ class BuiltInViewersTest {
         }
         throw AssertionError("Expected '$text'")
     }
+    // A recomposing list can invalidate a node between find and click: re-find and click again.
+    private fun clickStable(text: String) {
+        repeat(5) {
+            try { if (device.wait(Until.hasObject(By.text(text)), 8000)) { device.findObject(By.text(text)).click(); return } }
+            catch (_: androidx.test.uiautomator.StaleObjectException) { Thread.sleep(300) }
+        }
+        throw AssertionError("Could not click '$text'")
+    }
     private fun screenshot(name: String) {
         val mode = InstrumentationRegistry.getArguments().getString("capture", "viewers")
         device.takeScreenshot(File("/sdcard/Download/sfe-$mode-$name.png"))
@@ -63,8 +71,8 @@ class BuiltInViewersTest {
             throw AssertionError("Dashboard absent: " + device.currentPackageName)
         }
         // The storage card opens the analysis now; the folder browser opens via its shortcut.
-        device.findObject(By.text("Main storage")).click()
-        waitText("Download");device.findObject(By.text("Download")).click()
+        clickStable("Main storage")
+        waitText("Download");clickStable("Download")
         FileActionPreferences.saveBrowserSort(context, "NAME")
         // Other suites leave sibling folders in Download, so ViewerSamples can sit below the fold.
         run {
@@ -75,7 +83,7 @@ class BuiltInViewersTest {
                 repeat(8) { if (!device.hasObject(By.text("ViewerSamples"))) device.swipe(300, 300, 300, 900, 20) }
             }
         }
-        waitText("ViewerSamples");device.findObject(By.text("ViewerSamples")).click()
+        waitText("ViewerSamples");clickStable("ViewerSamples")
     }
     private fun open(name: String) {
         // The index keeps refreshing while the test runs and can reset the list's scroll

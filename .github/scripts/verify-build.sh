@@ -112,3 +112,10 @@ curl -fL --retry 3 -o "$RUNNER_TEMP/sfe-0.2.0.apk" https://github.com/manuelmani
 out=$(adb install -r -d "$RUNNER_TEMP/sfe-0.2.0.apk"); echo "$out"; echo "$out" | grep -q Success
 out=$(adb install -r app/build/outputs/apk/debug/app-debug.apk); echo "$out"; echo "$out" | grep -q Success
 adb shell dumpsys package com.stockfileexplorer.app | grep -E 'versionCode|versionName' 
+capture
+# The screenshots that prove the incoming-file, sort, extract and disk flows must exist: a skipped pull must not hide them.
+missing=""
+for f in sfe-flows-sort-4-after-rebuild.png sfe-flows-extract-5-done.png sfe-flows-chooser-2-text-viewer.png sfe-disk-1-before.png sfe-disk-3-after.png; do
+  [ -s "app/build/reports/device/Download/$f" ] || { echo "MISSING required screenshot: $f"; missing="$missing $f"; }
+done
+[ -z "$missing" ] || { echo "Required screenshots missing:$missing"; exit 1; }

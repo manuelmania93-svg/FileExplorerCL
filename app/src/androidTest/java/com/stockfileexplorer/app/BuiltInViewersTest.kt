@@ -48,6 +48,9 @@ class BuiltInViewersTest {
         val fd = inst.uiAutomation.executeShellCommand("appops set ${context.packageName} MANAGE_EXTERNAL_STORAGE allow")
         android.os.ParcelFileDescriptor.AutoCloseInputStream(fd).use { it.readBytes() }
         device.pressHome()
+        // Let the Home transition finish first; otherwise it can land after the launch below and bury it.
+        device.waitForIdle()
+        Thread.sleep(800)
         context.startActivity(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
         var shown = device.wait(Until.hasObject(By.text("Internal storage")), 15000)
         if (!shown) {

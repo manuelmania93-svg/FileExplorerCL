@@ -71,8 +71,12 @@ class OpenSpeedBaselineTest {
         launch()
         device.wait(Until.hasObject(By.text(context.getString(R.string.cat_apps))), 30000)
         val start = SystemClock.elapsedRealtime()
-        device.findObject(By.text(context.getString(R.string.cat_apps)))?.click()
-        val found = device.wait(Until.hasObject(By.textContains(context.packageName)), 60000)
+        var clicked = false
+        repeat(5) { if (!clicked) try { device.findObject(By.text(context.getString(R.string.cat_apps)))?.click(); clicked = true } catch (_: androidx.test.uiautomator.StaleObjectException) { } }
+        // The dashboard tile "Main storage" disappears once the Apps screen is up; the app's own label then
+        // only matches its row in the list (the dashboard title carries the same label).
+        device.wait(Until.gone(By.text(context.getString(R.string.main_storage))), 30000)
+        val found = clicked && device.wait(Until.hasObject(By.text(context.getString(R.string.app_name))), 30000)
         if (found) SystemClock.elapsedRealtime() - start else -1L
     }
 

@@ -1,5 +1,8 @@
 #!/bin/bash
 set -e
+# Functional suites do not abort the script: every later suite, the upgrade checks and the screenshot gate still run.
+# Any failed suite makes the final status red (see the end of this file).
+FAILED_SUITES=""
 capture() {
   mkdir -p app/build/reports/device/Download
   # Copy evidence only; recursive Download pulls include fixture/provider paths
@@ -18,9 +21,9 @@ adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
 adb shell monkey -p com.stockfileexplorer.app -c android.intent.category.LAUNCHER 1 >/dev/null
 sleep 25
 adb shell am force-stop com.stockfileexplorer.app
-./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.SavedLocationsTest || (capture; exit 1)
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.SavedLocationsTest || { capture; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }
 capture
-./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.RemoteAndSearchTest -Pandroid.testInstrumentationRunnerArguments.capture=remote-search || (capture; adb logcat -d > app/build/reports/device/logcat-remote-search.txt || true; exit 1)
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.RemoteAndSearchTest -Pandroid.testInstrumentationRunnerArguments.capture=remote-search || { capture; adb logcat -d > app/build/reports/device/logcat-remote-search.txt || true; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }
 capture
 # Verify the exact immediately previous public APK upgrades without uninstalling.
 curl -fL --retry 3 -o "$RUNNER_TEMP/sfe-0.2.11.apk" https://github.com/manuelmania93-svg/FileExplorerControl/releases/download/v0.2.11/File-Explorer-Control-0.2.11.apk
@@ -28,10 +31,10 @@ out=$(adb install -r -d "$RUNNER_TEMP/sfe-0.2.11.apk"); echo "$out"; echo "$out"
 out=$(adb install -r app/build/outputs/apk/debug/app-debug.apk); echo "$out"; echo "$out" | grep -q Success
 adb shell dumpsys package com.stockfileexplorer.app | grep -E 'versionCode|versionName'
 if [ "${1:-false}" = "true" ]; then exit 0; fi
-./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.GateFlowTest -Pandroid.testInstrumentationRunnerArguments.capture=gate || (capture; exit 1)
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.GateFlowTest -Pandroid.testInstrumentationRunnerArguments.capture=gate || { capture; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }
 capture
 adb shell cmd uimode night yes
-./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.GateFlowTest -Pandroid.testInstrumentationRunnerArguments.capture=gate-night || (capture; exit 1)
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.GateFlowTest -Pandroid.testInstrumentationRunnerArguments.capture=gate-night || { capture; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }
 adb shell cmd uimode night no
 adb shell am force-stop com.stockfileexplorer.app || true
 ./gradlew installDebug
@@ -41,25 +44,25 @@ adb push app/src/androidTest/assets/fixtures/sfe-fixture-notes.docx /sdcard/Down
 adb push app/src/androidTest/assets/fixtures/sfe-fixture-todo.txt /sdcard/Download/sfe-fixture-todo.txt
 adb push app/src/androidTest/assets/viewers/sample-picture.jpg /sdcard/Download/sfe-sample-picture.jpg
 adb shell ls -la /sdcard/Download
-./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.DocumentVisibilitySmokeTest -Pandroid.testInstrumentationRunnerArguments.capture=portrait || (capture; exit 1)
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.DocumentVisibilitySmokeTest -Pandroid.testInstrumentationRunnerArguments.capture=portrait || { capture; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }
 capture
 adb shell cmd uimode night yes
 ./gradlew installDebug
 adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
-./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.DocumentVisibilitySmokeTest -Pandroid.testInstrumentationRunnerArguments.capture=night || (capture; exit 1)
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.DocumentVisibilitySmokeTest -Pandroid.testInstrumentationRunnerArguments.capture=night || { capture; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }
 adb shell cmd uimode night no
 capture
-./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.SelectionBarTest -Pandroid.testInstrumentationRunnerArguments.capture=select || (capture; exit 1)
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.SelectionBarTest -Pandroid.testInstrumentationRunnerArguments.capture=select || { capture; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }
 capture
 ./gradlew installDebug
 adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
-./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.LauncherIconTest -Pandroid.testInstrumentationRunnerArguments.capture=icon || (capture; exit 1)
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.LauncherIconTest -Pandroid.testInstrumentationRunnerArguments.capture=icon || { capture; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }
 capture
 ./gradlew installDebug
 adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
-./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.BackNavigationTest || (capture; exit 1)
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.BackNavigationTest || { capture; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }
 capture
-./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.TrashAndAppsTest -Pandroid.testInstrumentationRunnerArguments.capture=trash || (capture; exit 1)
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.TrashAndAppsTest -Pandroid.testInstrumentationRunnerArguments.capture=trash || { capture; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }
 capture
 ./gradlew installDebug
 adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
@@ -68,22 +71,22 @@ adb pull /sdcard/Download/sfe-open-speed.txt app/build/reports/device/ || true
 capture
 ./gradlew installDebug
 adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
-./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.SortPersistenceTest || (capture; exit 1)
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.SortPersistenceTest || { capture; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }
 ./gradlew installDebug
 adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
-./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.DiskSpaceRefreshTest || (capture; exit 1)
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.DiskSpaceRefreshTest || { capture; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }
 adb pull /sdcard/Download/sfe-disk-refresh.txt app/build/reports/device/ || true
 capture
 ./gradlew installDebug
 adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
-./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.UserFlowsTest || (capture; adb logcat -d > app/build/reports/device/logcat-flows.txt || true; exit 1)
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.UserFlowsTest || { capture; adb logcat -d > app/build/reports/device/logcat-flows.txt || true; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }
 capture
-./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.IncomingFileTest -Pandroid.testInstrumentationRunnerArguments.capture=incoming || (capture; adb logcat -d > app/build/reports/device/logcat-incoming.txt || true; exit 1)
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.IncomingFileTest -Pandroid.testInstrumentationRunnerArguments.capture=incoming || { capture; adb logcat -d > app/build/reports/device/logcat-incoming.txt || true; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }
 capture
-./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.BuiltInViewersTest -Pandroid.testInstrumentationRunnerArguments.capture=viewers || (capture; adb logcat -d > app/build/reports/device/logcat-viewers.txt || true; exit 1)
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.BuiltInViewersTest -Pandroid.testInstrumentationRunnerArguments.capture=viewers || { capture; adb logcat -d > app/build/reports/device/logcat-viewers.txt || true; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }
 capture
 adb shell cmd uimode night yes
-./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.BuiltInViewersTest -Pandroid.testInstrumentationRunnerArguments.capture=viewers-night || (capture; adb logcat -d > app/build/reports/device/logcat-viewers-night.txt || true; exit 1)
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.BuiltInViewersTest -Pandroid.testInstrumentationRunnerArguments.capture=viewers-night || { capture; adb logcat -d > app/build/reports/device/logcat-viewers-night.txt || true; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }
 capture
 adb shell cmd uimode night no
 # Evidence screenshots from the earlier suites are already pulled by capture above. Move them out of Download so the
@@ -101,7 +104,7 @@ adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
 adb shell cmd locale set-app-locales com.stockfileexplorer.app --locales de-AT
 adb shell am force-stop com.stockfileexplorer.app
 echo "app locales: $(adb shell cmd locale get-app-locales com.stockfileexplorer.app | tr -d '\r')"
-./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.GermanLayoutTest -Pandroid.testInstrumentationRunnerArguments.capture=german || (capture; exit 1)
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.GermanLayoutTest -Pandroid.testInstrumentationRunnerArguments.capture=german || { capture; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }
 capture
 adb shell cmd locale set-app-locales com.stockfileexplorer.app --locales "" || true
 # Upgrade from the immediately previous published version too.
@@ -121,4 +124,5 @@ missing=""
 for f in sfe-flows-sort-4-after-rebuild.png sfe-flows-extract-5-done.png sfe-flows-chooser-2-text-viewer.png sfe-disk-1-before.png sfe-disk-3-after.png; do
   [ -s "app/build/reports/device/Download/$f" ] || { echo "MISSING required screenshot: $f"; missing="$missing $f"; }
 done
-[ -z "$missing" ] || { echo "Required screenshots missing:$missing"; exit 1; }
+[ -z "$missing" ] || { echo "Required screenshots missing:$missing"; FAILED_SUITES="$FAILED_SUITES missing-screenshots"; }
+[ -z "$FAILED_SUITES" ] || { echo "FAILED functional suites (script lines):$FAILED_SUITES"; exit 1; }

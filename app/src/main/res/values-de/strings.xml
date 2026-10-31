@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">File Explorer Control</string>
+    <string name="app_name">File Explorer CL</string>
     <string name="tab_local">Lokal</string>
     <string name="tab_library">Bibliothek</string>
     <string name="tab_network">Netzwerk</string>
     <string name="network_coming_soon">Netzwerkspeicher (SMB, FTP, Cloud) kommt in einer späteren Version.</string>
     <string name="perm_title">Zugriff auf alle Dateien nötig</string>
-    <string name="perm_body">Damit File Explorer Control die Dateien in deinem gemeinsamen Speicher anzeigen kann, auch Dokumente in Ordnern wie Download, braucht die App die Berechtigung "Zugriff auf alle Dateien". Auf dem nächsten Bildschirm den Zugriff für File Explorer Control erlauben.</string>
+    <string name="perm_body">Damit File Explorer CL die Dateien in deinem gemeinsamen Speicher anzeigen kann, auch Dokumente in Ordnern wie Download, braucht die App die Berechtigung "Zugriff auf alle Dateien". Auf dem nächsten Bildschirm den Zugriff für File Explorer CL erlauben.</string>
     <string name="perm_grant">Einstellungen öffnen</string>
     <string name="internal_storage">Interner Speicher</string>
     <string name="used_of">%1$s von %2$s belegt</string>

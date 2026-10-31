@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">File Explorer Control</string>
+    <string name="app_name">File Explorer CL</string>
     <string name="tab_local">Local</string>
     <string name="tab_library">Library</string>
     <string name="tab_network">Network</string>
     <string name="network_coming_soon">Network storage (SMB, FTP, cloud) is coming in a later version.</string>
     <string name="perm_title">All-files access needed</string>
-    <string name="perm_body">To show the files in your shared storage, including documents in folders like Download, File Explorer Control needs the "All files access" permission. On the next screen, allow access for File Explorer Control.</string>
+    <string name="perm_body">To show the files in your shared storage, including documents in folders like Download, File Explorer CL needs the "All files access" permission. On the next screen, allow access for File Explorer CL.</string>
     <string name="perm_grant">Open settings</string>
     <string name="internal_storage">Internal storage</string>
     <string name="used_of">%1$s used of %2$s</string>

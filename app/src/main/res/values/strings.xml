@@ -223,5 +223,5 @@
     <string name="incoming_failed">Could not read this file.</string>
     <string name="viewer_extract_here">Extract here</string>
     <string name="viewer_extract_choose">Choose folder</string>
-    <string name="viewer_extract_here_short">Extract here</string>
+    <string name="viewer_extract_here_short">Extract to this folder</string>
 </resources>

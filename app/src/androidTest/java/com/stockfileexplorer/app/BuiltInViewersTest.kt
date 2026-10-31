@@ -60,7 +60,11 @@ class BuiltInViewersTest {
         // Other suites leave sibling folders in Download, so ViewerSamples can sit below the fold.
         run {
             val end = android.os.SystemClock.uptimeMillis() + 30000
-            while (!device.hasObject(By.text("ViewerSamples")) && android.os.SystemClock.uptimeMillis() < end) device.swipe(300, 1000, 300, 400, 20)
+            while (!device.hasObject(By.text("ViewerSamples")) && android.os.SystemClock.uptimeMillis() < end) {
+                // Down-then-up scan: a long fling can carry the row past the screen, so come back too.
+                repeat(6) { if (!device.hasObject(By.text("ViewerSamples"))) device.swipe(300, 900, 300, 300, 20) }
+                repeat(8) { if (!device.hasObject(By.text("ViewerSamples"))) device.swipe(300, 300, 300, 900, 20) }
+            }
         }
         waitText("ViewerSamples");device.findObject(By.text("ViewerSamples")).click()
     }

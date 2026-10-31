@@ -25,6 +25,18 @@ out=$(adb install -r -t "$TESTAPK"); echo "$out"; echo "$out" | grep -q Success
 echo "UPGRADE after:  $(adb shell dumpsys package $PKG | grep -E 'versionName|versionCode' | head -2 | tr -d '\r' | tr '\n' ' ')"
 run() { out=$(adb shell am instrument -w -e class "com.stockfileexplorer.app.UpgradeStateTest#$1" $PKG.test/androidx.test.runner.AndroidJUnitRunner); echo "$out"; echo "$out" | grep -q "^OK ("; }
 run upgradedAppHasNewVersionLabelAndIncomingHandlers
+# Real UI path: choose Size in the sort menu, watch the app's own prefs file on disk, force-stop, relaunch.
+runc() { out=$(adb shell am instrument -w -e class "com.stockfileexplorer.app.SortPersistenceUiTest#$1" $PKG.test/androidx.test.runner.AndroidJUnitRunner); echo "$out"; echo "$out" | grep -q "^OK ("; }
+runc phase1ChooseSizeInMenu
+t0=$(date +%s%N); seen=no
+for i in $(seq 1 100); do
+  if adb shell run-as $PKG cat shared_prefs/file-action-preferences.xml 2>/dev/null | grep -q 'browser-sort.*SIZE'; then seen=yes; break; fi
+  sleep 0.1
+done
+echo "UPGRADE UI sort save: browser-sort=SIZE on disk: $seen after about $(( ($(date +%s%N) - t0) / 1000000 )) ms of polling (after the menu click returned)"
+[ "$seen" = yes ]
+adb shell am force-stop $PKG
+runc phase2SizeOrderAfterForceStop
 run seedSort
 echo "UPGRADE DIAG prefs file after seedSort (key browser-sort only):"; adb shell run-as $PKG cat shared_prefs/file-action-preferences.xml | grep -o "browser-sort[^<]*" || echo "(browser-sort not in file)"
 out=$(adb install -r "$NEW"); echo "$out"; echo "$out" | grep -q Success

@@ -6,7 +6,7 @@ capture() {
   # whose transient permissions can make adb pull fail after tests passed.
   adb shell 'find /sdcard/Download -maxdepth 1 -type f -name "sfe-*.png"' | tr -d '\r' > /tmp/sfe-capture-list
   while IFS= read -r path; do
-    [ -n "$path" ] && adb pull "$path" app/build/reports/device/Download/
+    [ -n "$path" ] && { adb pull "$path" app/build/reports/device/Download/ || echo "capture: skipped $path"; }
   done < /tmp/sfe-capture-list
 }
 mkdir -p app/build/reports/device

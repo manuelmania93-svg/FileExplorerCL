@@ -92,6 +92,8 @@ adb shell cmd uimode night no
 # Evidence screenshots from the earlier suites are already pulled by capture above. Delete them from the device (they are already in the report) so the
 # German layout suite (which scrolls the Download list for its fixtures) sees the folder it was written against.
 adb shell 'rm -f /sdcard/Download/sfe-*.png /sdcard/sfe-evidence-moved/* 2>/dev/null || true'
+echo "DIAG Download before German suite:"; adb shell ls -la /sdcard/Download | head -60
+echo "DIAG sample jpg present: $(adb shell ls /sdcard/Download/sfe-sample-picture.jpg 2>&1 | tr -d '\r')"
 # German-locale layout run via per-app language: no reboot and no
 # root, so the installed package and the all-files grant stay in
 # place (the previous reboot-based approach lost the package).

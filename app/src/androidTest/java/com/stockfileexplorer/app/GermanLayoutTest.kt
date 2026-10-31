@@ -37,17 +37,30 @@ class GermanLayoutTest {
         return device.hasObject(By.textContains(text))
     }
 
+    /** Texts seen while scanning, kept so a failed lookup can say what the list really contained. */
+    private val seenWhileScanning = linkedSetOf<String>()
+
+    private fun noteVisibleTexts(device: UiDevice) {
+        device.findObjects(By.textContains("")).forEach { o -> o.text?.let { t -> if (seenWhileScanning.size < 400) seenWhileScanning.add(t.take(40)) } }
+    }
+
+    // Short swipes only: a long fast swipe flings the list past the target between two checks (the earlier
+    // failure screenshots show the list parked at its end with the target above the visible rows).
+    // Scans down from the top, then back up, checking after every step.
     private fun scrollToText(device: UiDevice, text: String): Boolean {
         if (device.hasObject(By.textContains(text))) return true
-        // The list can come back already scrolled past the target (state kept across recreation): go to top first.
-        repeat(15) {
-            device.swipe(300, 400, 300, 1100, 20)
-            Thread.sleep(150)
-        }
-        repeat(40) {
+        seenWhileScanning.clear()
+        repeat(12) { device.swipe(300, 500, 300, 1100, 20); Thread.sleep(120) }
+        repeat(60) {
             if (device.hasObject(By.textContains(text))) return true
-            device.swipe(300, 900, 300, 300, 20)
-            Thread.sleep(250)
+            noteVisibleTexts(device)
+            device.swipe(300, 900, 300, 650, 30)
+            Thread.sleep(350)
+        }
+        repeat(60) {
+            if (device.hasObject(By.textContains(text))) return true
+            device.swipe(300, 650, 300, 900, 30)
+            Thread.sleep(350)
         }
         return device.hasObject(By.textContains(text))
     }
@@ -94,8 +107,11 @@ class GermanLayoutTest {
         // (The "Interner Speicher" card now opens the storage analysis; the folder
         // browser opens via the "Hauptspeicher" shortcut.)
         device.findObject(By.text("Hauptspeicher")).click()
-        assertTrue("Download folder row visible in the root listing",
-            device.wait(Until.hasObject(By.text("Download")), 8000) || scrollToText(device, "Download").also { if (!it) device.takeScreenshot(File("/sdcard/Download/sfe-german-root-download-missing.png")) })
+        val rootRowFound = device.wait(Until.hasObject(By.text("Download")), 8000) || scrollToText(device, "Download")
+        if (!rootRowFound) {
+            device.takeScreenshot(File("/sdcard/Download/sfe-german-root-download-missing.png"))
+            throw AssertionError("Download folder row visible in the root listing; rows seen while scanning: " + seenWhileScanning.joinToString(" | "))
+        }
         device.findObject(By.text("Download")).click()
         // Name-sorted screenshots from earlier test classes (sfe-back-*) push the
         // fixtures off the first screen; scroll like the gallery part below does.
@@ -143,7 +159,7 @@ class GermanLayoutTest {
         )
         device.findObject(By.text("Hauptspeicher")).click()
         assertTrue("Download folder row visible in the root listing",
-            device.wait(Until.hasObject(By.text("Download")), 8000) || scrollToText(device, "Download").also { if (!it) device.takeScreenshot(File("/sdcard/Download/sfe-german-root-download-missing.png")) })
+            device.wait(Until.hasObject(By.text("Download")), 8000) || scrollToText(device, "Download").also { if (!it) { device.takeScreenshot(File("/sdcard/Download/sfe-german-root-download-missing.png")); println("SFE-DIAG root rows seen: " + seenWhileScanning.joinToString(" | ")) } })
         device.findObject(By.text("Download")).click()
         if (!findFixture(device, "sfe-fixture-report.pdf")) {
             throw AssertionError("PDF fixture visible in Download at 1.3 font")

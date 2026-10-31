@@ -34,15 +34,23 @@ class UpgradeStateTest {
         }
     }
 
+    /**
+     * Saves through the same call the sort menu uses, then waits (no explicit commit) until the preference file on
+     * disk really holds the value, and reports how long that took.
+     */
     @Test
     fun seedSort() {
+        val file = java.io.File(context.applicationContext.dataDir, "shared_prefs/file-action-preferences.xml")
+        val start = android.os.SystemClock.elapsedRealtime()
         FileActionPreferences.saveBrowserSort(context, "SIZE")
-    }
-
-    /** Waits for any pending asynchronous preference write (the instrumentation process is killed by the reinstall). */
-    @Test
-    fun flushPrefs() {
-        assertTrue(context.applicationContext.getSharedPreferences("file-action-preferences", android.content.Context.MODE_PRIVATE).edit().commit())
+        var onDisk = false
+        while (android.os.SystemClock.elapsedRealtime() - start < 10000 && !onDisk) {
+            onDisk = file.exists() && file.readText().contains("SIZE")
+            if (!onDisk) Thread.sleep(20)
+        }
+        val ms = android.os.SystemClock.elapsedRealtime() - start
+        InstrumentationRegistry.getInstrumentation().sendStatus(0, android.os.Bundle().apply { putString("stream", "sort-flush-to-disk-ms=$ms\n") })
+        assertTrue("browser-sort not on disk after $ms ms", onDisk)
     }
 
     @Test

@@ -39,6 +39,12 @@ class UpgradeStateTest {
         FileActionPreferences.saveBrowserSort(context, "SIZE")
     }
 
+    /** Waits for any pending asynchronous preference write (the instrumentation process is killed by the reinstall). */
+    @Test
+    fun flushPrefs() {
+        assertTrue(context.applicationContext.getSharedPreferences("file-action-preferences", android.content.Context.MODE_PRIVATE).edit().commit())
+    }
+
     @Test
     fun sortSurvivedReinstall() {
         assertEquals("SIZE", FileActionPreferences.browserSort(context))

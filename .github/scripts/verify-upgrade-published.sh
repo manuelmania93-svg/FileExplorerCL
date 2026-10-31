@@ -26,6 +26,10 @@ echo "UPGRADE after:  $(adb shell dumpsys package $PKG | grep -E 'versionName|ve
 run() { out=$(adb shell am instrument -w -e class "com.stockfileexplorer.app.UpgradeStateTest#$1" $PKG.test/androidx.test.runner.AndroidJUnitRunner); echo "$out"; echo "$out" | grep -q "^OK ("; }
 run upgradedAppHasNewVersionLabelAndIncomingHandlers
 run seedSort
+echo "UPGRADE DIAG prefs right after seedSort (before any explicit flush):"; adb shell run-as $PKG cat shared_prefs/file-action-preferences.xml || echo "(run-as read failed)"
+run flushPrefs
+echo "UPGRADE DIAG prefs after explicit flush:"; adb shell run-as $PKG cat shared_prefs/file-action-preferences.xml || echo "(run-as read failed)"
 out=$(adb install -r "$NEW"); echo "$out"; echo "$out" | grep -q Success
+echo "UPGRADE DIAG prefs after reinstall:"; adb shell run-as $PKG cat shared_prefs/file-action-preferences.xml || echo "(run-as read failed)"
 run sortSurvivedReinstall
 echo "UPGRADE OK: published 0.2.12 -> built test build, same signer, label/handlers/version checked, saved sort survives reinstall"

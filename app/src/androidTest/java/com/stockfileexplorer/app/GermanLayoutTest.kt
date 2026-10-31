@@ -172,7 +172,7 @@ class GermanLayoutTest {
         device.findObject(By.text("Bilder")).click()
         assertTrue(
             "Sample image listed in Bilder category",
-            scrollToText(device, "sfe-sample-picture.jpg")
+            scrollToText(device, "sfe-sample-picture.jpg").also { if (!it) device.takeScreenshot(File("/sdcard/Download/sfe-german-gallery-sample-missing.png")) }
         )
         assertFalse(
             "Category opened from cached scan without a blocking rescan",

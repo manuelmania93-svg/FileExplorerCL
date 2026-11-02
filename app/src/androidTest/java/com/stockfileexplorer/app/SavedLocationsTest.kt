@@ -1,6 +1,8 @@
 package com.stockfileexplorer.app
 
 import android.content.Intent
+import android.os.Environment
+import android.os.SystemClock
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
@@ -23,12 +25,31 @@ class SavedLocationsTest {
     // Evidence for CI diagnosis: capture the actual screen before failing.
     private fun missing(s: String): Nothing {
         device.takeScreenshot(File("/sdcard/Download/sfe-saved-missing-${s.replace(Regex("[^A-Za-z0-9_-]"), "_")}.png"))
-        throw AssertionError("Missing: $s")
+        // Distinguish the all-files gate from a composition problem on the next
+        // failure: the gate is static and shows perm_title in the app locale.
+        val gateShown = device.hasObject(By.text(context.getString(R.string.perm_title)))
+        throw AssertionError("Missing: $s (gateShown=$gateShown, allFilesAccess=${Environment.isExternalStorageManager()})")
+    }
+
+    // The package intermittently disappears in CI and a reinstall silently wipes the
+    // MANAGE_EXTERNAL_STORAGE appop; executeShellCommand does not fail on that (the
+    // "No UID" error is captured output, not an exception). Grant, then verify the
+    // state the app's gate actually reads, from the same process, before launching.
+    private fun requireAllFilesAccess() {
+        device.executeShellCommand("appops set ${context.packageName} MANAGE_EXTERNAL_STORAGE allow")
+        val deadline = SystemClock.elapsedRealtime() + 30_000
+        while (!Environment.isExternalStorageManager()) {
+            if (SystemClock.elapsedRealtime() > deadline) {
+                val mode = device.executeShellCommand("appops get ${context.packageName} MANAGE_EXTERNAL_STORAGE")
+                throw AssertionError("All-files grant did not take effect; appops get: $mode")
+            }
+            Thread.sleep(250)
+        }
     }
     private fun shot(s: String) { device.takeScreenshot(File("/sdcard/Download/sfe-saved-$s.png")) }
     private fun home() { context.startActivity(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)); tag("home_shortcuts") }
     @Test fun savedFolderAndFavoriteAreLinksAndReturnToOrigin() {
-        device.executeShellCommand("appops set ${context.packageName} MANAGE_EXTERNAL_STORAGE allow")
+        requireAllFilesAccess()
         val root = File("/sdcard/Download/SavedFixture/deep/level/target").apply { mkdirs() }
         val file = File(root, "saved-note.txt").apply { writeText("do not move or delete") }
         FileActionPreferences.saveShortcut(context, root.absolutePath)
@@ -61,7 +82,7 @@ class SavedLocationsTest {
         shot("returned-search")
     }
     @Test fun germanLargeFontHeaderAndSmallScreenMenuRemainUsable() {
-        device.executeShellCommand("appops set ${context.packageName} MANAGE_EXTERNAL_STORAGE allow")
+        requireAllFilesAccess()
         try {
             device.executeShellCommand("settings put system font_scale 1.3")
             device.executeShellCommand("cmd locale set-app-locales ${context.packageName} --locales de-AT")

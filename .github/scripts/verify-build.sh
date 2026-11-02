@@ -81,6 +81,11 @@ adb shell am force-stop com.stockfileexplorer.app
 echo "app locales: $(adb shell cmd locale get-app-locales com.stockfileexplorer.app | tr -d '\r')"
 ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.GermanLayoutTest -Pandroid.testInstrumentationRunnerArguments.capture=german || (capture; exit 1)
 capture
+# Pyramid colour proof while the app locale is still de-AT: the test indexes a
+# 64 MB .bin fixture into the Sonstige category and screenshots the pyramid,
+# showing the dark-blue Sonstige slice/legend next to the residual grey.
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.StoragePyramidColorTest -Pandroid.testInstrumentationRunnerArguments.capture=pyramid || (capture; exit 1)
+capture
 adb shell cmd locale set-app-locales com.stockfileexplorer.app --locales "" || true
 # Upgrade from the immediately previous published version too.
 curl -fL --retry 3 -o "$RUNNER_TEMP/sfe-0.2.9.apk" https://github.com/manuelmania93-svg/FileExplorerControl/releases/download/v0.2.9/File-Explorer-Control-0.2.9.apk

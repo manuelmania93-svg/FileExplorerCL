@@ -55,7 +55,8 @@ fun categoryColor(category: FileCategory): Color = when (category) {
     FileCategory.DOCUMENTS -> Color(0xFF2196F3)
     FileCategory.APPS -> Color(0xFF4CAF50)
     FileCategory.ARCHIVES -> Color(0xFFFF9800)
-    FileCategory.OTHER -> Color(0xFF607D8B)
+    // Dark blue: clearly distinct from the residual grey (0xFF78909C) and from Dokumente blue (0xFF2196F3).
+    FileCategory.OTHER -> Color(0xFF0D47A1)
 }
 
 @Composable

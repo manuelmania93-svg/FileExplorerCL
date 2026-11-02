@@ -18,8 +18,13 @@ class SavedLocationsTest {
     private val inst = InstrumentationRegistry.getInstrumentation()
     private val context = inst.targetContext
     private val device = UiDevice.getInstance(inst)
-    private fun text(s: String) = device.wait(Until.findObject(By.text(s)), 20000) ?: throw AssertionError("Missing: $s")
-    private fun tag(s: String) = device.wait(Until.findObject(By.res(s)), 20000) ?: throw AssertionError("Missing: $s")
+    private fun text(s: String) = device.wait(Until.findObject(By.text(s)), 20000) ?: missing(s)
+    private fun tag(s: String) = device.wait(Until.findObject(By.res(s)), 20000) ?: missing(s)
+    // Evidence for CI diagnosis: capture the actual screen before failing.
+    private fun missing(s: String): Nothing {
+        device.takeScreenshot(File("/sdcard/Download/sfe-saved-missing-${s.replace(Regex("[^A-Za-z0-9_-]"), "_")}.png"))
+        throw AssertionError("Missing: $s")
+    }
     private fun shot(s: String) { device.takeScreenshot(File("/sdcard/Download/sfe-saved-$s.png")) }
     private fun home() { context.startActivity(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)); tag("home_shortcuts") }
     @Test fun savedFolderAndFavoriteAreLinksAndReturnToOrigin() {

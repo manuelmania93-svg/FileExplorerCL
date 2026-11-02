@@ -70,13 +70,15 @@ class StoragePyramidUsageAccessTest {
         assertTrue("Speicheranalyse entry not found", scrollToText(device, "Speicheranalyse"))
         device.findObject(By.textContains("Speicheranalyse")).click()
 
-        assertTrue(
-            "installed-apps legend row missing",
-            device.wait(Until.hasObject(By.textContains("Installierte Apps (inkl. Daten)")), 120_000),
-        )
-        assertTrue("residual grey legend row missing", scrollToText(device, "Übriger belegter Speicher"))
-        assertTrue("Sonstige legend row missing", scrollToText(device, "Sonstige"))
-        assertTrue("updated note missing", scrollToText(device, "Systemdaten und nicht indexierten Speicher"))
+        // Capture the screen on any failure so CI shows what actually rendered.
+        if (!device.wait(Until.hasObject(By.textContains("Installierte Apps (inkl. Daten)")), 120_000) ||
+            !scrollToText(device, "Übriger belegter Speicher") ||
+            !scrollToText(device, "Sonstige") ||
+            !scrollToText(device, "Systemdaten und nicht indexierten Speicher")
+        ) {
+            device.takeScreenshot(File("/sdcard/Download/sfe-pyramid-granted-FAILED.png"))
+            throw AssertionError("granted-state pyramid incomplete (see sfe-pyramid-granted-FAILED.png)")
+        }
         Thread.sleep(2_000)
         device.takeScreenshot(File("/sdcard/Download/sfe-pyramid-granted.png"))
 

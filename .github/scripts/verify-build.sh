@@ -9,6 +9,25 @@ capture() {
     [ -n "$path" ] && adb pull "$path" app/build/reports/device/Download/
   done < /tmp/sfe-capture-list
 }
+# The package intermittently disappears from PackageManager between test classes
+# (cause undetermined); a following reinstall wipes the all-files grant and the
+# per-app locale. Re-establish both idempotently before tests that need them.
+ensure_installed_de_at() {
+  echo "packages before $1: $(adb shell pm list packages | grep -i stockfileexplorer | tr -d '\r')"
+  ./gradlew installDebug
+  adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
+  adb shell cmd locale set-app-locales com.stockfileexplorer.app --locales de-AT
+  adb shell am force-stop com.stockfileexplorer.app
+}
+run_pyramid_tests() {
+  ensure_installed_de_at "StoragePyramidColorTest"
+  ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.StoragePyramidColorTest -Pandroid.testInstrumentationRunnerArguments.capture=pyramid || (capture; exit 1)
+  capture
+  ensure_installed_de_at "StoragePyramidUsageAccessTest"
+  ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.StoragePyramidUsageAccessTest -Pandroid.testInstrumentationRunnerArguments.capture=pyramid-granted || (capture; exit 1)
+  capture
+  adb shell appops set com.stockfileexplorer.app android:get_usage_stats default
+}
 mkdir -p app/build/reports/device
 ./gradlew installDebug
 adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
@@ -18,6 +37,12 @@ adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
 adb shell monkey -p com.stockfileexplorer.app -c android.intent.category.LAUNCHER 1 >/dev/null
 sleep 25
 adb shell am force-stop com.stockfileexplorer.app
+if [ "${2:-false}" = "true" ]; then
+  # Targeted validation: only the storage pyramid tests (minutes instead of the full suite).
+  run_pyramid_tests
+  adb shell cmd locale set-app-locales com.stockfileexplorer.app --locales "" || true
+  exit 0
+fi
 ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.SavedLocationsTest || (capture; exit 1)
 capture
 ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.RemoteAndSearchTest -Pandroid.testInstrumentationRunnerArguments.capture=remote-search || (capture; adb logcat -d > app/build/reports/device/logcat-remote-search.txt || true; exit 1)
@@ -81,17 +106,8 @@ adb shell am force-stop com.stockfileexplorer.app
 echo "app locales: $(adb shell cmd locale get-app-locales com.stockfileexplorer.app | tr -d '\r')"
 ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.GermanLayoutTest -Pandroid.testInstrumentationRunnerArguments.capture=german || (capture; exit 1)
 capture
-# Pyramid colour proof while the app locale is still de-AT: the test indexes a
-# 64 MB .bin fixture into the Sonstige category and screenshots the pyramid,
-# showing the dark-blue Sonstige slice/legend next to the residual grey.
-./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.StoragePyramidColorTest -Pandroid.testInstrumentationRunnerArguments.capture=pyramid || (capture; exit 1)
-capture
-# Granted-state proof: with usage access the pyramid must gain the
-# "Installierte Apps (inkl. Daten)" slice while the residual grey shrinks.
-adb shell appops set com.stockfileexplorer.app android:get_usage_stats allow
-./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.StoragePyramidUsageAccessTest -Pandroid.testInstrumentationRunnerArguments.capture=pyramid-granted || (capture; exit 1)
-capture
-adb shell appops set com.stockfileexplorer.app android:get_usage_stats default
+# Pyramid colour + installed-apps proofs (each test re-verifies install, grant, locale).
+run_pyramid_tests
 adb shell cmd locale set-app-locales com.stockfileexplorer.app --locales "" || true
 # Upgrade from the immediately previous published version too.
 curl -fL --retry 3 -o "$RUNNER_TEMP/sfe-0.2.9.apk" https://github.com/manuelmania93-svg/FileExplorerControl/releases/download/v0.2.9/File-Explorer-Control-0.2.9.apk

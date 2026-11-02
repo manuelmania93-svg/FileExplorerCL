@@ -46,7 +46,12 @@ class StoragePyramidUsageAccessTest {
         val device = UiDevice.getInstance(instrumentation)
         var fixture: File? = null
         try {
-            assertTrue("CI must grant usage access before this test", InstalledAppsStats.hasUsageAccess(context))
+            // Establish grant and locale explicitly; a CI reinstall between classes can
+            // wipe both (MANAGE_EXTERNAL_STORAGE is needed for the raw fixture write).
+            device.executeShellCommand("appops set ${context.packageName} MANAGE_EXTERNAL_STORAGE allow")
+            device.executeShellCommand("appops set ${context.packageName} android:get_usage_stats allow")
+            device.executeShellCommand("cmd locale set-app-locales ${context.packageName} --locales de-AT")
+            assertTrue("usage access grant did not take effect", InstalledAppsStats.hasUsageAccess(context))
             val measured = InstalledAppsStats.measurePrimaryVolumeBytes(context)
             Log.i("SfeTest", "installed apps primary-volume bytes: $measured")
             assertNotNull("StorageStats measurement failed despite grant", measured)
@@ -87,6 +92,8 @@ class StoragePyramidUsageAccessTest {
             throw t
         } finally {
             fixture?.delete()
+            device.executeShellCommand("appops set ${context.packageName} android:get_usage_stats default")
+            device.executeShellCommand("cmd locale set-app-locales ${context.packageName} --locales ''")
         }
     }
 }

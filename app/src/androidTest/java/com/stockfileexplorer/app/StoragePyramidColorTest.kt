@@ -45,6 +45,12 @@ class StoragePyramidColorTest {
         val device = UiDevice.getInstance(instrumentation)
         var fixture: File? = null
         try {
+            // The package intermittently disappears between test classes in CI and a
+            // reinstall wipes the grant and per-app locale: establish both explicitly
+            // (same in-test pattern as SavedLocationsTest).
+            device.executeShellCommand("appops set ${context.packageName} MANAGE_EXTERNAL_STORAGE allow")
+            device.executeShellCommand("cmd locale set-app-locales ${context.packageName} --locales de-AT")
+
             // 64 MB fixture with an unmapped extension -> FileCategory.OTHER.
             fixture = File("/sdcard/Download/sfe-pyramid-fixture.bin")
             fixture.outputStream().use { out ->
@@ -86,6 +92,7 @@ class StoragePyramidColorTest {
             throw t
         } finally {
             fixture?.delete()
+            device.executeShellCommand("cmd locale set-app-locales ${context.packageName} --locales ''")
         }
     }
 }

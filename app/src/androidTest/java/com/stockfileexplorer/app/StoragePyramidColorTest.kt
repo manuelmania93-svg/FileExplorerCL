@@ -75,15 +75,21 @@ class StoragePyramidColorTest {
                 device.wait(Until.hasObject(By.textContains("Speicheranalyse")), 60_000),
             )
 
-            // The pyramid (incl. legend) renders from the partial report; all
-            // rows must exist before the screenshot is taken.
+            // Above-fold checks first: the denied-state hint card sits above the pyramid.
             assertTrue(
-                "residual grey legend row missing",
-                device.wait(Until.hasObject(By.textContains("Übriger belegter Speicher")), 120_000),
+                "usage-access hint missing",
+                device.wait(Until.hasObject(By.textContains("Nutzungszugriff erlauben")), 30_000),
             )
+            // Chart evidence while the pyramid itself is on screen.
+            Thread.sleep(2_000)
+            device.takeScreenshot(File("/sdcard/Download/sfe-pyramid-chart.png"))
+
+            // The screen is a LazyColumn: legend rows below the fold are not in the
+            // accessibility tree until scrolled into view (the previous version waited
+            // 120s for the off-screen residual row and timed out). Scroll progressively
+            // downward in legend order: residual first, then the category rows.
+            assertTrue("residual grey legend row missing", scrollToText(device, "Übriger belegter Speicher"))
             assertTrue("Sonstige legend row missing", scrollToText(device, "Sonstige"))
-            // Denied state: the hint card with the settings deep link must be present.
-            assertTrue("usage-access hint missing", scrollToText(device, "Nutzungszugriff erlauben"))
             Thread.sleep(2_000)
             device.takeScreenshot(File("/sdcard/Download/sfe-pyramid-colors.png"))
         } catch (t: Throwable) {

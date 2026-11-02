@@ -77,13 +77,23 @@ class StoragePyramidUsageAccessTest {
                 device.wait(Until.hasObject(By.textContains("Speicheranalyse")), 60_000),
             )
 
+            // Above-fold check first: the granted state switches the pyramid note. The
+            // standard note and the scope card both mention "private App-Daten", so only
+            // "Die graue Ebene enthält Systemdaten" discriminates the installed-apps note.
             assertTrue(
-                "installed-apps legend row missing",
-                device.wait(Until.hasObject(By.textContains("Installierte Apps (inkl. Daten)")), 120_000),
+                "updated note missing",
+                device.wait(Until.hasObject(By.textContains("Die graue Ebene enthält Systemdaten und nicht indexierten Speicher")), 30_000),
             )
+            // Chart evidence while the pyramid itself is on screen.
+            Thread.sleep(2_000)
+            device.takeScreenshot(File("/sdcard/Download/sfe-pyramid-granted-chart.png"))
+
+            // LazyColumn: legend rows only enter the accessibility tree when scrolled
+            // into view. Scroll progressively downward in legend order: residual,
+            // installed apps, then the category rows.
             assertTrue("residual grey legend row missing", scrollToText(device, "Übriger belegter Speicher"))
+            assertTrue("installed-apps legend row missing", scrollToText(device, "Installierte Apps (inkl. Daten)"))
             assertTrue("Sonstige legend row missing", scrollToText(device, "Sonstige"))
-            assertTrue("updated note missing", scrollToText(device, "Systemdaten und nicht indexierten Speicher"))
             Thread.sleep(2_000)
             device.takeScreenshot(File("/sdcard/Download/sfe-pyramid-granted.png"))
         } catch (t: Throwable) {

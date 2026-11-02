@@ -31,10 +31,14 @@ import java.util.concurrent.TimeUnit
 class StoragePyramidUsageAccessTest {
 
     private fun scrollToText(device: UiDevice, text: String): Boolean {
+        // Slow short drags, not quick swipes: a fast swipe flings the LazyColumn and
+        // can carry the target row past the viewport between checks, scrolling the
+        // page to its bottom without ever matching (run 41491727508). A 300 px drag
+        // cannot move a ~60 px legend row across the ~1200 px viewport in one step.
         repeat(40) {
             if (device.hasObject(By.textContains(text))) return true
-            device.swipe(300, 900, 300, 300, 20)
-            Thread.sleep(250)
+            device.swipe(300, 1000, 300, 700, 100)
+            Thread.sleep(300)
         }
         return device.hasObject(By.textContains(text))
     }

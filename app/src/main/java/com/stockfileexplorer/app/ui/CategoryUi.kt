@@ -47,7 +47,7 @@ fun categoryLabel(category: FileCategory): String = when (category) {
     FileCategory.OTHER -> stringResource(R.string.cat_other)
 }
 
-@Composable
+// Pure mapping (no composable calls), intentionally not @Composable so JVM unit tests can pin the colors.
 fun categoryColor(category: FileCategory): Color = when (category) {
     FileCategory.IMAGES -> Color(0xFFE91E63)
     FileCategory.VIDEOS -> Color(0xFF9C27B0)

@@ -283,7 +283,7 @@ class SortAndSpeedTest {
         val newMs = ms { newGroups = StorageAnalyzer.findDuplicates(rows, prefilter = true).groups.size }
         assertEquals("same exact-content groups", oldGroups, newGroups)
         val start = SystemClock.elapsedRealtime(); var first = -1L
-        StorageAnalyzer.analyze({}, onPartial = { first = SystemClock.elapsedRealtime() - start })
+        StorageAnalyzer.analyze(context, {}, onPartial = { first = SystemClock.elapsedRealtime() - start })
         val total = SystemClock.elapsedRealtime() - start
         assertTrue("partial results arrive before the full analysis ends", first in 0..total)
         val result = "dupFullHashAllMs=$oldMs dupWithPrefilterParallelMs=$newMs groups=$newGroups analysisFirstResultsMs=$first analysisCompleteMs=$total rows=${rows.size}"

@@ -86,6 +86,12 @@ capture
 # showing the dark-blue Sonstige slice/legend next to the residual grey.
 ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.StoragePyramidColorTest -Pandroid.testInstrumentationRunnerArguments.capture=pyramid || (capture; exit 1)
 capture
+# Granted-state proof: with usage access the pyramid must gain the
+# "Installierte Apps (inkl. Daten)" slice while the residual grey shrinks.
+adb shell appops set com.stockfileexplorer.app android:get_usage_stats allow
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.StoragePyramidUsageAccessTest -Pandroid.testInstrumentationRunnerArguments.capture=pyramid-granted || (capture; exit 1)
+capture
+adb shell appops set com.stockfileexplorer.app android:get_usage_stats default
 adb shell cmd locale set-app-locales com.stockfileexplorer.app --locales "" || true
 # Upgrade from the immediately previous published version too.
 curl -fL --retry 3 -o "$RUNNER_TEMP/sfe-0.2.9.apk" https://github.com/manuelmania93-svg/FileExplorerControl/releases/download/v0.2.9/File-Explorer-Control-0.2.9.apk

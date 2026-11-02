@@ -15,7 +15,7 @@
     <string name="cat_videos">Videos</string>
     <string name="cat_audio">Audio</string>
     <string name="cat_documents">Documents</string>
-    <string name="cat_apps">Apps</string>
+    <string name="cat_apps">APK files</string>
     <string name="cat_archives">Archives</string>
     <string name="cat_recent">Recent files</string>
     <string name="cat_etc">etc.</string>
@@ -128,6 +128,11 @@
     <string name="storage_pyramid">Storage pyramid</string>
     <string name="storage_pyramid_note">Layer areas represent used storage. The gray layer is private app, system, and unindexed storage.</string>
     <string name="storage_pyramid_note_indexed">Layer areas represent indexed used storage.</string>
+    <string name="installed_apps_title">Installed apps</string>
+    <string name="cat_installed_apps">Installed apps (incl. data)</string>
+    <string name="installed_apps_permission_hint">To show installed apps including their data in the pyramid, File Explorer needs the special \"Usage access\" permission. It is used only to read per-app storage sizes.</string>
+    <string name="installed_apps_permission_grant">Grant usage access</string>
+    <string name="storage_pyramid_note_installed">The layer areas correspond to the used storage. The grey layer contains system data and non-indexed storage.</string>
     <string name="other_used_storage">Other used storage</string>
     <string name="categories">Categories</string>
     <string name="largest_folders">Largest folders</string>

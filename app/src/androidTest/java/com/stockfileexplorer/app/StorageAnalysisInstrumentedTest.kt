@@ -68,7 +68,7 @@ class StorageAnalysisInstrumentedTest {
         File(docs, "duplicate-b.txt").writeText("same duplicate content")
         FileIndex.verifyFixture(context, Environment.getExternalStorageDirectory(), clear = true)
         // Data check first, so a UI miss can be told apart from missing analyzer output.
-        val dataReport = com.stockfileexplorer.app.data.StorageAnalyzer.analyze({ })
+        val dataReport = com.stockfileexplorer.app.data.StorageAnalyzer.analyze(context, { })
         val groupSummary = dataReport.duplicates.map { g -> "${g.sizeBytes}B x${g.paths.size} ${g.paths.first().substringAfterLast('/')}" }
         android.util.Log.i("SfeAnalysisData", "duplicate groups (${groupSummary.size}): $groupSummary")
         assertTrue("Analyzer data has the duplicate-a/b group; groups=$groupSummary",

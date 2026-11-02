@@ -71,6 +71,8 @@ class StoragePyramidColorTest {
             device.wait(Until.hasObject(By.textContains("Übriger belegter Speicher")), 120_000),
         )
         assertTrue("Sonstige legend row missing", scrollToText(device, "Sonstige"))
+        // Denied state: the hint card with the settings deep link must be present.
+        assertTrue("usage-access hint missing", scrollToText(device, "Nutzungszugriff erlauben"))
         Thread.sleep(2_000)
         device.takeScreenshot(File("/sdcard/Download/sfe-pyramid-colors.png"))
 

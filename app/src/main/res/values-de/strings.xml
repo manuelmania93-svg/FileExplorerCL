@@ -125,6 +125,7 @@
     <string name="storage_analysis">Speicheranalyse</string>
     <string name="analysis_partial">Einige Ordner konnten nicht vollständig analysiert werden.</string>
     <string name="analysis_indexed_scope">Kategorien zählen Dateien aus dem App-Index. Der übrige belegte Speicher enthält private App-Daten, Systemdaten und nicht indexierten Speicher.</string>
+    <string name="analysis_indexed_scope_installed">Kategorien zählen Dateien aus dem App-Index. Installierte Apps werden inklusive ihrer Daten gemessen. Der übrige belegte Speicher enthält Systemdaten und nicht indexierten Speicher.</string>
     <string name="storage_pyramid">Speicher-Pyramide</string>
     <string name="storage_pyramid_note">Die Ebenenflächen entsprechen dem belegten Speicher. Die graue Ebene enthält private App-Daten, Systemdaten und nicht indexierten Speicher.</string>
     <string name="storage_pyramid_note_indexed">Die Ebenenflächen entsprechen dem indexierten belegten Speicher.</string>

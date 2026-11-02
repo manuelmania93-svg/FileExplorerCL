@@ -12,6 +12,17 @@ capture() {
 # The package intermittently disappears from PackageManager between test classes
 # (cause undetermined); a following reinstall wipes the all-files grant and the
 # per-app locale. Re-establish both idempotently before tests that need them.
+# Run a cleanup command only when the package is verifiably present. When the
+# package intermittently disappeared, a later reinstall already reset these
+# settings, so skipping is correct; any other failure must fail the run.
+if_package_present() {
+  local label="$1"; shift
+  if adb shell pm list packages | tr -d '\r' | grep -qx 'package:com.stockfileexplorer.app'; then
+    "$@"
+  else
+    echo "package absent at $label; skipping: $*"
+  fi
+}
 ensure_installed_de_at() {
   echo "packages before $1: $(adb shell pm list packages | grep -i stockfileexplorer | tr -d '\r')"
   ./gradlew installDebug
@@ -26,7 +37,7 @@ run_pyramid_tests() {
   ensure_installed_de_at "StoragePyramidUsageAccessTest"
   ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.StoragePyramidUsageAccessTest -Pandroid.testInstrumentationRunnerArguments.capture=pyramid-granted || (capture; exit 1)
   capture
-  adb shell appops set com.stockfileexplorer.app android:get_usage_stats default
+  if_package_present "usage-stats reset" adb shell appops set com.stockfileexplorer.app android:get_usage_stats default
 }
 mkdir -p app/build/reports/device
 ./gradlew installDebug
@@ -40,7 +51,7 @@ adb shell am force-stop com.stockfileexplorer.app
 if [ "${2:-false}" = "true" ]; then
   # Targeted validation: only the storage pyramid tests (minutes instead of the full suite).
   run_pyramid_tests
-  adb shell cmd locale set-app-locales com.stockfileexplorer.app --locales "" || true
+  if_package_present "locale reset (pyramid only)" adb shell cmd locale set-app-locales com.stockfileexplorer.app --locales ""
   exit 0
 fi
 ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.SavedLocationsTest || (capture; exit 1)
@@ -108,7 +119,7 @@ echo "app locales: $(adb shell cmd locale get-app-locales com.stockfileexplorer.
 capture
 # Pyramid colour + installed-apps proofs (each test re-verifies install, grant, locale).
 run_pyramid_tests
-adb shell cmd locale set-app-locales com.stockfileexplorer.app --locales "" || true
+if_package_present "locale reset" adb shell cmd locale set-app-locales com.stockfileexplorer.app --locales ""
 # Upgrade from the immediately previous published version too.
 curl -fL --retry 3 -o "$RUNNER_TEMP/sfe-0.2.9.apk" https://github.com/manuelmania93-svg/FileExplorerControl/releases/download/v0.2.9/File-Explorer-Control-0.2.9.apk
 adb uninstall com.stockfileexplorer.app || true

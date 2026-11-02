@@ -143,7 +143,10 @@ fun StorageAnalysisScreen(
                             )
                             Spacer(Modifier.height(6.dp))
                             Text(
-                                stringResource(R.string.analysis_indexed_scope),
+                                stringResource(
+                                    if (value.installedAppsBytes != null) R.string.analysis_indexed_scope_installed
+                                    else R.string.analysis_indexed_scope,
+                                ),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -376,7 +379,7 @@ private fun PyramidLegendLine(slice: PyramidSlice, usedBytes: Long, modifier: Mo
     ) {
         Box(Modifier.size(10.dp).clip(CircleShape).background(slice.color))
         Spacer(Modifier.size(8.dp))
-        Text(slice.label, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(slice.label, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
         Spacer(Modifier.size(8.dp))
         Text(
             "${FileLogic.formatSize(slice.bytes)} • ${formatUsedPercentage(slice.bytes, usedBytes)}",

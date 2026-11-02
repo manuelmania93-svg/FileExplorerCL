@@ -38,6 +38,21 @@ class StoragePyramidColorTest {
         return device.hasObject(By.textContains(text))
     }
 
+
+    // The tests' own screenshots land in /sdcard/Download and are MediaStore-indexed
+    // as images: without a purge, an earlier class's PNGs show up as a real "Bilder"
+    // slice in this class's pyramid. Remove files and their MediaStore rows so
+    // verifyFixture rebuilds from exactly the intended fixture.
+    private fun purgeStaleScreenshots(context: android.content.Context) {
+        val dir = File("/sdcard/Download")
+        val stale = dir.listFiles { f -> f.name.startsWith("sfe-") && f.name.endsWith(".png") } ?: return
+        val paths = stale.map { it.absolutePath }
+        stale.forEach { it.delete() }
+        val latch = CountDownLatch(paths.size)
+        MediaScannerConnection.scanFile(context, paths.toTypedArray(), null) { _, _ -> latch.countDown() }
+        assertTrue("MediaStore cleanup of stale screenshots timed out", latch.await(60, TimeUnit.SECONDS))
+    }
+
     @Test
     fun sonstigeRendersDarkBlueNextToResidualGrey() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -63,6 +78,7 @@ class StoragePyramidColorTest {
 
             // Rebuild the app index synchronously so the analysis below cannot
             // race a MediaStore observer refresh (same hook as IndexAndHoldTest).
+            purgeStaleScreenshots(context)
             runBlocking { FileIndex.verifyFixture(context, Environment.getExternalStorageDirectory(), clear = true) }
 
             instrumentation.startActivitySync(

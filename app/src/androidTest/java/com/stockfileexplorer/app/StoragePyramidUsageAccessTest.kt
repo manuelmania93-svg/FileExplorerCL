@@ -39,6 +39,21 @@ class StoragePyramidUsageAccessTest {
         return device.hasObject(By.textContains(text))
     }
 
+
+    // The tests' own screenshots land in /sdcard/Download and are MediaStore-indexed
+    // as images: without a purge, an earlier class's PNGs show up as a real "Bilder"
+    // slice in this class's pyramid. Remove files and their MediaStore rows so
+    // verifyFixture rebuilds from exactly the intended fixture.
+    private fun purgeStaleScreenshots(context: android.content.Context) {
+        val dir = File("/sdcard/Download")
+        val stale = dir.listFiles { f -> f.name.startsWith("sfe-") && f.name.endsWith(".png") } ?: return
+        val paths = stale.map { it.absolutePath }
+        stale.forEach { it.delete() }
+        val latch = CountDownLatch(paths.size)
+        MediaScannerConnection.scanFile(context, paths.toTypedArray(), null) { _, _ -> latch.countDown() }
+        assertTrue("MediaStore cleanup of stale screenshots timed out", latch.await(60, TimeUnit.SECONDS))
+    }
+
     @Test
     fun grantedUsageAccessAddsInstalledAppsSlice() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -65,6 +80,7 @@ class StoragePyramidUsageAccessTest {
             val latch = CountDownLatch(1)
             MediaScannerConnection.scanFile(context, arrayOf(fixture.absolutePath), null) { _, _ -> latch.countDown() }
             assertTrue("MediaStore scan of fixture timed out", latch.await(60, TimeUnit.SECONDS))
+            purgeStaleScreenshots(context)
             runBlocking { FileIndex.verifyFixture(context, Environment.getExternalStorageDirectory(), clear = true) }
 
             instrumentation.startActivitySync(
@@ -77,7 +93,13 @@ class StoragePyramidUsageAccessTest {
                 device.wait(Until.hasObject(By.textContains("Speicheranalyse")), 60_000),
             )
 
-            // Above-fold check first: the granted state switches the pyramid note. The
+            // Above-fold checks first: the granted state rewords the scope card
+            // (private app data is measured now, no longer part of the residual).
+            assertTrue(
+                "updated scope card missing",
+                device.wait(Until.hasObject(By.textContains("Installierte Apps werden inklusive ihrer Daten gemessen")), 30_000),
+            )
+            // The granted state also switches the pyramid note. The
             // standard note and the scope card both mention "private App-Daten", so only
             // "Die graue Ebene enthält Systemdaten" discriminates the installed-apps note.
             assertTrue(

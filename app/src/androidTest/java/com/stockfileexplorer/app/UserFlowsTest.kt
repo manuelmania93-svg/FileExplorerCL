@@ -114,9 +114,10 @@ class UserFlowsTest {
             device.findObject(By.text("Copy here")).click()
 
             // Ask mode pauses on the dialog instead of silently renaming.
-            if (!device.wait(Until.hasObject(By.res("conflict_rename")), 15000)) { shot("conflict-missing"); throw AssertionError("conflict dialog missing") }
+            // Dialogs get their own window, so their testTags are not resource ids - match text.
+            if (!device.wait(Until.hasObject(By.text("Rename")), 15000)) { shot("conflict-missing"); throw AssertionError("conflict dialog missing") }
             shot("conflict-2-ask")
-            device.findObject(By.res("conflict_rename")).click()
+            device.findObject(By.text("Rename")).click()
             val renamed = File(destination, "ask-source (1).txt")
             val deadline = android.os.SystemClock.uptimeMillis() + 15000
             while (!renamed.exists() && android.os.SystemClock.uptimeMillis() < deadline) android.os.SystemClock.sleep(200)
@@ -135,8 +136,8 @@ class UserFlowsTest {
             device.findObject(By.text(destination.name)).click()
             waitText("Copy here")
             device.findObject(By.text("Copy here")).click()
-            if (!device.wait(Until.hasObject(By.res("conflict_skip")), 15000)) { shot("conflict-missing-2"); throw AssertionError("conflict dialog missing (2nd)") }
-            device.findObject(By.res("conflict_skip")).click()
+            if (!device.wait(Until.hasObject(By.text("Skip")), 15000)) { shot("conflict-missing-2"); throw AssertionError("conflict dialog missing (2nd)") }
+            device.findObject(By.text("Skip")).click()
             android.os.SystemClock.sleep(1500)
             assertFalse("skip choice created another copy", File(destination, "ask-source (2).txt").exists())
             assertEquals("existing content", File(destination, source.name).readText())

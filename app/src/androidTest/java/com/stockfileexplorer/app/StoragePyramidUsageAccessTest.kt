@@ -164,7 +164,11 @@ class StoragePyramidUsageAccessTest {
             )
 
             // (b) 24 MB in the app's own Android/media dir: must be attributed to the app.
-            val mediaDir = File("/sdcard/Android/media/${context.packageName}")
+            // Go through the framework: externalMediaDirs ensures the directory exists with
+            // the app's quota project id. A bare mkdirs() leaves it in the default project,
+            // and quota-based accounting (Android 15) then cannot attribute the file to us.
+            val mediaDir = context.externalMediaDirs.firstOrNull()
+                ?: File("/sdcard/Android/media/${context.packageName}")
             mediaDir.mkdirs()
             ownMedia = File(mediaDir, "sfe-media-fixture.bin")
             ownMedia.outputStream().use { out -> repeat(24) { out.write(ByteArray(1 shl 20)) } }

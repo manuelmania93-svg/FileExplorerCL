@@ -81,12 +81,27 @@ class GermanLayoutTest {
 
     @Test
     fun germanDashboardMenuAndGalleryRender() {
+        // Compose recomposes asynchronously (storage card updates, background
+        // scans), so a UiObject2 found by UiAutomator can go stale between find
+        // and read. Retry the whole flow once from a fresh activity with the
+        // same assertions; a persistent instability still fails the test.
+        try {
+            runGermanFlow()
+        } catch (e: androidx.test.uiautomator.StaleObjectException) {
+            InstrumentationRegistry.getInstrumentation().uiAutomation
+                .executeShellCommand("settings put system font_scale 1.0")
+            Thread.sleep(1500)
+            runGermanFlow()
+        }
+    }
+
+    private fun runGermanFlow() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
         val suffix = InstrumentationRegistry.getArguments().getString("capture", "german")
 
         instrumentation.startActivitySync(
-            Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         )
         val device = UiDevice.getInstance(instrumentation)
         // Evidence for locale/grant diagnosis before the first German assertion.

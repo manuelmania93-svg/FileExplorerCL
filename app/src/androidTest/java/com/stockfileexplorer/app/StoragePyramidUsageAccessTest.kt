@@ -16,6 +16,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertNotNull
 import org.junit.Assume
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
@@ -334,10 +335,26 @@ class StoragePyramidUsageAccessTest {
                 "estimated pyramid note missing",
                 device.wait(Until.hasObject(By.textContains("Die Ebene der installierten Apps ist geschätzt")), 30_000),
             )
-            assertTrue(
-                "estimated legend row missing",
-                scrollToText(device, "Installierte Apps (inkl. Daten, geschätzt)"),
-            )
+            // Diagnostics-first assertion: capture the measurement values and whether the
+            // legend row exists in the composed hierarchy, so a failure names its cause
+            // (zero slice vs scroll/compose vs text mismatch) instead of a bare miss.
+            val diagMeasurement = InstalledAppsStats.measurePrimaryVolumeBytes(context)
+            val diagReport = runBlocking {
+                com.stockfileexplorer.app.data.StorageAnalyzer.analyze(context) { }
+            }
+            val diag = "measuredTotal=${diagMeasurement?.bytes} incomplete=${diagMeasurement?.incomplete} " +
+                "slice=${diagReport.installedAppsBytes} estimated=${diagReport.installedAppsOverlapEstimated} " +
+                "appsFailed=${diagReport.installedAppsFailed} appsIncomplete=${diagReport.installedAppsIncomplete}"
+            System.out.println("SfeEstimateDiag: $diag")
+            val legendFound = scrollToText(device, "Installierte Apps (inkl. Daten, geschätzt)")
+            if (!legendFound) {
+                val dumpFile = File("/sdcard/Download/sfe-estimated-hierarchy.xml")
+                device.dumpWindowHierarchy(dumpFile)
+                val inHierarchy = runCatching { dumpFile.readText() }
+                    .getOrNull()?.contains("Installierte Apps") ?: false
+                System.out.println("SfeEstimateDiag: legendInHierarchy=$inHierarchy")
+                fail("estimated legend row missing ($diag; legendInHierarchy=$inHierarchy)")
+            }
             Thread.sleep(2_000)
             device.takeScreenshot(File("/sdcard/Download/sfe-pyramid-estimated.png"))
         } catch (t: Throwable) {

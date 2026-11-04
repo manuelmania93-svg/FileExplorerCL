@@ -28,6 +28,8 @@ object InstalledAppsStats {
         val bytes: Long,
         /** True when at least one installed package could not be measured; [bytes] is then a lower bound. */
         val incomplete: Boolean,
+        /** Per-package dataBytes for the packages that measured cleanly (for overlap accounting). */
+        val dataBytesByPackage: Map<String, Long> = emptyMap(),
     )
 
     /**
@@ -57,11 +59,13 @@ object InstalledAppsStats {
         }
         var total = 0L
         var failures = 0
+        val dataBytesByPackage = mutableMapOf<String, Long>()
         for (info in packages) {
             try {
                 val stats = statsManager.queryStatsForPackage(
                     StorageManager.UUID_DEFAULT, info.packageName, Process.myUserHandle())
                 total += stats.appBytes + stats.dataBytes
+                dataBytesByPackage[info.packageName] = stats.dataBytes
             } catch (_: PackageManager.NameNotFoundException) {
                 // Uninstalled between listing and measuring: nothing to add.
                 failures++
@@ -72,7 +76,7 @@ object InstalledAppsStats {
         }
         // A 100% failure rate means the query path itself is broken, not empty storage.
         if (packages.isNotEmpty() && failures == packages.size) return null
-        return Measurement(total, incomplete = failures > 0)
+        return Measurement(total, incomplete = failures > 0, dataBytesByPackage = dataBytesByPackage)
     }
 
     private const val TAG = "InstalledAppsStats"

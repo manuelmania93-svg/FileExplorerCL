@@ -146,6 +146,7 @@ class StoragePyramidUsageAccessTest {
         val device = UiDevice.getInstance(instrumentation)
         var unattributed: File? = null
         var ownMedia: File? = null
+        var foreignDir: File? = null
         try {
             device.executeShellCommand("appops set ${context.packageName} android:get_usage_stats allow")
             assertTrue("usage access grant did not take effect", InstalledAppsStats.hasUsageAccess(context))
@@ -177,9 +178,23 @@ class StoragePyramidUsageAccessTest {
                 "own Android/media fixture not attributed to the app: ${afterDownload.bytes} -> ${afterMedia.bytes}",
                 afterMedia.bytes - afterDownload.bytes >= 12L * 1024 * 1024,
             )
+
+            // (c) Bare-mkdir media dir for a package that is not installed (the removed-app
+            // and copier/MTP-created case): without a framework-set project id, quota
+            // accounting must NOT attribute these bytes - the measurement must not move.
+            foreignDir = File("/sdcard/Android/media/com.sfe.fakeremoved")
+            foreignDir.mkdirs()
+            val foreign = File(foreignDir, "sfe-foreign-fixture.bin")
+            foreign.outputStream().use { out -> repeat(24) { out.write(ByteArray(1 shl 20)) } }
+            val afterForeign = InstalledAppsStats.measurePrimaryVolumeBytes(context)!!
+            assertTrue(
+                "foreign Android/media dir leaked into installed apps: ${afterMedia.bytes} -> ${afterForeign.bytes}",
+                afterForeign.bytes - afterMedia.bytes < 8L * 1024 * 1024,
+            )
         } finally {
             unattributed?.delete()
             ownMedia?.delete()
+            foreignDir?.deleteRecursively()
             device.executeShellCommand("appops set ${context.packageName} android:get_usage_stats default")
         }
     }

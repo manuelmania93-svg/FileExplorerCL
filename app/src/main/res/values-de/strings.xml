@@ -127,6 +127,7 @@
     <string name="analysis_apps_measure_failed">Installierte Apps konnten nicht gemessen werden. Der Nutzungszugriff ist erteilt, aber Android liefert keine Werte.</string>
     <string name="analysis_apps_inconsistent">Messabweichung: Apps und Dateien überschneiden sich. Der Wert für installierte Apps kann zu hoch sein.</string>
     <string name="analysis_apps_partial">Einige Apps konnten nicht gemessen werden. Der Wert ist eine Untergrenze.</string>
+    <string name="analysis_apps_media_estimated">App-Medien sind geschätzt: Medien in App-Ordnern können stattdessen in ihrer Medienkategorie erscheinen.</string>
     <string name="analysis_indexed_scope">Kategorien zählen Dateien aus dem App-Index. Der übrige belegte Speicher enthält private App-Daten, Systemdaten und nicht indexierten Speicher.</string>
     <string name="analysis_indexed_scope_installed">Kategorien zählen Dateien aus dem App-Index. Installierte Apps werden inklusive ihrer Daten gemessen. Der übrige belegte Speicher enthält Systemdaten und nicht indexierten Speicher.</string>
     <string name="storage_pyramid">Speicher-Pyramide</string>

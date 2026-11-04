@@ -180,6 +180,14 @@ fun StorageAnalysisScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
+                            if (!value.installedAppsFailed && value.installedAppsOverlapEstimated) {
+                                Spacer(Modifier.height(6.dp))
+                                Text(
+                                    stringResource(R.string.analysis_apps_media_estimated),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                         }
                     }
                 }

@@ -45,6 +45,13 @@ object StorageAnalyzer {
          * attribution. Surfaced honestly instead of hiding the excess in the residual.
          */
         val installedAppsInconsistent: Boolean = false,
+        /**
+         * True when indexed Android/media bytes were subtracted from the apps figure. That
+         * overlap is a bounded estimate, not a measurement: whether foreign-created media
+         * dirs carry app attribution is not observable through any public API (see
+         * [mediaOverlapBytes]). The UI must say the value is estimated.
+         */
+        val installedAppsOverlapEstimated: Boolean = false,
         val loading: Boolean = false,
         /** True when more than [DUPLICATE_CANDIDATE_CAP] same-size files existed and only that many were compared. */
         val duplicatesLimited: Boolean = false,
@@ -113,9 +120,8 @@ object StorageAnalyzer {
         // calls and must not delay the fast sections above.
         val appsJob = async { if (hasUsageAccess) InstalledAppsStats.measurePrimaryVolumeBytes(context) else null }
         val measurement = appsJob.await()
-        val installedAppsBytes = measurement?.let {
-            (it.bytes - mediaOverlapBytes(indexedMediaBytesByPackage, it.dataBytesByPackage)).coerceAtLeast(0L)
-        }
+        val mediaOverlap = measurement?.let { mediaOverlapBytes(indexedMediaBytesByPackage, it.dataBytesByPackage) } ?: 0L
+        val installedAppsBytes = measurement?.let { (it.bytes - mediaOverlap).coerceAtLeast(0L) }
         // Consistency check: if the categories plus the installed-app figure exceed the
         // used total by more than 2%, the attribution overlaps (timing drift between the
         // StatFs snapshot and the measurement is normal and stays inside the tolerance).
@@ -128,6 +134,7 @@ object StorageAnalyzer {
             installedAppsFailed = hasUsageAccess && measurement == null,
             installedAppsIncomplete = measurement?.incomplete == true || inconsistent,
             installedAppsInconsistent = inconsistent,
+            installedAppsOverlapEstimated = installedAppsBytes != null && mediaOverlap > 0L,
         )
         onPartial(base.copy(loading = true))
         val empty = emptyJob.await()

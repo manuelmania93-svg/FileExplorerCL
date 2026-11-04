@@ -2,6 +2,7 @@ package com.stockfileexplorer.app
 
 import android.content.Intent
 import android.media.MediaScannerConnection
+import android.provider.MediaStore
 import android.os.Environment
 import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -36,9 +37,18 @@ class StoragePyramidUsageAccessTest {
         // can carry the target row past the viewport between checks, scrolling the
         // page to its bottom without ever matching (run 41491727508). A 300 px drag
         // cannot move a ~60 px legend row across the ~1200 px viewport in one step.
-        repeat(40) {
+        // Downward pass first, then an upward pass: with cross-class fixtures cleaned
+        // the target is near the top, but if another suite ever pollutes again the
+        // budget must still reach a legend below a long list instead of giving up
+        // halfway down (full-suite run 41891874820 lost the legend that way).
+        repeat(100) {
             if (device.hasObject(By.textContains(text))) return true
             device.swipe(300, 1000, 300, 700, 100)
+            Thread.sleep(300)
+        }
+        repeat(100) {
+            if (device.hasObject(By.textContains(text))) return true
+            device.swipe(300, 700, 300, 1000, 100)
             Thread.sleep(300)
         }
         return device.hasObject(By.textContains(text))
@@ -57,6 +67,41 @@ class StoragePyramidUsageAccessTest {
         val latch = CountDownLatch(paths.size)
         MediaScannerConnection.scanFile(context, paths.toTypedArray(), null) { _, _ -> latch.countDown() }
         assertTrue("MediaStore cleanup of stale screenshots timed out", latch.await(60, TimeUnit.SECONDS))
+    }
+
+    // Other instrumented classes stage fixture trees under Download and (before the
+    // teardown cleanup added alongside this) left them behind: RemoteSamples/
+    // TotalsFixture/ViewerSamples inflate the analysis screen's duplicate section so
+    // far that the pyramid legend falls outside any reasonable scroll budget
+    // (full-suite run 41891874820). Purge ONLY those exact test-owned roots plus a
+    // MediaStore rescan; never pattern-match shared user content.
+    private fun purgeKnownCrossClassFixtures(context: android.content.Context) {
+        val roots = listOf(
+            File("/sdcard/Download/RemoteSamples"),
+            File("/sdcard/Download/ViewerSamples"),
+        )
+        val paths = roots.filter { it.isDirectory }
+            .flatMap { it.walkBottomUp().toList() }
+            .map { it.absolutePath }
+        if (paths.isNotEmpty()) {
+            roots.forEach { it.deleteRecursively() }
+            val latch = CountDownLatch(paths.size)
+            MediaScannerConnection.scanFile(context, paths.toTypedArray(), null) { _, _ -> latch.countDown() }
+            assertTrue("MediaStore cleanup of cross-class fixtures timed out", latch.await(60, TimeUnit.SECONDS))
+        }
+        // Rows can also outlive the files (owning suites delete their tree without a
+        // rescan), so drop any lingering MediaStore rows for these two exact roots.
+        val collection = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL)
+        val selection = buildString {
+            append(MediaStore.MediaColumns.RELATIVE_PATH).append(" IN (?, ?) OR ")
+            append(MediaStore.MediaColumns.RELATIVE_PATH).append(" LIKE ? OR ")
+            append(MediaStore.MediaColumns.RELATIVE_PATH).append(" LIKE ?")
+        }
+        context.contentResolver.delete(
+            collection,
+            selection,
+            arrayOf("Download/RemoteSamples/", "Download/ViewerSamples/", "Download/RemoteSamples/%", "Download/ViewerSamples/%"),
+        )
     }
 
     @Test
@@ -86,6 +131,7 @@ class StoragePyramidUsageAccessTest {
             MediaScannerConnection.scanFile(context, arrayOf(fixture.absolutePath), null) { _, _ -> latch.countDown() }
             assertTrue("MediaStore scan of fixture timed out", latch.await(60, TimeUnit.SECONDS))
             purgeStaleScreenshots(context)
+            purgeKnownCrossClassFixtures(context)
             runBlocking { FileIndex.verifyFixture(context, Environment.getExternalStorageDirectory(), clear = true) }
 
             instrumentation.startActivitySync(
@@ -268,6 +314,7 @@ class StoragePyramidUsageAccessTest {
             dir.mkdirs()
             visible = File(dir, "sfe-visible-media-fixture.bin")
             visible.outputStream().use { out -> repeat(8) { out.write(ByteArray(1 shl 20)) } }
+            purgeKnownCrossClassFixtures(context)
             runBlocking { FileIndex.verifyFixture(context, Environment.getExternalStorageDirectory(), clear = true) }
 
             instrumentation.startActivitySync(
@@ -299,6 +346,7 @@ class StoragePyramidUsageAccessTest {
         } finally {
             visible?.delete()
             // Re-index so the deleted fixture cannot leak overlap into other tests.
+            purgeKnownCrossClassFixtures(context)
             runBlocking { FileIndex.verifyFixture(context, Environment.getExternalStorageDirectory(), clear = true) }
             device.executeShellCommand("appops set ${context.packageName} android:get_usage_stats default")
             device.executeShellCommand("cmd locale set-app-locales ${context.packageName} --locales ''")

@@ -1,6 +1,10 @@
 package com.stockfileexplorer.app.theme
 
+import android.app.Activity
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
@@ -85,6 +89,16 @@ private val SfeDarkColors = darkColorScheme(
 @Composable
 fun AppTheme(mode: ThemeMode = ThemeMode.LIGHT, content: @Composable () -> Unit) {
     val dark = mode == ThemeMode.DARK || (mode == ThemeMode.SYSTEM && isSystemInDarkTheme())
+    // android:windowLightStatusBar is ignored on API 35 (targetSdk 35, enforced
+    // edge-to-edge), so the status bar icon contrast is set here on the window.
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            (view.context as? Activity)?.window?.let { window ->
+                WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !dark
+            }
+        }
+    }
     MaterialTheme(
         colorScheme = if (dark) SfeDarkColors else SfeColors,
         typography = SfeTypography,

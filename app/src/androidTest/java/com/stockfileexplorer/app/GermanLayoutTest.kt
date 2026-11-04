@@ -37,13 +37,46 @@ class GermanLayoutTest {
         return device.hasObject(By.textContains(text))
     }
 
+    /** Texts seen while scanning, kept so a failed lookup can say what the list really contained. */
+    private val seenWhileScanning = linkedSetOf<String>()
+
+    private fun noteVisibleTexts(device: UiDevice) {
+        // Rows recompose while being read; a stale node is skipped, never allowed to fail the scan.
+        try {
+            device.findObjects(By.textContains("")).forEach { o ->
+                try { o.text?.let { t -> if (seenWhileScanning.size < 400) seenWhileScanning.add(t.take(40)) } } catch (_: androidx.test.uiautomator.StaleObjectException) {}
+            }
+        } catch (_: androidx.test.uiautomator.StaleObjectException) {}
+    }
+
+    // Short swipes only: a long fast swipe flings the list past the target between two checks (the earlier
+    // failure screenshots show the list parked at its end with the target above the visible rows).
+    // Scans down from the top, then back up, checking after every step.
     private fun scrollToText(device: UiDevice, text: String): Boolean {
-        repeat(40) {
+        if (device.hasObject(By.textContains(text))) return true
+        seenWhileScanning.clear()
+        repeat(12) { device.swipe(300, 500, 300, 1100, 20); Thread.sleep(120) }
+        repeat(60) {
             if (device.hasObject(By.textContains(text))) return true
-            device.swipe(300, 900, 300, 300, 20)
-            Thread.sleep(250)
+            noteVisibleTexts(device)
+            device.swipe(300, 900, 300, 650, 30)
+            Thread.sleep(350)
+        }
+        repeat(60) {
+            if (device.hasObject(By.textContains(text))) return true
+            device.swipe(300, 650, 300, 900, 30)
+            Thread.sleep(350)
         }
         return device.hasObject(By.textContains(text))
+    }
+
+    // Fast swipes first (a slow drag that starts on a row can register as a long press and select it,
+    // which happened once Download held many more evidence screenshots), slow drags only as a fallback.
+    private fun findFixture(device: UiDevice, text: String): Boolean =
+        device.wait(Until.hasObject(By.textContains(text)), 8000) || scrollToText(device, text) || slowScrollToText(device, text)
+
+    private fun clearSelection(device: UiDevice) {
+        if (device.hasObject(By.res("selection_bar"))) { device.pressBack(); device.wait(Until.gone(By.res("selection_bar")), 3000) }
     }
 
     @Test
@@ -79,13 +112,16 @@ class GermanLayoutTest {
         // (The "Interner Speicher" card now opens the storage analysis; the folder
         // browser opens via the "Hauptspeicher" shortcut.)
         device.findObject(By.text("Hauptspeicher")).click()
-        assertTrue(device.wait(Until.hasObject(By.text("Download")), 8000))
+        val rootRowFound = device.wait(Until.hasObject(By.text("Download")), 8000) || scrollToText(device, "Download")
+        if (!rootRowFound) {
+            device.takeScreenshot(File("/sdcard/Download/sfe-german-root-download-missing.png"))
+            throw AssertionError("Download folder row visible in the root listing; rows seen while scanning: " + seenWhileScanning.joinToString(" | "))
+        }
         device.findObject(By.text("Download")).click()
         // Name-sorted screenshots from earlier test classes (sfe-back-*) push the
         // fixtures off the first screen; scroll like the gallery part below does.
         // If still missing, capture evidence before failing.
-        if (!device.wait(Until.hasObject(By.textContains("sfe-fixture-report.pdf")), 8000) &&
-            !slowScrollToText(device, "sfe-fixture-report.pdf")) {
+        if (!findFixture(device, "sfe-fixture-report.pdf")) {
             device.takeScreenshot(File("/sdcard/Download/sfe-german-download-missing.png"))
             throw AssertionError("PDF fixture visible in Download")
         }
@@ -101,6 +137,7 @@ class GermanLayoutTest {
 
         // Long-press floats the Rename/Share quick actions on the right side; the bottom
         // selection bar keeps Copy/Move/Delete only - no More step.
+        clearSelection(device)
         val fixtureRow = device.findObject(By.textContains("sfe-fixture-report.pdf"))
             ?: throw AssertionError("PDF fixture row still visible for long press")
         fixtureRow.longClick()
@@ -126,12 +163,16 @@ class GermanLayoutTest {
             device.wait(Until.hasObject(By.text("Interner Speicher")), 10000)
         )
         device.findObject(By.text("Hauptspeicher")).click()
-        assertTrue(device.wait(Until.hasObject(By.text("Download")), 8000))
+        val rootRowFoundAgain = device.wait(Until.hasObject(By.text("Download")), 8000) || scrollToText(device, "Download")
+        if (!rootRowFoundAgain) {
+            device.takeScreenshot(File("/sdcard/Download/sfe-german-root-download-missing.png"))
+            throw AssertionError("Download folder row visible in the root listing after font change; rows seen while scanning: " + seenWhileScanning.joinToString(" | "))
+        }
         device.findObject(By.text("Download")).click()
-        if (!device.wait(Until.hasObject(By.textContains("sfe-fixture-report.pdf")), 8000) &&
-            !slowScrollToText(device, "sfe-fixture-report.pdf")) {
+        if (!findFixture(device, "sfe-fixture-report.pdf")) {
             throw AssertionError("PDF fixture visible in Download at 1.3 font")
         }
+        clearSelection(device)
         device.findObject(By.textContains("sfe-fixture-report.pdf")).longClick()
         assertTrue(
             "Floating quick actions at 1.3 font",
@@ -155,7 +196,7 @@ class GermanLayoutTest {
         device.findObject(By.text("Bilder")).click()
         assertTrue(
             "Sample image listed in Bilder category",
-            scrollToText(device, "sfe-sample-picture.jpg")
+            scrollToText(device, "sfe-sample-picture.jpg").also { if (!it) device.takeScreenshot(File("/sdcard/Download/sfe-german-gallery-sample-missing.png")) }
         )
         assertFalse(
             "Category opened from cached scan without a blocking rescan",

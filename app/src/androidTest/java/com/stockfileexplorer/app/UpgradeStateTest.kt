@@ -26,7 +26,7 @@ class UpgradeStateTest {
     @Test
     fun upgradedAppHasNewVersionLabelAndIncomingHandlers() {
         val info = context.packageManager.getPackageInfo(context.packageName, 0)
-        assertEquals("0.2.13-test", info.versionName)
+        assertEquals("0.2.13", info.versionName)
         assertEquals(15L, info.longVersionCode)
         assertEquals("File Explorer CL", context.packageManager.getApplicationLabel(context.applicationInfo).toString())
         listOf("text/plain", "application/pdf", "image/jpeg", "video/mp4", "application/zip").forEach {

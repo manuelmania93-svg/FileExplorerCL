@@ -30,8 +30,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -49,6 +51,10 @@ import com.stockfileexplorer.app.data.AnalysisStage
 import com.stockfileexplorer.app.data.FileCategory
 import com.stockfileexplorer.app.data.FileItem
 import com.stockfileexplorer.app.data.FileLogic
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import com.stockfileexplorer.app.data.InstalledAppsStats
 import com.stockfileexplorer.app.data.StorageAnalyzer
 import java.util.Locale
 
@@ -71,10 +77,27 @@ fun StorageAnalysisScreen(
     var stage by remember { mutableStateOf<AnalysisStage?>(null) }
     // Held by the caller so opening a result and coming back keeps the finished report and scroll position.
     var report by remember { mutableStateOf(analysisHolder.report) }
-    LaunchedEffect(Unit) {
-        if (analysisHolder.report?.loading == false) return@LaunchedEffect
-        report = StorageAnalyzer.analyze({ stage = it }, onPartial = { report = it; analysisHolder.report = it })
+    var analysisVersion by remember { mutableIntStateOf(0) }
+    LaunchedEffect(analysisVersion) {
+        if (analysisVersion == 0 && analysisHolder.report?.loading == false) return@LaunchedEffect
+        report = StorageAnalyzer.analyze(context, { stage = it }, onPartial = { report = it; analysisHolder.report = it })
         analysisHolder.report = report
+    }
+    // Coming back from system Settings after granting usage access: re-run once so the
+    // pyramid picks up the installed-apps slice without an app restart.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME &&
+                analysisHolder.report?.usageAccessMissing == true &&
+                InstalledAppsStats.hasUsageAccess(context)
+            ) {
+                analysisHolder.report = null
+                analysisVersion++
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     Column(Modifier.fillMaxSize()) {
@@ -120,7 +143,10 @@ fun StorageAnalysisScreen(
                             )
                             Spacer(Modifier.height(6.dp))
                             Text(
-                                stringResource(R.string.analysis_indexed_scope),
+                                stringResource(
+                                    if (value.installedAppsBytes != null) R.string.analysis_indexed_scope_installed
+                                    else R.string.analysis_indexed_scope,
+                                ),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -130,6 +156,28 @@ fun StorageAnalysisScreen(
                                     stringResource(R.string.analysis_partial),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.error,
+                                )
+                            }
+                        }
+                    }
+                }
+
+                if (value.usageAccessMissing) {
+                    item {
+                        Card {
+                            Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                                Text(
+                                    stringResource(R.string.installed_apps_permission_hint),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    stringResource(R.string.installed_apps_permission_grant),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    modifier = Modifier.clickable {
+                                        context.startActivity(android.content.Intent(android.provider.Settings.ACTION_USAGE_ACCESS_SETTINGS))
+                                    },
                                 )
                             }
                         }
@@ -253,21 +301,29 @@ private data class PyramidSlice(
     val color: Color,
 )
 
+/** Grey remainder of the pyramid: used space neither indexed nor attributed to installed apps. */
+internal fun pyramidResidualBytes(usedBytes: Long, indexedBytes: Long, installedAppsBytes: Long?): Long =
+    (usedBytes - indexedBytes - (installedAppsBytes ?: 0L)).coerceAtLeast(0L)
+
 @Composable
 private fun StoragePyramid(report: StorageAnalyzer.Report) {
     val usedBytes = (report.totalBytes - report.freeBytes).coerceAtLeast(0L)
     val indexedBytes = report.categories.values.sum()
-    val remainingBytes = (usedBytes - indexedBytes).coerceAtLeast(0L)
+    val remainingBytes = pyramidResidualBytes(usedBytes, indexedBytes, report.installedAppsBytes)
     val categorySlices = report.categories.entries
         .filter { it.value > 0 }
         .map { (category, bytes) -> PyramidSlice(categoryLabel(category), bytes, categoryColor(category)) }
         .sortedByDescending { it.bytes }
+    // Red: distinct from every category color, the dark-blue Sonstige and the residual grey.
+    val installedAppsSlice = report.installedAppsBytes?.takeIf { it > 0 }?.let {
+        PyramidSlice(stringResource(R.string.cat_installed_apps), it, Color(0xFFC62828))
+    }
     val remainingSlice = if (remainingBytes > 0) {
         PyramidSlice(stringResource(R.string.other_used_storage), remainingBytes, Color(0xFF78909C))
     } else {
         null
     }
-    val slices = (categorySlices + listOfNotNull(remainingSlice)).sortedBy { it.bytes }
+    val slices = (categorySlices + listOfNotNull(remainingSlice, installedAppsSlice)).sortedBy { it.bytes }
     if (slices.isEmpty()) return
 
     Card {
@@ -276,7 +332,8 @@ private fun StoragePyramid(report: StorageAnalyzer.Report) {
             Spacer(Modifier.height(4.dp))
             Text(
                 stringResource(
-                    if (remainingBytes > 0) R.string.storage_pyramid_note
+                    if (report.installedAppsBytes != null) R.string.storage_pyramid_note_installed
+                    else if (remainingBytes > 0) R.string.storage_pyramid_note
                     else R.string.storage_pyramid_note_indexed,
                 ),
                 style = MaterialTheme.typography.bodySmall,
@@ -306,6 +363,7 @@ private fun StoragePyramid(report: StorageAnalyzer.Report) {
             }
             Spacer(Modifier.height(10.dp))
             remainingSlice?.let { PyramidLegendLine(it, usedBytes) }
+            installedAppsSlice?.let { PyramidLegendLine(it, usedBytes) }
             categorySlices.forEach { slice ->
                 PyramidLegendLine(slice, usedBytes)
             }
@@ -321,7 +379,7 @@ private fun PyramidLegendLine(slice: PyramidSlice, usedBytes: Long, modifier: Mo
     ) {
         Box(Modifier.size(10.dp).clip(CircleShape).background(slice.color))
         Spacer(Modifier.size(8.dp))
-        Text(slice.label, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(slice.label, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
         Spacer(Modifier.size(8.dp))
         Text(
             "${FileLogic.formatSize(slice.bytes)} • ${formatUsedPercentage(slice.bytes, usedBytes)}",

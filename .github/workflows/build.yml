@@ -8,6 +8,10 @@ on:
         description: Run the scoped remote/search/totals tests only
         type: boolean
         default: false
+      pyramid_only:
+        description: Run only the storage pyramid tests
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -52,7 +56,7 @@ jobs:
           profile: pixel_2
           disable-animations: true
           script: |
-            bash .github/scripts/verify-build.sh '${{ inputs.playback_only }}'
+            bash .github/scripts/verify-build.sh '${{ inputs.playback_only }}' '${{ inputs.pyramid_only }}'
       - uses: actions/upload-artifact@v4
         if: always()
         with:

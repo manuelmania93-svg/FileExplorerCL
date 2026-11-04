@@ -95,7 +95,7 @@ class RemoteAndSearchTest {
     }
     @Test fun appsSortBySizeAndShowClearlyLabeledApkTotal() {
         setup()
-        text("Apps").click()
+        text("Installed apps").click()
         val total = tag("apps_total")
         assertTrue(total.text.startsWith("APKs:"))
         tag("apps_sort").click(); text("APK size (largest first)").click()

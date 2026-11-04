@@ -178,7 +178,7 @@ fun DashboardScreen(
 
         item { ShortcutCard(SfeIcons.Folder, Color(0xFFFF9800), stringResource(R.string.main_storage), onOpenStorage) }
         item { ShortcutCard(SfeIcons.Download, Color(0xFF009688), stringResource(R.string.downloads), onOpenDownloads) }
-        item { ShortcutCard(SfeIcons.Android, Color(0xFF4CAF50), stringResource(R.string.cat_apps), onOpenApps) }
+        item { ShortcutCard(SfeIcons.Android, Color(0xFF4CAF50), stringResource(R.string.installed_apps_title), onOpenApps) }
         item { ShortcutCard(Icons.Filled.Delete, Color(0xFF607D8B), stringResource(R.string.papierkorb), onOpenPapierkorb) }
     }
 }

@@ -1,5 +1,6 @@
 package com.stockfileexplorer.app.data
 
+import android.content.Context
 import android.os.Environment
 import android.os.StatFs
 import kotlinx.coroutines.Dispatchers
@@ -25,6 +26,15 @@ object StorageAnalyzer {
         val duplicates: List<DuplicateGroup>,
         val recycleBins: List<FolderUsage>,
         val incomplete: Boolean,
+        /**
+         * Installed-app bytes on the primary volume (app code + private data; cache is already
+         * included in the API's dataBytes). Bytes the index can already see under Android/media
+         * are subtracted so they are not counted twice (once here, once in their media category).
+         * Null when the usage-access grant is missing or the measurement failed.
+         */
+        val installedAppsBytes: Long? = null,
+        /** True when the usage-access grant was missing during the analysis. */
+        val usageAccessMissing: Boolean = false,
         val loading: Boolean = false,
         /** True when more than [DUPLICATE_CANDIDATE_CAP] same-size files existed and only that many were compared. */
         val duplicatesLimited: Boolean = false,
@@ -35,14 +45,28 @@ object StorageAnalyzer {
      * index and are published at once through [onPartial] with [Report.loading] = true. The three
      * filesystem sections (empty folders, duplicates, recycle folders) then run in parallel.
      */
-    suspend fun analyze(onStage: (AnalysisStage) -> Unit, onPartial: (Report) -> Unit = {}): Report = withContext(Dispatchers.IO) {
+    suspend fun analyze(context: Context, onStage: (AnalysisStage) -> Unit, onPartial: (Report) -> Unit = {}): Report = withContext(Dispatchers.IO) {
         val root = Environment.getExternalStorageDirectory()
         val stat = StatFs(root.absolutePath)
         val status = FileIndex.state.value
         onStage(AnalysisStage.CATEGORIES)
         val rows = FileIndex.allFiles()
         onStage(AnalysisStage.FOLDERS)
-        val base = buildRowsReport(rows, root, stat.totalBytes, stat.availableBytes, status.incomplete)
+        // Android/media is visible to the MediaStore index (e.g. messenger media) and is also
+        // part of the StorageStats app attribution, so subtract the indexed share from the
+        // installed-apps figure. Android/data and Android/obb are not indexed, no overlap there.
+        val mediaPrefix = root.absolutePath + "/Android/media/"
+        val indexedAndroidMediaBytes = rows.filter { it.file.absolutePath.startsWith(mediaPrefix) }.sumOf { it.size }
+        val hasUsageAccess = InstalledAppsStats.hasUsageAccess(context)
+        val installedAppsBytes = if (hasUsageAccess) {
+            InstalledAppsStats.measurePrimaryVolumeBytes(context)?.let { (it - indexedAndroidMediaBytes).coerceAtLeast(0L) }
+        } else {
+            null
+        }
+        val base = buildRowsReport(rows, root, stat.totalBytes, stat.availableBytes, status.incomplete).copy(
+            installedAppsBytes = installedAppsBytes,
+            usageAccessMissing = !hasUsageAccess,
+        )
         onPartial(base.copy(loading = true))
         onStage(AnalysisStage.DUPLICATES)
         val emptyJob = async { findEmptyFolders(root) }

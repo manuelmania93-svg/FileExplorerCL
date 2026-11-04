@@ -104,7 +104,7 @@ class TrashAndAppsTest {
         start()
         waitText(appName)
 
-        waitText(label("Apps", "Apps")).click()
+        waitText(label("Installed apps", "Installierte Apps")).click()
         // Rows carry "<package> • <size>"; their first appearance measures the
         // async package-query + icon-decode load time.
         val clickAt = android.os.SystemClock.elapsedRealtime()

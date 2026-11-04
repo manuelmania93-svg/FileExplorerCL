@@ -95,7 +95,7 @@ fun InstalledAppsScreen(onBack: () -> Unit) {
 
     Column(Modifier.fillMaxSize()) {
         TopAppBar(
-            title = { Text(stringResource(R.string.cat_apps)) },
+            title = { Text(stringResource(R.string.installed_apps_title)) },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, null) } },
             actions = {
                 if (apps != null) Text(stringResource(R.string.apps_apk_total, FileLogic.formatSize(apps!!.sumOf { it.sizeBytes })),

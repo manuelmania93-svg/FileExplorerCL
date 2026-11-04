@@ -9,6 +9,7 @@ import androidx.test.uiautomator.Until
 import com.stockfileexplorer.app.data.Archives
 import org.junit.Assert.*
 import org.junit.Test
+import org.junit.After
 import org.junit.runner.RunWith
 import java.io.File
 
@@ -18,6 +19,13 @@ class BuiltInViewersTest {
     private val context = inst.targetContext
     private val device = UiDevice.getInstance(inst)
     private val root = File("/sdcard/Download/ViewerSamples")
+
+    // This suite owns this fixture tree: remove it after every test so later suites
+    // (e.g. the storage pyramid analysis) do not inherit a polluted file index.
+    @After
+    fun tearDownFixtures() {
+        root.deleteRecursively()
+    }
     private fun fixtures() {
         val fd = inst.uiAutomation.executeShellCommand("appops set ${context.packageName} MANAGE_EXTERNAL_STORAGE allow")
         android.os.ParcelFileDescriptor.AutoCloseInputStream(fd).use { it.readBytes() }

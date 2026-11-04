@@ -124,6 +124,10 @@
     <string name="no">Nein</string>
     <string name="storage_analysis">Speicheranalyse</string>
     <string name="analysis_partial">Einige Ordner konnten nicht vollständig analysiert werden.</string>
+    <string name="analysis_apps_measure_failed">Installierte Apps konnten nicht gemessen werden. Der Nutzungszugriff ist erteilt, aber Android liefert keine Werte.</string>
+    <string name="analysis_apps_inconsistent">Messabweichung: Apps und Dateien überschneiden sich. Der Wert für installierte Apps kann zu hoch sein.</string>
+    <string name="analysis_apps_partial">Einige Apps konnten nicht gemessen werden. Der Wert ist eine Untergrenze.</string>
+    <string name="analysis_apps_media_estimated">Der Speicher installierter Apps ist geschätzt und kann zu niedrig sein, weil Android die genaue Überschneidung mit indexierten App-Medienordnern nicht offenlegt. Die Differenz verbleibt im übrigen belegten Speicher.</string>
     <string name="analysis_indexed_scope">Kategorien zählen Dateien aus dem App-Index. Der übrige belegte Speicher enthält private App-Daten, Systemdaten und nicht indexierten Speicher.</string>
     <string name="analysis_indexed_scope_installed">Kategorien zählen Dateien aus dem App-Index. Installierte Apps werden inklusive ihrer Daten gemessen. Der übrige belegte Speicher enthält Systemdaten und nicht indexierten Speicher.</string>
     <string name="storage_pyramid">Speicher-Pyramide</string>
@@ -131,6 +135,8 @@
     <string name="storage_pyramid_note_indexed">Die Ebenenflächen entsprechen dem indexierten belegten Speicher.</string>
     <string name="installed_apps_title">Installierte Apps</string>
     <string name="cat_installed_apps">Installierte Apps (inkl. Daten)</string>
+    <string name="cat_installed_apps_estimated">Installierte Apps (inkl. Daten, geschätzt)</string>
+    <string name="storage_pyramid_note_estimated">Die Ebenenflächen entsprechen ungefähr dem belegten Speicher. Die Ebene der installierten Apps ist geschätzt; die graue Ebene kann auch App-Daten enthalten.</string>
     <string name="installed_apps_permission_hint">Um installierte Apps inklusive ihrer Daten in der Pyramide anzuzeigen, braucht File Explorer den speziellen „App-Nutzungszugriff“. Er wird nur zum Auslesen der Speichergrößen pro App verwendet.</string>
     <string name="installed_apps_permission_grant">Nutzungszugriff erlauben</string>
     <string name="storage_pyramid_note_installed">Die Ebenenflächen entsprechen dem belegten Speicher. Die graue Ebene enthält Systemdaten und nicht indexierten Speicher.</string>
@@ -231,4 +237,26 @@
     <string name="viewer_extract_here">Hier entpacken</string>
     <string name="viewer_extract_choose">Ordner wählen</string>
     <string name="viewer_extract_here_short">In diesen Ordner entpacken</string>
+
+    <!-- Settings screen -->
+    <string name="settings_title">Einstellungen</string>
+    <string name="settings_design">Design</string>
+    <string name="settings_theme_light">Hell (Gelb)</string>
+    <string name="settings_theme_dark">Dunkel</string>
+    <string name="settings_theme_system">System folgen</string>
+    <string name="settings_menus">Menüs</string>
+    <string name="settings_menu_floating">Schwebende Umbenennen/Teilen-Karte</string>
+    <string name="settings_menu_classic">Untere Leiste mit Mehr-Schritt</string>
+    <string name="settings_fileops">Dateioperationen</string>
+    <string name="settings_extract">Archive entpacken</string>
+    <string name="settings_extract_ask">Fragen: hier oder Ordner wählen</string>
+    <string name="settings_extract_here">Immer hier entpacken</string>
+    <string name="settings_conflict">Namenskonflikte</string>
+    <string name="settings_conflict_ask">Jedes Mal fragen</string>
+    <string name="settings_conflict_rename">Automatisch in "name (1)" umbenennen</string>
+    <string name="settings_conflict_skip">Vorhandene Namen überspringen</string>
+    <string name="conflict_title">Name existiert bereits</string>
+    <string name="conflict_message">"%1$s" existiert bereits im Ziel. Es wird nichts überschrieben.</string>
+    <string name="skip">Überspringen</string>
+    <string name="transfer_skipped">%1$d übersprungen</string>
 </resources>

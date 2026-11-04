@@ -87,7 +87,10 @@ class StorageAnalysisInstrumentedTest {
             "Kategorien zählen Dateien aus dem App-Index. Der übrige belegte Speicher enthält private App-Daten, Systemdaten und nicht indexierten Speicher.",
         ))
         waitText(label("Storage pyramid", "Speicher-Pyramide"))
-        waitText(label("Other used storage", "Übriger belegter Speicher"))
+        // The usage-access hint card above the pyramid (shown when the permission is
+        // missing) can push the legend below the fold, so scroll to the row instead of
+        // waiting for it in the initial viewport.
+        revealText(label("Other used storage", "Übriger belegter Speicher"))
         screenshot("sfe-storage-analysis-pyramid-${if (german) "de" else "en"}")
         swipeUp()
         waitText(label("Categories", "Kategorien"))

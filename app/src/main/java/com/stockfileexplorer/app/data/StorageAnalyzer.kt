@@ -28,17 +28,65 @@ object StorageAnalyzer {
         val incomplete: Boolean,
         /**
          * Installed-app bytes on the primary volume (app code + private data; cache is already
-         * included in the API's dataBytes). Bytes the index can already see under Android/media
-         * are subtracted so they are not counted twice (once here, once in their media category).
-         * Null when the usage-access grant is missing or the measurement failed.
+         * included in the API's dataBytes). Indexed bytes under Android/media/<pkg> overlap with
+         * that figure and are subtracted per package via [mediaOverlapBytes], so they are not
+         * counted twice (once here, once in their media category). Null when the usage-access
+         * grant is missing or the measurement failed.
          */
         val installedAppsBytes: Long? = null,
         /** True when the usage-access grant was missing during the analysis. */
         val usageAccessMissing: Boolean = false,
+        /** True when the grant existed but the measurement failed entirely. */
+        val installedAppsFailed: Boolean = false,
+        /** True when some installed packages could not be measured; installedAppsBytes is a lower bound. */
+        val installedAppsIncomplete: Boolean = false,
+        /**
+         * True when indexed + installed-app bytes exceed the used total: overlapping
+         * attribution. Surfaced honestly instead of hiding the excess in the residual.
+         */
+        val installedAppsInconsistent: Boolean = false,
+        /**
+         * True when indexed Android/media bytes were subtracted from the apps figure. That
+         * overlap is a bounded estimate, not a measurement: whether foreign-created media
+         * dirs carry app attribution is not observable through any public API (see
+         * [mediaOverlapBytes]). The UI must say the value is estimated.
+         */
+        val installedAppsOverlapEstimated: Boolean = false,
         val loading: Boolean = false,
         /** True when more than [DUPLICATE_CANDIDATE_CAP] same-size files existed and only that many were compared. */
         val duplicatesLimited: Boolean = false,
     )
+
+
+    /**
+     * Bytes that are in BOTH the per-package StorageStats measurement and the media index:
+     * the only share that may be subtracted from the installed-apps figure.
+     *
+     * Grounding (AOSP installd): on quota volumes external app data is attributed by project
+     * id, so Android/media/<pkg> counts towards pkg only when the directory was created
+     * through the framework. Two real cases break a blanket subtraction:
+     *  - the package was removed: nothing is attributed any more, overlap is exactly 0;
+     *  - the directory was created outside the framework (copier, MTP, an all-files file
+     *    manager): its content stays in the default project and is not attributed either.
+     * The second case is not observable through any public API, so the overlap is bounded by
+     * both sides: never more than the indexed media bytes, never more than the package's
+     * whole measured data. Any unattributed remainder under that bound stays in the grey
+     * residual instead of the apps slice - the apps figure can err low, never high, and no
+     * byte is double counted.
+     */
+    /** Apps slice after overlap subtraction plus whether that subtraction happened (estimate marker). */
+    data class InstalledAppsSlice(val bytes: Long, val overlapEstimated: Boolean)
+
+    fun installedAppsSlice(measuredBytes: Long, overlapBytes: Long): InstalledAppsSlice =
+        InstalledAppsSlice((measuredBytes - overlapBytes).coerceAtLeast(0L), overlapBytes > 0L)
+
+    fun mediaOverlapBytes(
+        indexedMediaBytesByPackage: Map<String, Long>,
+        measuredDataBytesByPackage: Map<String, Long>,
+    ): Long = indexedMediaBytesByPackage.entries.sumOf { (pkg, mediaBytes) ->
+        val dataBytes = measuredDataBytesByPackage[pkg] ?: return@sumOf 0L
+        minOf(mediaBytes, dataBytes)
+    }
 
     /**
      * Fast sections (categories, folders, large/recent files, redundant candidates) come from the
@@ -53,25 +101,49 @@ object StorageAnalyzer {
         val rows = FileIndex.allFiles()
         onStage(AnalysisStage.FOLDERS)
         // Android/media is visible to the MediaStore index (e.g. messenger media) and is also
-        // part of the StorageStats app attribution, so subtract the indexed share from the
+        // part of the StorageStats app attribution, so the indexed share overlaps the
         // installed-apps figure. Android/data and Android/obb are not indexed, no overlap there.
         val mediaPrefix = root.absolutePath + "/Android/media/"
-        val indexedAndroidMediaBytes = rows.filter { it.file.absolutePath.startsWith(mediaPrefix) }.sumOf { it.size }
-        val hasUsageAccess = InstalledAppsStats.hasUsageAccess(context)
-        val installedAppsBytes = if (hasUsageAccess) {
-            InstalledAppsStats.measurePrimaryVolumeBytes(context)?.let { (it - indexedAndroidMediaBytes).coerceAtLeast(0L) }
-        } else {
-            null
+        val indexedMediaBytesByPackage = mutableMapOf<String, Long>()
+        for (row in rows) {
+            val path = row.file.absolutePath
+            if (!path.startsWith(mediaPrefix)) continue
+            val pkg = path.removePrefix(mediaPrefix).substringBefore('/')
+            if (pkg.isNotEmpty()) {
+                indexedMediaBytesByPackage[pkg] = (indexedMediaBytesByPackage[pkg] ?: 0L) + row.size
+            }
         }
-        val base = buildRowsReport(rows, root, stat.totalBytes, stat.availableBytes, status.incomplete).copy(
-            installedAppsBytes = installedAppsBytes,
+        val hasUsageAccess = InstalledAppsStats.hasUsageAccess(context)
+        val fastBase = buildRowsReport(rows, root, stat.totalBytes, stat.availableBytes, status.incomplete).copy(
             usageAccessMissing = !hasUsageAccess,
         )
-        onPartial(base.copy(loading = true))
+        onPartial(fastBase.copy(loading = true))
         onStage(AnalysisStage.DUPLICATES)
         val emptyJob = async { findEmptyFolders(root) }
         val duplicatesJob = async { findDuplicates(rows) }
         val recycleJob = async { findRecycleBins(root) }
+        // Runs parallel to the filesystem sections: per-package queries are many binder
+        // calls and must not delay the fast sections above.
+        val appsJob = async { if (hasUsageAccess) InstalledAppsStats.measurePrimaryVolumeBytes(context) else null }
+        val measurement = appsJob.await()
+        val mediaOverlap = measurement?.let { mediaOverlapBytes(indexedMediaBytesByPackage, it.dataBytesByPackage) } ?: 0L
+        val appsSlice = measurement?.let { installedAppsSlice(it.bytes, mediaOverlap) }
+        val installedAppsBytes = appsSlice?.bytes
+        // Consistency check: if the categories plus the installed-app figure exceed the
+        // used total by more than 2%, the attribution overlaps (timing drift between the
+        // StatFs snapshot and the measurement is normal and stays inside the tolerance).
+        val usedBytes = (stat.totalBytes - stat.availableBytes).coerceAtLeast(0L)
+        val indexedTotal = fastBase.categories.values.sum()
+        val inconsistent = installedAppsBytes != null &&
+            indexedTotal + installedAppsBytes > usedBytes + (usedBytes / 50)
+        val base = fastBase.copy(
+            installedAppsBytes = installedAppsBytes,
+            installedAppsFailed = hasUsageAccess && measurement == null,
+            installedAppsIncomplete = measurement?.incomplete == true || inconsistent,
+            installedAppsInconsistent = inconsistent,
+            installedAppsOverlapEstimated = appsSlice?.overlapEstimated == true,
+        )
+        onPartial(base.copy(loading = true))
         val empty = emptyJob.await()
         val duplicates = duplicatesJob.await()
         val recycle = recycleJob.await()

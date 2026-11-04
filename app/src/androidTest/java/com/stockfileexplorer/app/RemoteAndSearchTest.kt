@@ -12,6 +12,7 @@ import com.stockfileexplorer.app.data.FileIndex
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
+import org.junit.After
 import org.junit.runner.RunWith
 import java.io.File
 
@@ -22,6 +23,13 @@ class RemoteAndSearchTest {
     private val context = inst.targetContext
     private val device = UiDevice.getInstance(inst)
     private val root = File("/sdcard/Download/RemoteSamples")
+
+    // This suite owns this fixture tree: remove it after every test so later suites
+    // (e.g. the storage pyramid analysis) do not inherit a polluted file index.
+    @After
+    fun tearDownFixtures() {
+        root.deleteRecursively()
+    }
     private fun text(value: String) = device.wait(Until.findObject(By.text(value)), 20000)
         ?: throw AssertionError("Missing text: $value")
     private fun tag(value: String) = device.wait(Until.findObject(By.res(value)), 20000)

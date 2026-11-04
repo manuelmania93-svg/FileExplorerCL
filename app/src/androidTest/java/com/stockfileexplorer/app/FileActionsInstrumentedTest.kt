@@ -295,6 +295,7 @@ class FileActionsInstrumentedTest {
         root.deleteRecursively()
     }
 
+
     @Test fun favoriteAndCustomizationSurviveRelaunch() {
         root.deleteRecursively()
         root.mkdirs()

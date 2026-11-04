@@ -16,15 +16,16 @@ import com.stockfileexplorer.app.R
 
 /**
  * CX-style action bar shown at the bottom while files are selected: Copy, Move and Delete
- * directly. Rename and Share are not behind a "More" step here - they float on the right
- * side via [SelectionQuickActionsPopup] as soon as a selection starts. Batch rename is
- * intentionally absent.
+ * directly. With the default floating style, Rename and Share sit on the right edge via
+ * [SelectionQuickActionsPopup]; with the classic style the bar grows a More step
+ * ([onMore]) that opens them in a picker dialog. Batch rename is intentionally absent.
  */
 @Composable
 fun SelectionActionBar(
     onCopy: () -> Unit,
     onMove: () -> Unit,
     onDelete: () -> Unit,
+    onMore: (() -> Unit)? = null,
 ) {
     Surface(tonalElevation = 3.dp, modifier = Modifier.fillMaxWidth().testTag("selection_bar")) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
@@ -36,6 +37,11 @@ fun SelectionActionBar(
             }
             TextButton(onClick = onDelete, modifier = Modifier.testTag("selection_delete")) {
                 Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            if (onMore != null) {
+                TextButton(onClick = onMore, modifier = Modifier.testTag("selection_more")) {
+                    Text(stringResource(R.string.more), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         }
     }

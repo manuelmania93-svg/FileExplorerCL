@@ -4,6 +4,8 @@ import com.stockfileexplorer.app.data.FileCategory
 import com.stockfileexplorer.app.data.FileItem
 import com.stockfileexplorer.app.data.StorageAnalyzer
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 import java.nio.file.Files
@@ -37,5 +39,66 @@ class StorageAnalyzerTest {
         assertEquals("debug.log", report.recentFiles.first().name)
         assertEquals("debug.log", report.redundantFiles.first().name)
         assertEquals(40, report.freeBytes)
+    }
+}
+
+class MediaOverlapTest {
+    @Test fun installedPackageMediaIsSubtractedFully() {
+        val overlap = StorageAnalyzer.mediaOverlapBytes(
+            mapOf("com.chat.app" to 500L),
+            mapOf("com.chat.app" to 2_000L),
+        )
+        assertEquals(500L, overlap)
+    }
+
+    @Test fun removedPackageMediaIsNeverSubtracted() {
+        // Leftover Android/media of an uninstalled app: not in the measurement, so nothing overlaps.
+        val overlap = StorageAnalyzer.mediaOverlapBytes(
+            mapOf("com.gone.app" to 700L),
+            mapOf("com.chat.app" to 2_000L),
+        )
+        assertEquals(0L, overlap)
+    }
+
+    @Test fun overlapNeverExceedsMeasuredData() {
+        // Foreign-created media dir for an installed package can exceed its measured data;
+        // only the measured side can overlap.
+        val overlap = StorageAnalyzer.mediaOverlapBytes(
+            mapOf("com.chat.app" to 3_000L),
+            mapOf("com.chat.app" to 1_000L),
+        )
+        assertEquals(1_000L, overlap)
+    }
+
+    @Test fun mixedPackagesSumIndividually() {
+        val overlap = StorageAnalyzer.mediaOverlapBytes(
+            mapOf("com.chat.app" to 500L, "com.gone.app" to 900L, "com.game" to 4_000L),
+            mapOf("com.chat.app" to 2_000L, "com.game" to 1_000L),
+        )
+        assertEquals(500L + 1_000L, overlap)
+    }
+}
+
+class InstalledAppsSliceTest {
+    @Test fun foreignCreatedMediaUndercountsAppsAndFlagsEstimate() {
+        // Counterexample: an installed package with 100 MB measured private data and 100 MB
+        // indexed media in a foreign-created (default-project) dir. The bounded overlap
+        // subtracts the full 100 MB, so the slice shows 0: it is understated by exactly the
+        // unattributed media, and the difference lands in "other used storage". The estimate
+        // flag must be set so the UI discloses this instead of presenting the value as exact.
+        val overlap = StorageAnalyzer.mediaOverlapBytes(
+            mapOf("com.chat.app" to 100L),
+            mapOf("com.chat.app" to 100L),
+        )
+        assertEquals(100L, overlap)
+        val slice = StorageAnalyzer.installedAppsSlice(measuredBytes = 100L, overlapBytes = overlap)
+        assertEquals("expected undercount: measured share fully absorbed", 0L, slice.bytes)
+        assertTrue("understated slice must be marked estimated", slice.overlapEstimated)
+    }
+
+    @Test fun noOverlapIsExactAndUnflagged() {
+        val slice = StorageAnalyzer.installedAppsSlice(measuredBytes = 100L, overlapBytes = 0L)
+        assertEquals(100L, slice.bytes)
+        assertFalse(slice.overlapEstimated)
     }
 }

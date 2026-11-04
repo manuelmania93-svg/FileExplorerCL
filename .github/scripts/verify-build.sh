@@ -38,6 +38,42 @@ run_pyramid_tests() {
   ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.StoragePyramidColorTest -Pandroid.testInstrumentationRunnerArguments.capture=pyramid || (capture; exit 1)
   capture
   ensure_installed_de_at "StoragePyramidUsageAccessTest"
+  # Emulator test staging only (never shipped, never user-facing): create a 24 MB
+  # fixture in a HIDDEN subdir of the app's own Android/media dir on the lower
+  # filesystem (hidden so the app's own FileIndex excludes it and the pyramid UI
+  # proof is not polluted), and stamp it with the app's EXT_DATA quota project id
+  # via chattr -p as root - the same FS_IOC_FSSETXATTR operation vold's
+  # SetQuotaProjectId performs (system/vold Utils.cpp), applied directly because
+  # the mount-service shell route was refused on this image. Requires adb root,
+  # which the google_apis userdebug emulator image supports. The lsattr output is
+  # the on-device proof of the stamp; failures here make
+  # frameworkFixupAttributesOwnMediaDir fail with a precise assertion.
+  stage_attributed_media_fixture() {
+    adb root >/dev/null 2>&1 || echo "staging: adb root failed (image not rootable?)"
+    adb wait-for-device
+    adb shell '
+      PKG=com.stockfileexplorer.app
+      DIR=/data/media/0/Android/media/$PKG
+      PROOF=/data/media/0/Download/sfe-staging-proof.txt
+      mkdir -p "$DIR/.staging-sfe" &&
+        dd if=/dev/zero of="$DIR/.staging-sfe/sfe-media-fixture.bin" bs=1048576 count=24
+      UID=$(stat -c %u /data/data/$PKG)
+      PROJID=$((UID - 10000 + 20000))
+      OBSERVED=0
+      if chattr -Rp "$PROJID" "$DIR" && chattr -R +P "$DIR" && chown -R "$UID:1023" "$DIR"; then
+        OBSERVED=$(lsattr -pd "$DIR/.staging-sfe/sfe-media-fixture.bin" | awk "{print \$1}")
+        echo "staging: stamped projid $PROJID for uid $UID, observed $OBSERVED"
+      else
+        echo "staging: direct project-id stamp failed (chattr -p unsupported or refused)"
+      fi
+      { echo "uid=$UID projid=$PROJID stamped=$OBSERVED"; lsattr -pdR "$DIR"; } > "$PROOF"
+      chmod 0644 "$PROOF"
+    ' || echo "staging: fixture creation failed"
+    adb shell "lsattr -pdR /data/media/0/Android/media/com.stockfileexplorer.app" || echo "staging: lsattr failed"
+    adb unroot >/dev/null 2>&1 || true
+    adb wait-for-device
+  }
+  stage_attributed_media_fixture
   ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.StoragePyramidUsageAccessTest -Pandroid.testInstrumentationRunnerArguments.capture=pyramid-granted || (capture; exit 1)
   capture
   if_package_present "usage-stats reset" adb shell appops set com.stockfileexplorer.app android:get_usage_stats default

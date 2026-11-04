@@ -58,6 +58,8 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
     var properties by remember { mutableStateOf<FileItem?>(null) }
     var transferSources by remember { mutableStateOf<List<FileItem>>(emptyList()) }
     var transferMove by remember { mutableStateOf(false) }
+    var conflictPrompt by remember { mutableStateOf<ConflictPrompt?>(null) }
+    val menuStyle = com.stockfileexplorer.app.AppSettings.selectionMenuStyle(context)
     var showMenuCustomization by remember { mutableStateOf(false) }
     var favoritePaths by remember { mutableStateOf(FileActionPreferences.favoritePaths(context)) }
     val noApp = stringResource(R.string.no_app_to_open)
@@ -217,17 +219,28 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
                 onCopy = { collectSelected { transferSources = it; transferMove = false } },
                 onMove = { collectSelected { transferSources = it; transferMove = true } },
                 onDelete = { deletes = selection.map { java.io.File(it) } },
+                onMore = if (menuStyle == com.stockfileexplorer.app.SelectionMenuStyle.CLASSIC) {
+                    { quickActionsOpen = true }
+                } else null,
             )
         }
     }
 
     // The floating Rename/Share card sits on the right edge while the selection is active.
-    if (selection.isNotEmpty() && quickActionsOpen) {
+    if (selection.isNotEmpty() && quickActionsOpen && menuStyle == com.stockfileexplorer.app.SelectionMenuStyle.FLOATING) {
         SelectionQuickActionsPopup(
             renameEnabled = selection.size == 1,
             onShare = quickActionsShare,
             onRename = quickActionsRename,
             modifier = Modifier.align(Alignment.CenterEnd),
+        )
+    }
+    if (selection.isNotEmpty() && quickActionsOpen && menuStyle == com.stockfileexplorer.app.SelectionMenuStyle.CLASSIC) {
+        SelectionActionsDialog(
+            renameEnabled = selection.size == 1,
+            onShare = quickActionsShare,
+            onRename = quickActionsRename,
+            onDismiss = { quickActionsOpen = false },
         )
     }
     }
@@ -285,17 +298,31 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
                 val move = transferMove
                 transferSources = emptyList()
                 scope.launch {
-                    val succeeded = withContext(Dispatchers.IO) {
-                        sources.filter { FileOperations.transfer(it.file, destination, move) }
+                    var done = 0
+                    var skipped = 0
+                    withContext(Dispatchers.IO) {
+                        for (source in sources) {
+                            val resolution = resolveConflict(context, destination, source.file.name) { conflictPrompt = it }
+                            if (resolution == null) break
+                            when (FileOperations.transferOutcome(source.file, destination, move) { resolution }) {
+                                FileOperations.TransferOutcome.DONE -> done++
+                                FileOperations.TransferOutcome.SKIPPED -> skipped++
+                                FileOperations.TransferOutcome.FAILED -> { }
+                            }
+                        }
                     }
-                    if (succeeded.isNotEmpty()) {
+                    if (done > 0) {
                         Toast.makeText(
                             context,
                             if (move) R.string.moved_ok else R.string.copied_ok,
                             Toast.LENGTH_SHORT,
                         ).show()
                         FileIndex.invalidate()
-                    } else {
+                    }
+                    if (skipped > 0) {
+                        Toast.makeText(context, context.getString(R.string.transfer_skipped, skipped), Toast.LENGTH_SHORT).show()
+                    }
+                    if (done == 0 && skipped == 0) {
                         Toast.makeText(context, R.string.transfer_failed, Toast.LENGTH_SHORT).show()
                     }
                 }
@@ -316,6 +343,7 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
     if (showMenuCustomization) {
         MenuCustomizationDialog(onDismiss = { showMenuCustomization = false })
     }
+    conflictPrompt?.let { ConflictDialog(it) }
     rename?.let { item ->
         TextInputDialog(title = stringResource(R.string.rename), initialValue = item.name,
             helperText = stringResource(R.string.rename_whole_name), validate = { Rename.validName(it) },

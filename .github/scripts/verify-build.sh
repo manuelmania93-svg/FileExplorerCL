@@ -38,6 +38,24 @@ run_pyramid_tests() {
   ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.StoragePyramidColorTest -Pandroid.testInstrumentationRunnerArguments.capture=pyramid || (capture; exit 1)
   capture
   ensure_installed_de_at "StoragePyramidUsageAccessTest"
+  # Emulator test staging only (never shipped, never user-facing): create a 24 MB
+  # fixture in the app's own Android/media dir on the lower filesystem and stamp
+  # it with the app's EXT_DATA quota project id through the production mechanism
+  # (IStorageManager.fixupAppDir -> vold PrepareAppDirFromRoot). Requires adb root,
+  # which the google_apis userdebug emulator image supports. The internal,
+  # version-pinned service call is staging glue, not a public API. The lsattr
+  # output is the on-device proof of the stamp; failures here make
+  # frameworkFixupAttributesOwnMediaDir fail with a precise assertion.
+  stage_attributed_media_fixture() {
+    adb root >/dev/null 2>&1 || echo "staging: adb root failed (image not rootable?)"
+    adb wait-for-device
+    adb shell "mkdir -p /data/media/0/Android/media/com.stockfileexplorer.app && dd if=/dev/zero of=/data/media/0/Android/media/com.stockfileexplorer.app/sfe-media-fixture.bin bs=1048576 count=24" || echo "staging: fixture write failed"
+    adb shell "service call mount 89 s16 /storage/emulated/0/Android/media/com.stockfileexplorer.app" || echo "staging: fixupAppDir call failed"
+    adb shell "lsattr -pd /data/media/0/Android/media/com.stockfileexplorer.app /data/media/0/Android/media/com.stockfileexplorer.app/sfe-media-fixture.bin" || echo "staging: lsattr failed"
+    adb unroot >/dev/null 2>&1 || true
+    adb wait-for-device
+  }
+  stage_attributed_media_fixture
   ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.StoragePyramidUsageAccessTest -Pandroid.testInstrumentationRunnerArguments.capture=pyramid-granted || (capture; exit 1)
   capture
   if_package_present "usage-stats reset" adb shell appops set com.stockfileexplorer.app android:get_usage_stats default

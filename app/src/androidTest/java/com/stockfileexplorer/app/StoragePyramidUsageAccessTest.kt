@@ -168,59 +168,56 @@ class StoragePyramidUsageAccessTest {
 
     /**
      * Regression for the 239-GB-apps-slice bug, part (b): content in the app's own
-     * Android/media/<pkg> directory that the framework stamped with the app's quota
-     * project id MUST be attributed to the app by StorageStats - that inclusion is
-     * exactly why the analyzer subtracts the indexed media share from the measured
-     * per-package total (otherwise the same bytes would be counted twice).
+     * Android/media/<pkg> directory that carries the app's quota project id MUST be
+     * attributed to the app by StorageStats - that inclusion is exactly why the
+     * analyzer subtracts the indexed media share from the measured per-package
+     * total (otherwise the same bytes would be counted twice).
      *
-     * Staging follows the real production mechanism: the dir/file are created by
-     * plain app I/O (provably NOT attributed on this device), then the framework's
-     * own fixup is invoked (IStorageManager.fixupAppDir, binder transaction 89 on
-     * the "mount" service; no @EnforcePermission on the AIDL method, so the shell
-     * can call it). StorageManagerService resolves the package's uid and calls
-     * vold fixupAppDir, which stamps the directory and its entries with
-     * PROJECT_ID_EXT_DATA_START + appId and sets project-id inheritance - the same
-     * state real devices reach when framework components (e.g. MediaProvider, MTP)
-     * create or fix up app media dirs (system/vold Utils.cpp PrepareAppDirFromRoot).
+     * The fixture is staged by verify-build.sh (stage_attributed_media_fixture):
+     * as root on the userdebug emulator it creates the dir + file on the lower
+     * filesystem and invokes the production attribution mechanism
+     * (IStorageManager.fixupAppDir -> vold PrepareAppDirFromRoot stamps the dir
+     * and entries with PROJECT_ID_EXT_DATA_START + appId and sets project-id
+     * inheritance - system/vold Utils.cpp). That service call is an internal,
+     * version-pinned shell interface used only as emulator test staging here;
+     * it is not a public API and nothing in the app or user instructions may
+     * rely on it. A green result proves the analyzer's accounting under a
+     * deliberately attributed fixture; it does not prove that ordinary app media
+     * directories acquire attribution on every physical phone.
+     *
+     * Assertion: with the stamped fixture present the measurement is high;
+     * after the app deletes its own fixture the measurement must drop by the
+     * fixture size. (Plain app-created content without the stamp was shown
+     * unattributed in runs 41878807520 and 41885560440; the same mechanism is
+     * covered by the foreign-dir regression below.)
      */
     @Test
     fun frameworkFixupAttributesOwnMediaDir() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
         val device = UiDevice.getInstance(instrumentation)
-        val mediaDirPath = "/storage/emulated/0/Android/media/${context.packageName}"
-        val mediaDir = File(mediaDirPath)
-        var ownMedia: File? = null
+        val mediaDir = File("/storage/emulated/0/Android/media/${context.packageName}")
+        val fixture = File(mediaDir, "sfe-media-fixture.bin")
         try {
             device.executeShellCommand("appops set ${context.packageName} android:get_usage_stats allow")
             assertTrue("usage access grant did not take effect", InstalledAppsStats.hasUsageAccess(context))
-
-            val baseline = InstalledStats(context)
-
-            // Plain app I/O: on this device this must NOT be attributed yet.
-            mediaDir.mkdirs()
-            ownMedia = File(mediaDir, "sfe-media-fixture.bin")
-            ownMedia.outputStream().use { out -> repeat(24) { out.write(ByteArray(1 shl 20)) } }
-            val afterPlainWrite = InstalledStats(context)
             assertTrue(
-                "plain-created own Android/media content unexpectedly attributed: $baseline -> $afterPlainWrite",
-                afterPlainWrite - baseline < 8L * 1024 * 1024,
+                "staged fixture missing or undersized: verify-build.sh " +
+                    "stage_attributed_media_fixture must create it via vold fixupAppDir " +
+                    "(exists=${fixture.exists()}, length=${fixture.length()})",
+                fixture.isFile && fixture.length() >= 24L * 1024 * 1024,
             )
 
-            // The framework fixup: vold stamps the dir and its entries with the app's
-            // EXT_DATA quota project id - the production attribution mechanism.
-            val fixupOut = device.executeShellCommand("service call mount 89 s16 $mediaDirPath")
-            Log.i("SfeTest", "fixupAppDir service call: $fixupOut")
-            val afterFixup = InstalledStats(context)
-            val lsattr = device.executeShellCommand("lsattr -pd /data/media/0/Android/media/${context.packageName}")
-            Log.i("SfeTest", "project id after fixup: $lsattr")
+            val withFixture = InstalledStats(context)
+            assertTrue("could not delete own staged fixture", fixture.delete())
+            val afterDelete = InstalledStats(context)
             assertTrue(
-                "framework-stamped own Android/media fixture not attributed to the app: " +
-                    "$afterPlainWrite -> $afterFixup (fixup: ${fixupOut?.trim()}, lsattr: ${lsattr?.trim()})",
-                afterFixup - afterPlainWrite >= 12L * 1024 * 1024,
+                "framework-stamped own Android/media fixture was not attributed to the app: " +
+                    "$withFixture -> $afterDelete (the staging step prints the lsattr project-id proof)",
+                withFixture - afterDelete >= 12L * 1024 * 1024,
             )
         } finally {
-            ownMedia?.delete()
+            fixture.delete()
             mediaDir.delete()
             device.executeShellCommand("appops set ${context.packageName} android:get_usage_stats default")
         }

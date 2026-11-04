@@ -158,6 +158,28 @@ fun StorageAnalysisScreen(
                                     color = MaterialTheme.colorScheme.error,
                                 )
                             }
+                            if (value.installedAppsFailed) {
+                                Spacer(Modifier.height(6.dp))
+                                Text(
+                                    stringResource(R.string.analysis_apps_measure_failed),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            } else if (value.installedAppsInconsistent) {
+                                Spacer(Modifier.height(6.dp))
+                                Text(
+                                    stringResource(R.string.analysis_apps_inconsistent),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            } else if (value.installedAppsIncomplete) {
+                                Spacer(Modifier.height(6.dp))
+                                Text(
+                                    stringResource(R.string.analysis_apps_partial),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                         }
                     }
                 }

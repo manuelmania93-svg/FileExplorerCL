@@ -132,4 +132,51 @@ class StoragePyramidUsageAccessTest {
             device.executeShellCommand("cmd locale set-app-locales ${context.packageName} --locales ''")
         }
     }
+
+    /**
+     * Regression for the 239-GB-apps-slice bug: the user-level StorageStats API counted
+     * the WHOLE shared volume as app data. Per-package measurement must (a) ignore an
+     * unattributed file in Download and (b) attribute the app's own Android/media
+     * directory - which is exactly why the analyzer subtracts the indexed media share.
+     */
+    @Test
+    fun measurementIgnoresUnattributedFilesAndCountsOwnMedia() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val context = instrumentation.targetContext
+        val device = UiDevice.getInstance(instrumentation)
+        var unattributed: File? = null
+        var ownMedia: File? = null
+        try {
+            device.executeShellCommand("appops set ${context.packageName} android:get_usage_stats allow")
+            assertTrue("usage access grant did not take effect", InstalledAppsStats.hasUsageAccess(context))
+
+            val baseline = InstalledAppsStats.measurePrimaryVolumeBytes(context)
+            assertNotNull("measurement failed despite grant", baseline)
+            val baselineBytes = baseline!!.bytes
+
+            // (a) 24 MB unattributed file: the installed-apps figure must not move.
+            unattributed = File("/sdcard/Download/sfe-unattributed-fixture.bin")
+            unattributed.outputStream().use { out -> repeat(24) { out.write(ByteArray(1 shl 20)) } }
+            val afterDownload = InstalledAppsStats.measurePrimaryVolumeBytes(context)!!
+            assertTrue(
+                "unattributed Download file leaked into installed apps: $baselineBytes -> ${afterDownload.bytes}",
+                afterDownload.bytes - baselineBytes < 8L * 1024 * 1024,
+            )
+
+            // (b) 24 MB in the app's own Android/media dir: must be attributed to the app.
+            val mediaDir = File("/sdcard/Android/media/${context.packageName}")
+            mediaDir.mkdirs()
+            ownMedia = File(mediaDir, "sfe-media-fixture.bin")
+            ownMedia.outputStream().use { out -> repeat(24) { out.write(ByteArray(1 shl 20)) } }
+            val afterMedia = InstalledAppsStats.measurePrimaryVolumeBytes(context)!!
+            assertTrue(
+                "own Android/media fixture not attributed to the app: ${afterDownload.bytes} -> ${afterMedia.bytes}",
+                afterMedia.bytes - afterDownload.bytes >= 12L * 1024 * 1024,
+            )
+        } finally {
+            unattributed?.delete()
+            ownMedia?.delete()
+            device.executeShellCommand("appops set ${context.packageName} android:get_usage_stats default")
+        }
+    }
 }

@@ -35,6 +35,15 @@ object StorageAnalyzer {
         val installedAppsBytes: Long? = null,
         /** True when the usage-access grant was missing during the analysis. */
         val usageAccessMissing: Boolean = false,
+        /** True when the grant existed but the measurement failed entirely. */
+        val installedAppsFailed: Boolean = false,
+        /** True when some installed packages could not be measured; installedAppsBytes is a lower bound. */
+        val installedAppsIncomplete: Boolean = false,
+        /**
+         * True when indexed + installed-app bytes exceed the used total: overlapping
+         * attribution. Surfaced honestly instead of hiding the excess in the residual.
+         */
+        val installedAppsInconsistent: Boolean = false,
         val loading: Boolean = false,
         /** True when more than [DUPLICATE_CANDIDATE_CAP] same-size files existed and only that many were compared. */
         val duplicatesLimited: Boolean = false,
@@ -58,20 +67,33 @@ object StorageAnalyzer {
         val mediaPrefix = root.absolutePath + "/Android/media/"
         val indexedAndroidMediaBytes = rows.filter { it.file.absolutePath.startsWith(mediaPrefix) }.sumOf { it.size }
         val hasUsageAccess = InstalledAppsStats.hasUsageAccess(context)
-        val installedAppsBytes = if (hasUsageAccess) {
-            InstalledAppsStats.measurePrimaryVolumeBytes(context)?.let { (it - indexedAndroidMediaBytes).coerceAtLeast(0L) }
-        } else {
-            null
-        }
-        val base = buildRowsReport(rows, root, stat.totalBytes, stat.availableBytes, status.incomplete).copy(
-            installedAppsBytes = installedAppsBytes,
+        val fastBase = buildRowsReport(rows, root, stat.totalBytes, stat.availableBytes, status.incomplete).copy(
             usageAccessMissing = !hasUsageAccess,
         )
-        onPartial(base.copy(loading = true))
+        onPartial(fastBase.copy(loading = true))
         onStage(AnalysisStage.DUPLICATES)
         val emptyJob = async { findEmptyFolders(root) }
         val duplicatesJob = async { findDuplicates(rows) }
         val recycleJob = async { findRecycleBins(root) }
+        // Runs parallel to the filesystem sections: per-package queries are many binder
+        // calls and must not delay the fast sections above.
+        val appsJob = async { if (hasUsageAccess) InstalledAppsStats.measurePrimaryVolumeBytes(context) else null }
+        val measurement = appsJob.await()
+        val installedAppsBytes = measurement?.let { (it.bytes - indexedAndroidMediaBytes).coerceAtLeast(0L) }
+        // Consistency check: if the categories plus the installed-app figure exceed the
+        // used total by more than 2%, the attribution overlaps (timing drift between the
+        // StatFs snapshot and the measurement is normal and stays inside the tolerance).
+        val usedBytes = (stat.totalBytes - stat.availableBytes).coerceAtLeast(0L)
+        val indexedTotal = fastBase.categories.values.sum()
+        val inconsistent = installedAppsBytes != null &&
+            indexedTotal + installedAppsBytes > usedBytes + (usedBytes / 50)
+        val base = fastBase.copy(
+            installedAppsBytes = installedAppsBytes,
+            installedAppsFailed = hasUsageAccess && measurement == null,
+            installedAppsIncomplete = measurement?.incomplete == true || inconsistent,
+            installedAppsInconsistent = inconsistent,
+        )
+        onPartial(base.copy(loading = true))
         val empty = emptyJob.await()
         val duplicates = duplicatesJob.await()
         val recycle = recycleJob.await()

@@ -124,6 +124,9 @@
     <string name="no">No</string>
     <string name="storage_analysis">Storage analysis</string>
     <string name="analysis_partial">Some folders could not be fully analyzed.</string>
+    <string name="analysis_apps_measure_failed">Installed apps could not be measured. Usage access is granted, but Android returned no values.</string>
+    <string name="analysis_apps_inconsistent">Measurement mismatch: apps and files overlap. The installed-apps value may be too high.</string>
+    <string name="analysis_apps_partial">Some apps could not be measured. The value is a lower bound.</string>
     <string name="analysis_indexed_scope">Categories count files visible in the app index. Remaining used space includes private app data, system data, and unindexed storage.</string>
     <string name="analysis_indexed_scope_installed">Categories count files visible in the app index. Installed apps are measured including their data. Remaining used space includes system data and unindexed storage.</string>
     <string name="storage_pyramid">Storage pyramid</string>

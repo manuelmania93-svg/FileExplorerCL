@@ -45,4 +45,17 @@ class StoragePyramidTest {
     @Test fun residualNeverGoesNegative() {
         assertEquals(0L, pyramidResidualBytes(usedBytes = 50L, indexedBytes = 40L, installedAppsBytes = 30L))
     }
+
+    @Test fun consistentValuesPartitionTheUsedTotal() {
+        // 100 used, 40 indexed, 35 installed: residual 25, and the three slices add up
+        // to exactly the used total - the regression guard for the >100% screenshot bug.
+        val residual = pyramidResidualBytes(usedBytes = 100L, indexedBytes = 40L, installedAppsBytes = 35L)
+        assertEquals(25L, residual)
+        assertEquals(100L, 40L + 35L + residual)
+    }
+
+    @Test fun installedAppsLargerThanUsedLeavesNoResidual() {
+        // Safety only: overlapping attribution must not produce a negative residual.
+        assertEquals(0L, pyramidResidualBytes(usedBytes = 100L, indexedBytes = 40L, installedAppsBytes = 90L))
+    }
 }

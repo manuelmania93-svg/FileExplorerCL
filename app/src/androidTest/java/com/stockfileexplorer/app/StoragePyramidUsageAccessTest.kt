@@ -174,16 +174,17 @@ class StoragePyramidUsageAccessTest {
      * total (otherwise the same bytes would be counted twice).
      *
      * The fixture is staged by verify-build.sh (stage_attributed_media_fixture):
-     * as root on the userdebug emulator it creates the dir + file on the lower
-     * filesystem and invokes the production attribution mechanism
-     * (IStorageManager.fixupAppDir -> vold PrepareAppDirFromRoot stamps the dir
-     * and entries with PROJECT_ID_EXT_DATA_START + appId and sets project-id
-     * inheritance - system/vold Utils.cpp). That service call is an internal,
-     * version-pinned shell interface used only as emulator test staging here;
-     * it is not a public API and nothing in the app or user instructions may
-     * rely on it. A green result proves the analyzer's accounting under a
-     * deliberately attributed fixture; it does not prove that ordinary app media
-     * directories acquire attribution on every physical phone.
+     * as root on the userdebug emulator it creates the file in a HIDDEN subdir
+     * (kept out of the app's own FileIndex so the pyramid UI proofs are not
+     * polluted) and stamps it with the app's PROJECT_ID_EXT_DATA_START + appId
+     * quota project id via chattr -p - the same FS_IOC_FSSETXATTR operation
+     * vold's SetQuotaProjectId performs (system/vold Utils.cpp). The stamp is
+     * applied directly because the mount-service shell route was refused on
+     * this image; it is emulator test staging only, not a public API, and
+     * nothing in the app or user instructions may rely on it. A green result
+     * proves the analyzer's accounting under a deliberately attributed fixture;
+     * it does not prove that ordinary app media directories acquire attribution
+     * on every physical phone.
      *
      * Assertion: with the stamped fixture present the measurement is high;
      * after the app deletes its own fixture the measurement must drop by the
@@ -196,8 +197,8 @@ class StoragePyramidUsageAccessTest {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
         val device = UiDevice.getInstance(instrumentation)
-        val mediaDir = File("/storage/emulated/0/Android/media/${context.packageName}")
-        val fixture = File(mediaDir, "sfe-media-fixture.bin")
+        val stagingDir = File("/storage/emulated/0/Android/media/${context.packageName}/.staging-sfe")
+        val fixture = File(stagingDir, "sfe-media-fixture.bin")
         try {
             device.executeShellCommand("appops set ${context.packageName} android:get_usage_stats allow")
             assertTrue("usage access grant did not take effect", InstalledAppsStats.hasUsageAccess(context))
@@ -218,7 +219,7 @@ class StoragePyramidUsageAccessTest {
             )
         } finally {
             fixture.delete()
-            mediaDir.delete()
+            stagingDir.delete()
             device.executeShellCommand("appops set ${context.packageName} android:get_usage_stats default")
         }
     }

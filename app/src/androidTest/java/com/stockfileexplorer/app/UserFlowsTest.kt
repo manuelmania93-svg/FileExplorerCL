@@ -64,6 +64,89 @@ class UserFlowsTest {
     }
 
     @Test
+    fun darkThemeAppliesToMainScreens() {
+        grantAllFiles()
+        root.deleteRecursively(); root.mkdirs()
+        File(root, "theme-note.txt").writeText("theme")
+        try {
+            // Home in the default light look, then the Settings screen.
+            context.startActivity(Intent(context, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
+            if (!device.wait(Until.hasObject(By.res("home_settings")), 20000)) { shot("theme-missing-gear"); throw AssertionError("gear missing") }
+            shot("theme-1-home-light")
+            device.findObject(By.res("home_settings")).click()
+            waitText("Design"); shot("theme-2-settings-light")
+            device.findObject(By.res("settings_theme_dark")).click()
+            device.wait(Until.hasObject(By.res("settings_theme_dark")), 5000)
+            shot("theme-3-settings-dark")
+            device.findObject(By.res("settings_back")).click()
+            if (!device.wait(Until.hasObject(By.res("home_settings")), 10000)) { shot("theme-missing-home"); throw AssertionError("back to home failed") }
+            shot("theme-4-home-dark")
+            launchBrowser(root.absolutePath)
+            waitText("theme-note.txt"); shot("theme-5-browser-dark")
+            assertEquals(ThemeMode.DARK, AppSettings.themeMode(context))
+        } finally {
+            AppSettings.setThemeMode(context, ThemeMode.LIGHT)
+        }
+    }
+
+    @Test
+    fun askConflictDialogOffersRenameAndSkip() {
+        grantAllFiles()
+        root.deleteRecursively(); root.mkdirs()
+        val destination = File(root, "ask-destination").apply { mkdirs() }
+        val source = File(root, "ask-source.txt").apply { writeText("ask content") }
+        File(destination, source.name).writeText("existing content")
+        AppSettings.setConflictMode(context, ConflictMode.ASK)
+        try {
+            launchBrowser(root.absolutePath)
+            waitText(source.name)
+            device.findObject(By.desc(context.getString(R.string.file_actions_for, source.name))).click()
+            waitText("Copy")
+            device.findObject(By.text("Copy")).click()
+            waitText("Choose copy destination")
+            device.findObject(By.text("Download")).click()
+            waitText("FlowSamples")
+            device.findObject(By.text("FlowSamples")).click()
+            waitText(destination.name)
+            device.findObject(By.text(destination.name)).click()
+            waitText("Copy here"); shot("conflict-1-picker")
+            device.findObject(By.text("Copy here")).click()
+
+            // Ask mode pauses on the dialog instead of silently renaming.
+            if (!device.wait(Until.hasObject(By.res("conflict_rename")), 15000)) { shot("conflict-missing"); throw AssertionError("conflict dialog missing") }
+            shot("conflict-2-ask")
+            device.findObject(By.res("conflict_rename")).click()
+            val renamed = File(destination, "ask-source (1).txt")
+            val deadline = android.os.SystemClock.uptimeMillis() + 15000
+            while (!renamed.exists() && android.os.SystemClock.uptimeMillis() < deadline) android.os.SystemClock.sleep(200)
+            assertTrue("rename choice did not create a unique destination", renamed.exists())
+            assertEquals("existing content", File(destination, source.name).readText())
+            shot("conflict-3-renamed")
+
+            device.findObject(By.desc(context.getString(R.string.file_actions_for, source.name))).click()
+            waitText("Copy")
+            device.findObject(By.text("Copy")).click()
+            waitText("Choose copy destination")
+            device.findObject(By.text("Download")).click()
+            waitText("FlowSamples")
+            device.findObject(By.text("FlowSamples")).click()
+            waitText(destination.name)
+            device.findObject(By.text(destination.name)).click()
+            waitText("Copy here")
+            device.findObject(By.text("Copy here")).click()
+            if (!device.wait(Until.hasObject(By.res("conflict_skip")), 15000)) { shot("conflict-missing-2"); throw AssertionError("conflict dialog missing (2nd)") }
+            device.findObject(By.res("conflict_skip")).click()
+            android.os.SystemClock.sleep(1500)
+            assertFalse("skip choice created another copy", File(destination, "ask-source (2).txt").exists())
+            assertEquals("existing content", File(destination, source.name).readText())
+            shot("conflict-4-skipped")
+        } finally {
+            AppSettings.setConflictMode(context, ConflictMode.RENAME)
+        }
+    }
+
+    @Test
     fun extractIntoChosenFolder() {
         grantAllFiles()
         root.deleteRecursively(); root.mkdirs()

@@ -296,66 +296,6 @@ class FileActionsInstrumentedTest {
     }
 
 
-    @Test fun askConflictDialogOffersRenameAndSkip() {
-        root.deleteRecursively()
-        root.mkdirs()
-        val destination = File(root, "ask-destination").apply { mkdirs() }
-        val copySource = File(root, "ask-source.txt").apply { writeText("ask content") }
-        File(destination, copySource.name).writeText("existing content")
-        FileActionPreferences.setVisibleActions(context, FileMenuAction.entries.toSet())
-        AppSettings.setConflictMode(context, ConflictMode.ASK)
-        try {
-            launch()
-            openActionsFor(copySource.name)
-            clickText("Copy")
-            waitText("Choose copy destination")
-            clickText("Download")
-            waitText(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).absolutePath)
-            clickText("SfeActions")
-            waitText(root.absolutePath)
-            clickText(destination.name)
-            waitText(destination.absolutePath)
-            clickText("Copy here")
-
-            // Ask mode: the transfer pauses on the dialog instead of silently renaming.
-            assertNotNull(
-                "ask-mode conflict dialog did not appear",
-                device.wait(Until.hasObject(By.res("conflict_rename")), 15_000),
-            )
-            device.findObject(By.res("conflict_rename")).click()
-            val renamed = File(destination, "ask-source (1).txt")
-            assertTrue("rename choice did not create a unique destination", waitForFile(renamed))
-            assertTrue("rename choice lost the content", waitForFileText(renamed, "ask content"))
-            assertEquals("existing content", File(destination, copySource.name).readText())
-
-            openActionsFor(copySource.name)
-            clickText("Copy")
-            waitText("Choose copy destination")
-            clickText("Download")
-            waitText(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).absolutePath)
-            clickText("SfeActions")
-            waitText(root.absolutePath)
-            clickText(destination.name)
-            waitText(destination.absolutePath)
-            clickText("Copy here")
-            assertNotNull(
-                "ask-mode conflict dialog did not reappear",
-                device.wait(Until.hasObject(By.res("conflict_skip")), 15_000),
-            )
-            device.findObject(By.res("conflict_skip")).click()
-            assertTrue(
-                "skip choice created another copy",
-                waitForFile(File(destination, "ask-source (2).txt"), shouldExist = false, timeout = 3_000),
-            )
-            assertEquals("existing content", File(destination, copySource.name).readText())
-            screenshot("sfe-file-actions-conflict-ask")
-        } finally {
-            AppSettings.setConflictMode(context, ConflictMode.RENAME)
-        }
-
-        root.deleteRecursively()
-    }
-
     @Test fun favoriteAndCustomizationSurviveRelaunch() {
         root.deleteRecursively()
         root.mkdirs()

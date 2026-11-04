@@ -127,7 +127,7 @@
     <string name="analysis_apps_measure_failed">Installed apps could not be measured. Usage access is granted, but Android returned no values.</string>
     <string name="analysis_apps_inconsistent">Measurement mismatch: apps and files overlap. The installed-apps value may be too high.</string>
     <string name="analysis_apps_partial">Some apps could not be measured. The value is a lower bound.</string>
-    <string name="analysis_apps_media_estimated">App media is estimated: media in app folders may instead appear in its media category.</string>
+    <string name="analysis_apps_media_estimated">Installed-app storage is estimated and may be understated, because Android does not expose the exact overlap with indexed app-media folders. The difference remains in other used storage.</string>
     <string name="analysis_indexed_scope">Categories count files visible in the app index. Remaining used space includes private app data, system data, and unindexed storage.</string>
     <string name="analysis_indexed_scope_installed">Categories count files visible in the app index. Installed apps are measured including their data. Remaining used space includes system data and unindexed storage.</string>
     <string name="storage_pyramid">Storage pyramid</string>
@@ -135,6 +135,8 @@
     <string name="storage_pyramid_note_indexed">Layer areas represent indexed used storage.</string>
     <string name="installed_apps_title">Installed apps</string>
     <string name="cat_installed_apps">Installed apps (incl. data)</string>
+    <string name="cat_installed_apps_estimated">Installed apps (incl. data, estimated)</string>
+    <string name="storage_pyramid_note_estimated">Layer areas approximately represent used storage. The installed-apps layer is estimated; the grey layer may also contain app data.</string>
     <string name="installed_apps_permission_hint">To show installed apps including their data in the pyramid, File Explorer needs the special \"Usage access\" permission. It is used only to read per-app storage sizes.</string>
     <string name="installed_apps_permission_grant">Grant usage access</string>
     <string name="storage_pyramid_note_installed">The layer areas correspond to the used storage. The grey layer contains system data and non-indexed storage.</string>

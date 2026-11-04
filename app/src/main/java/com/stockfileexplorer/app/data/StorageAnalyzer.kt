@@ -74,6 +74,12 @@ object StorageAnalyzer {
      * residual instead of the apps slice - the apps figure can err low, never high, and no
      * byte is double counted.
      */
+    /** Apps slice after overlap subtraction plus whether that subtraction happened (estimate marker). */
+    data class InstalledAppsSlice(val bytes: Long, val overlapEstimated: Boolean)
+
+    fun installedAppsSlice(measuredBytes: Long, overlapBytes: Long): InstalledAppsSlice =
+        InstalledAppsSlice((measuredBytes - overlapBytes).coerceAtLeast(0L), overlapBytes > 0L)
+
     fun mediaOverlapBytes(
         indexedMediaBytesByPackage: Map<String, Long>,
         measuredDataBytesByPackage: Map<String, Long>,
@@ -121,7 +127,8 @@ object StorageAnalyzer {
         val appsJob = async { if (hasUsageAccess) InstalledAppsStats.measurePrimaryVolumeBytes(context) else null }
         val measurement = appsJob.await()
         val mediaOverlap = measurement?.let { mediaOverlapBytes(indexedMediaBytesByPackage, it.dataBytesByPackage) } ?: 0L
-        val installedAppsBytes = measurement?.let { (it.bytes - mediaOverlap).coerceAtLeast(0L) }
+        val appsSlice = measurement?.let { installedAppsSlice(it.bytes, mediaOverlap) }
+        val installedAppsBytes = appsSlice?.bytes
         // Consistency check: if the categories plus the installed-app figure exceed the
         // used total by more than 2%, the attribution overlaps (timing drift between the
         // StatFs snapshot and the measurement is normal and stays inside the tolerance).
@@ -134,7 +141,7 @@ object StorageAnalyzer {
             installedAppsFailed = hasUsageAccess && measurement == null,
             installedAppsIncomplete = measurement?.incomplete == true || inconsistent,
             installedAppsInconsistent = inconsistent,
-            installedAppsOverlapEstimated = installedAppsBytes != null && mediaOverlap > 0L,
+            installedAppsOverlapEstimated = appsSlice?.overlapEstimated == true,
         )
         onPartial(base.copy(loading = true))
         val empty = emptyJob.await()

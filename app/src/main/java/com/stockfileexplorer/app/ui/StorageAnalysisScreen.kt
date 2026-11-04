@@ -346,7 +346,13 @@ private fun StoragePyramid(report: StorageAnalyzer.Report) {
         .sortedByDescending { it.bytes }
     // Red: distinct from every category color, the dark-blue Sonstige and the residual grey.
     val installedAppsSlice = report.installedAppsBytes?.takeIf { it > 0 }?.let {
-        PyramidSlice(stringResource(R.string.cat_installed_apps), it, Color(0xFFC62828))
+        PyramidSlice(
+            stringResource(
+                if (report.installedAppsOverlapEstimated) R.string.cat_installed_apps_estimated
+                else R.string.cat_installed_apps
+            ),
+            it, Color(0xFFC62828),
+        )
     }
     val remainingSlice = if (remainingBytes > 0) {
         PyramidSlice(stringResource(R.string.other_used_storage), remainingBytes, Color(0xFF78909C))
@@ -362,7 +368,8 @@ private fun StoragePyramid(report: StorageAnalyzer.Report) {
             Spacer(Modifier.height(4.dp))
             Text(
                 stringResource(
-                    if (report.installedAppsBytes != null) R.string.storage_pyramid_note_installed
+                    if (report.installedAppsOverlapEstimated) R.string.storage_pyramid_note_estimated
+                    else if (report.installedAppsBytes != null) R.string.storage_pyramid_note_installed
                     else if (remainingBytes > 0) R.string.storage_pyramid_note
                     else R.string.storage_pyramid_note_indexed,
                 ),

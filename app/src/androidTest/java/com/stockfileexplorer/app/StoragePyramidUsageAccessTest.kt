@@ -340,7 +340,7 @@ class StoragePyramidUsageAccessTest {
             // (zero slice vs scroll/compose vs text mismatch) instead of a bare miss.
             val diagMeasurement = InstalledAppsStats.measurePrimaryVolumeBytes(context)
             val diagReport = runBlocking {
-                com.stockfileexplorer.app.data.StorageAnalyzer.analyze(context) { }
+                com.stockfileexplorer.app.data.StorageAnalyzer.analyze(context, { })
             }
             val diag = "measuredTotal=${diagMeasurement?.bytes} incomplete=${diagMeasurement?.incomplete} " +
                 "slice=${diagReport.installedAppsBytes} estimated=${diagReport.installedAppsOverlapEstimated} " +

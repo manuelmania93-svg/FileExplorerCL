@@ -75,6 +75,31 @@ class GermanLayoutTest {
     private fun findFixture(device: UiDevice, text: String): Boolean =
         device.wait(Until.hasObject(By.textContains(text)), 8000) || scrollToText(device, text) || slowScrollToText(device, text)
 
+    // Every click re-fetches its node on stale: font-scale changes recreate
+    // MainActivity and async recompositions invalidate UiObject2 instances
+    // between find and click. Bounded retries, same assertions otherwise.
+    private fun clickWithRetry(what: String, selector: () -> androidx.test.uiautomator.UiObject2?) {
+        var last: Exception? = null
+        repeat(4) {
+            try {
+                (selector() ?: throw AssertionError("$what not found")).click()
+                return
+            } catch (e: androidx.test.uiautomator.StaleObjectException) { last = e; Thread.sleep(500) }
+        }
+        throw AssertionError("$what kept going stale", last)
+    }
+
+    private fun longClickWithRetry(what: String, selector: () -> androidx.test.uiautomator.UiObject2?) {
+        var last: Exception? = null
+        repeat(4) {
+            try {
+                (selector() ?: throw AssertionError("$what not found")).longClick()
+                return
+            } catch (e: androidx.test.uiautomator.StaleObjectException) { last = e; Thread.sleep(500) }
+        }
+        throw AssertionError("$what kept going stale", last)
+    }
+
     private fun clearSelection(device: UiDevice) {
         if (device.hasObject(By.res("selection_bar"))) { device.pressBack(); device.wait(Until.gone(By.res("selection_bar")), 3000) }
     }
@@ -126,13 +151,13 @@ class GermanLayoutTest {
         // Folder browser in German: action menu opens from the overflow button.
         // (The "Interner Speicher" card now opens the storage analysis; the folder
         // browser opens via the "Hauptspeicher" shortcut.)
-        device.findObject(By.text("Hauptspeicher")).click()
+        clickWithRetry("Hauptspeicher shortcut") { device.findObject(By.text("Hauptspeicher")) }
         val rootRowFound = device.wait(Until.hasObject(By.text("Download")), 8000) || scrollToText(device, "Download")
         if (!rootRowFound) {
             device.takeScreenshot(File("/sdcard/Download/sfe-german-root-download-missing.png"))
             throw AssertionError("Download folder row visible in the root listing; rows seen while scanning: " + seenWhileScanning.joinToString(" | "))
         }
-        device.findObject(By.text("Download")).click()
+        clickWithRetry("Download folder row") { device.findObject(By.text("Download")) }
         // Name-sorted screenshots from earlier test classes (sfe-back-*) push the
         // fixtures off the first screen; scroll like the gallery part below does.
         // If still missing, capture evidence before failing.
@@ -142,7 +167,7 @@ class GermanLayoutTest {
         }
         val actionButtons = device.findObjects(By.descContains("Dateiaktionen"))
         assertTrue("File rows expose an action menu button", actionButtons.isNotEmpty())
-        actionButtons[0].click()
+        clickWithRetry("file action button") { device.findObjects(By.descContains("Dateiaktionen")).getOrNull(0) }
         assertTrue(
             "File action menu opens in German",
             device.wait(Until.hasObject(By.text("Umbenennen")), 5000)
@@ -153,9 +178,9 @@ class GermanLayoutTest {
         // Long-press floats the Rename/Share quick actions on the right side; the bottom
         // selection bar keeps Copy/Move/Delete only - no More step.
         clearSelection(device)
-        val fixtureRow = device.findObject(By.textContains("sfe-fixture-report.pdf"))
-            ?: throw AssertionError("PDF fixture row still visible for long press")
-        fixtureRow.longClick()
+        longClickWithRetry("PDF fixture row still visible for long press") {
+            device.findObject(By.textContains("sfe-fixture-report.pdf"))
+        }
         assertTrue(
             "Selection bar after long press",
             device.wait(Until.hasObject(By.res("selection_bar")), 5000)
@@ -177,18 +202,18 @@ class GermanLayoutTest {
             "Dashboard again after font-scale recreation",
             device.wait(Until.hasObject(By.text("Interner Speicher")), 10000)
         )
-        device.findObject(By.text("Hauptspeicher")).click()
+        clickWithRetry("Hauptspeicher shortcut") { device.findObject(By.text("Hauptspeicher")) }
         val rootRowFoundAgain = device.wait(Until.hasObject(By.text("Download")), 8000) || scrollToText(device, "Download")
         if (!rootRowFoundAgain) {
             device.takeScreenshot(File("/sdcard/Download/sfe-german-root-download-missing.png"))
             throw AssertionError("Download folder row visible in the root listing after font change; rows seen while scanning: " + seenWhileScanning.joinToString(" | "))
         }
-        device.findObject(By.text("Download")).click()
+        clickWithRetry("Download folder row") { device.findObject(By.text("Download")) }
         if (!findFixture(device, "sfe-fixture-report.pdf")) {
             throw AssertionError("PDF fixture visible in Download at 1.3 font")
         }
         clearSelection(device)
-        device.findObject(By.textContains("sfe-fixture-report.pdf")).longClick()
+        longClickWithRetry("PDF fixture row") { device.findObject(By.textContains("sfe-fixture-report.pdf")) }
         assertTrue(
             "Floating quick actions at 1.3 font",
             device.wait(Until.hasObject(By.res("selection_quick_popup")), 5000)
@@ -206,9 +231,9 @@ class GermanLayoutTest {
         )
 
         // Image category lists the sample picture (thumbnail verified visually).
-        device.findObject(By.text("Bibliothek")).click()
+        clickWithRetry("Bibliothek tab") { device.findObject(By.text("Bibliothek")) }
         assertTrue(device.wait(Until.hasObject(By.text("Bilder")), 5000))
-        device.findObject(By.text("Bilder")).click()
+        clickWithRetry("Bilder category") { device.findObject(By.text("Bilder")) }
         assertTrue(
             "Sample image listed in Bilder category",
             scrollToText(device, "sfe-sample-picture.jpg").also { if (!it) device.takeScreenshot(File("/sdcard/Download/sfe-german-gallery-sample-missing.png")) }

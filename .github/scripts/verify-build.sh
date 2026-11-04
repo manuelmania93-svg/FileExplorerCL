@@ -54,15 +54,21 @@ run_pyramid_tests() {
     adb shell '
       PKG=com.stockfileexplorer.app
       DIR=/data/media/0/Android/media/$PKG
+      PROOF=/data/media/0/Download/sfe-staging-proof.txt
       mkdir -p "$DIR/.staging-sfe" &&
-        dd if=/dev/zero of="$DIR/.staging-sfe/sfe-media-fixture.bin" bs=1048576 count=24 &&
-        UID=$(stat -c %u /data/data/$PKG) &&
-        PROJID=$((UID - 10000 + 20000)) &&
-        chattr -Rp "$PROJID" "$DIR" &&
-        chattr -R +P "$DIR" &&
-        chown -R "$UID:1023" "$DIR" &&
-        echo "staging: stamped projid $PROJID for uid $UID"
-    ' || echo "staging: direct project-id stamp failed"
+        dd if=/dev/zero of="$DIR/.staging-sfe/sfe-media-fixture.bin" bs=1048576 count=24
+      UID=$(stat -c %u /data/data/$PKG)
+      PROJID=$((UID - 10000 + 20000))
+      OBSERVED=0
+      if chattr -Rp "$PROJID" "$DIR" && chattr -R +P "$DIR" && chown -R "$UID:1023" "$DIR"; then
+        OBSERVED=$(lsattr -pd "$DIR/.staging-sfe/sfe-media-fixture.bin" | awk "{print \$1}")
+        echo "staging: stamped projid $PROJID for uid $UID, observed $OBSERVED"
+      else
+        echo "staging: direct project-id stamp failed (chattr -p unsupported or refused)"
+      fi
+      { echo "uid=$UID projid=$PROJID stamped=$OBSERVED"; lsattr -pdR "$DIR"; } > "$PROOF"
+      chmod 0644 "$PROOF"
+    ' || echo "staging: fixture creation failed"
     adb shell "lsattr -pdR /data/media/0/Android/media/com.stockfileexplorer.app" || echo "staging: lsattr failed"
     adb unroot >/dev/null 2>&1 || true
     adb wait-for-device

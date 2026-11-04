@@ -134,19 +134,17 @@ class StoragePyramidUsageAccessTest {
     }
 
     /**
-     * Regression for the 239-GB-apps-slice bug: the user-level StorageStats API counted
-     * the WHOLE shared volume as app data. Per-package measurement must (a) ignore an
-     * unattributed file in Download and (b) attribute the app's own Android/media
-     * directory - which is exactly why the analyzer subtracts the indexed media share.
+     * Regression for the 239-GB-apps-slice bug, part (a): an unattributed file in
+     * Download must never move the per-package measurement. This is the known-bad
+     * case: plain files outside Android/{data,media,obb}/<pkg> carry no app quota
+     * project id, so quota-based accounting cannot attribute them to any package.
      */
     @Test
-    fun measurementIgnoresUnattributedFilesAndCountsOwnMedia() {
+    fun unattributedDownloadFileIsIgnored() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
         val device = UiDevice.getInstance(instrumentation)
-        var unattributed: File? = null
-        var ownMedia: File? = null
-        var foreignDir: File? = null
+        var fixture: File? = null
         try {
             device.executeShellCommand("appops set ${context.packageName} android:get_usage_stats allow")
             assertTrue("usage access grant did not take effect", InstalledAppsStats.hasUsageAccess(context))
@@ -155,47 +153,115 @@ class StoragePyramidUsageAccessTest {
             assertNotNull("measurement failed despite grant", baseline)
             val baselineBytes = baseline!!.bytes
 
-            // (a) 24 MB unattributed file: the installed-apps figure must not move.
-            unattributed = File("/sdcard/Download/sfe-unattributed-fixture.bin")
-            unattributed.outputStream().use { out -> repeat(24) { out.write(ByteArray(1 shl 20)) } }
-            val afterDownload = InstalledAppsStats.measurePrimaryVolumeBytes(context)!!
+            fixture = File("/sdcard/Download/sfe-unattributed-fixture.bin")
+            fixture.outputStream().use { out -> repeat(24) { out.write(ByteArray(1 shl 20)) } }
+            val after = InstalledAppsStats.measurePrimaryVolumeBytes(context)!!
             assertTrue(
-                "unattributed Download file leaked into installed apps: $baselineBytes -> ${afterDownload.bytes}",
-                afterDownload.bytes - baselineBytes < 8L * 1024 * 1024,
+                "unattributed Download file leaked into installed apps: $baselineBytes -> ${after.bytes}",
+                after.bytes - baselineBytes < 8L * 1024 * 1024,
             )
+        } finally {
+            fixture?.delete()
+            device.executeShellCommand("appops set ${context.packageName} android:get_usage_stats default")
+        }
+    }
 
-            // (b) 24 MB in the app's own Android/media dir: must be attributed to the app.
-            // Go through the framework: externalMediaDirs ensures the directory exists with
-            // the app's quota project id. A bare mkdirs() leaves it in the default project,
-            // and quota-based accounting (Android 15) then cannot attribute the file to us.
-            val mediaDir = context.externalMediaDirs.firstOrNull()
-                ?: File("/sdcard/Android/media/${context.packageName}")
+    /**
+     * Regression for the 239-GB-apps-slice bug, part (b): content in the app's own
+     * Android/media/<pkg> directory that the framework stamped with the app's quota
+     * project id MUST be attributed to the app by StorageStats - that inclusion is
+     * exactly why the analyzer subtracts the indexed media share from the measured
+     * per-package total (otherwise the same bytes would be counted twice).
+     *
+     * Staging follows the real production mechanism: the dir/file are created by
+     * plain app I/O (provably NOT attributed on this device), then the framework's
+     * own fixup is invoked (IStorageManager.fixupAppDir, binder transaction 89 on
+     * the "mount" service; no @EnforcePermission on the AIDL method, so the shell
+     * can call it). StorageManagerService resolves the package's uid and calls
+     * vold fixupAppDir, which stamps the directory and its entries with
+     * PROJECT_ID_EXT_DATA_START + appId and sets project-id inheritance - the same
+     * state real devices reach when framework components (e.g. MediaProvider, MTP)
+     * create or fix up app media dirs (system/vold Utils.cpp PrepareAppDirFromRoot).
+     */
+    @Test
+    fun frameworkFixupAttributesOwnMediaDir() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val context = instrumentation.targetContext
+        val device = UiDevice.getInstance(instrumentation)
+        val mediaDirPath = "/storage/emulated/0/Android/media/${context.packageName}"
+        val mediaDir = File(mediaDirPath)
+        var ownMedia: File? = null
+        try {
+            device.executeShellCommand("appops set ${context.packageName} android:get_usage_stats allow")
+            assertTrue("usage access grant did not take effect", InstalledAppsStats.hasUsageAccess(context))
+
+            val baseline = InstalledStats(context)
+
+            // Plain app I/O: on this device this must NOT be attributed yet.
             mediaDir.mkdirs()
             ownMedia = File(mediaDir, "sfe-media-fixture.bin")
             ownMedia.outputStream().use { out -> repeat(24) { out.write(ByteArray(1 shl 20)) } }
-            val afterMedia = InstalledAppsStats.measurePrimaryVolumeBytes(context)!!
+            val afterPlainWrite = InstalledStats(context)
             assertTrue(
-                "own Android/media fixture not attributed to the app: ${afterDownload.bytes} -> ${afterMedia.bytes}",
-                afterMedia.bytes - afterDownload.bytes >= 12L * 1024 * 1024,
+                "plain-created own Android/media content unexpectedly attributed: $baseline -> $afterPlainWrite",
+                afterPlainWrite - baseline < 8L * 1024 * 1024,
             )
 
-            // (c) Bare-mkdir media dir for a package that is not installed (the removed-app
-            // and copier/MTP-created case): without a framework-set project id, quota
-            // accounting must NOT attribute these bytes - the measurement must not move.
+            // The framework fixup: vold stamps the dir and its entries with the app's
+            // EXT_DATA quota project id - the production attribution mechanism.
+            val fixupOut = device.executeShellCommand("service call mount 89 s16 $mediaDirPath")
+            Log.i("SfeTest", "fixupAppDir service call: $fixupOut")
+            val afterFixup = InstalledStats(context)
+            val lsattr = device.executeShellCommand("lsattr -pd /data/media/0/Android/media/${context.packageName}")
+            Log.i("SfeTest", "project id after fixup: $lsattr")
+            assertTrue(
+                "framework-stamped own Android/media fixture not attributed to the app: " +
+                    "$afterPlainWrite -> $afterFixup (fixup: ${fixupOut?.trim()}, lsattr: ${lsattr?.trim()})",
+                afterFixup - afterPlainWrite >= 12L * 1024 * 1024,
+            )
+        } finally {
+            ownMedia?.delete()
+            mediaDir.delete()
+            device.executeShellCommand("appops set ${context.packageName} android:get_usage_stats default")
+        }
+    }
+
+    /**
+     * Regression for the 239-GB-apps-slice bug, part (c): a bare-mkdir Android/media
+     * dir for a package that is NOT installed (removed-app leftovers, MTP/copier
+     * creation) must not be attributed - without the framework project id, quota
+     * accounting cannot tie the bytes to any package, so the measurement must not
+     * move. Kept as its own test so a failure elsewhere cannot skip it.
+     */
+    @Test
+    fun foreignBareMediaDirIsNotAttributed() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val context = instrumentation.targetContext
+        val device = UiDevice.getInstance(instrumentation)
+        var foreignDir: File? = null
+        try {
+            device.executeShellCommand("appops set ${context.packageName} android:get_usage_stats allow")
+            assertTrue("usage access grant did not take effect", InstalledAppsStats.hasUsageAccess(context))
+
+            val baseline = InstalledStats(context)
             foreignDir = File("/sdcard/Android/media/com.sfe.fakeremoved")
             foreignDir.mkdirs()
             val foreign = File(foreignDir, "sfe-foreign-fixture.bin")
             foreign.outputStream().use { out -> repeat(24) { out.write(ByteArray(1 shl 20)) } }
-            val afterForeign = InstalledAppsStats.measurePrimaryVolumeBytes(context)!!
+            val afterForeign = InstalledStats(context)
             assertTrue(
-                "foreign Android/media dir leaked into installed apps: ${afterMedia.bytes} -> ${afterForeign.bytes}",
-                afterForeign.bytes - afterMedia.bytes < 8L * 1024 * 1024,
+                "foreign Android/media dir leaked into installed apps: $baseline -> $afterForeign",
+                afterForeign - baseline < 8L * 1024 * 1024,
             )
         } finally {
-            unattributed?.delete()
-            ownMedia?.delete()
             foreignDir?.deleteRecursively()
             device.executeShellCommand("appops set ${context.packageName} android:get_usage_stats default")
         }
+    }
+
+    private fun InstalledStats(context: android.content.Context): Long {
+        val m = InstalledAppsStats.measurePrimaryVolumeBytes(context)
+        assertNotNull("measurement failed despite grant", m)
+        return m!!.bytes
     }
 }

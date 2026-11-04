@@ -69,6 +69,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
+import com.stockfileexplorer.app.AppSettings
 import com.stockfileexplorer.app.FileActionCallbacks
 import com.stockfileexplorer.app.FileActionMenu
 import com.stockfileexplorer.app.FileActionPreferences
@@ -209,6 +210,8 @@ fun BrowserScreen(
     var propertiesTarget by remember { mutableStateOf<FileItem?>(null) }
     var transferSources by remember { mutableStateOf<List<FileItem>>(emptyList()) }
     var transferMove by remember { mutableStateOf(false) }
+    var conflictPrompt by remember { mutableStateOf<ConflictPrompt?>(null) }
+    val menuStyle = AppSettings.selectionMenuStyle(context)
     var showMenuCustomization by remember { mutableStateOf(false) }
     var favoritePaths by remember { mutableStateOf(FileActionPreferences.favoritePaths(context)) }
 
@@ -483,17 +486,28 @@ fun BrowserScreen(
                     transferMove = true
                 },
                 onDelete = { showDeleteConfirm = true },
+                onMore = if (menuStyle == com.stockfileexplorer.app.SelectionMenuStyle.CLASSIC) {
+                    { quickActionsOpen = true }
+                } else null,
             )
         }
     }
 
     // The floating Rename/Share card sits on the right edge while the selection is active.
-    if (selecting && quickActionsOpen) {
+    if (selecting && quickActionsOpen && menuStyle == com.stockfileexplorer.app.SelectionMenuStyle.FLOATING) {
         SelectionQuickActionsPopup(
             renameEnabled = selection.size == 1,
             onShare = quickActionsShare,
             onRename = quickActionsRename,
             modifier = Modifier.align(Alignment.CenterEnd),
+        )
+    }
+    if (selecting && quickActionsOpen && menuStyle == com.stockfileexplorer.app.SelectionMenuStyle.CLASSIC) {
+        SelectionActionsDialog(
+            renameEnabled = selection.size == 1,
+            onShare = quickActionsShare,
+            onRename = quickActionsRename,
+            onDismiss = { quickActionsOpen = false },
         )
     }
     }
@@ -563,12 +577,21 @@ fun BrowserScreen(
                 val move = transferMove
                 transferSources = emptyList()
                 scope.launch {
-                    val succeeded = withContext(Dispatchers.IO) {
-                        sources.filter { source ->
-                            FileOperations.transfer(source.file, destination, move)
+                    var done = 0
+                    var skipped = 0
+                    var failed = 0
+                    withContext(Dispatchers.IO) {
+                        for (source in sources) {
+                            val resolution = resolveConflict(context, destination, source.file.name) { conflictPrompt = it }
+                            if (resolution == null) break
+                            when (FileOperations.transferOutcome(source.file, destination, move) { resolution }) {
+                                FileOperations.TransferOutcome.DONE -> done++
+                                FileOperations.TransferOutcome.SKIPPED -> skipped++
+                                FileOperations.TransferOutcome.FAILED -> failed++
+                            }
                         }
                     }
-                    if (succeeded.isNotEmpty()) {
+                    if (done > 0) {
                         Toast.makeText(
                             context,
                             if (move) R.string.moved_ok else R.string.copied_ok,
@@ -576,7 +599,11 @@ fun BrowserScreen(
                         ).show()
                         com.stockfileexplorer.app.data.FileIndex.invalidate()
                         refreshTick++
-                    } else {
+                    }
+                    if (skipped > 0) {
+                        Toast.makeText(context, context.getString(R.string.transfer_skipped, skipped), Toast.LENGTH_SHORT).show()
+                    }
+                    if (done == 0 && skipped == 0) {
                         Toast.makeText(context, R.string.transfer_failed, Toast.LENGTH_SHORT).show()
                     }
                 }
@@ -599,6 +626,8 @@ fun BrowserScreen(
     if (showMenuCustomization) {
         MenuCustomizationDialog(onDismiss = { showMenuCustomization = false })
     }
+
+    conflictPrompt?.let { ConflictDialog(it) }
 
     if (showNewFolder) {
         TextInputDialog(

@@ -1,7 +1,9 @@
 package com.stockfileexplorer.app.theme
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
@@ -9,6 +11,7 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import com.stockfileexplorer.app.R
+import com.stockfileexplorer.app.ThemeMode
 
 val Amber = Color(0xFFFFC107)
 val AmberDark = Color(0xFF8F6B00)
@@ -41,9 +44,9 @@ private val SfeTypography = with(Typography()) {
     )
 }
 
-// The user explicitly chose a yellow accent on a light look, so the app keeps this
-// light scheme regardless of the system dark-mode setting. Background is a soft
-// off-white rather than pure white.
+// The user explicitly chose a yellow accent on a light look as the default. Background
+// is a soft off-white rather than pure white. Dark and follow-system are opt-in choices
+// on the Settings screen; the default stays this light scheme.
 private val SfeColors = lightColorScheme(
     primary = Amber,
     onPrimary = Color(0xFF1D1B16),
@@ -61,10 +64,29 @@ private val SfeColors = lightColorScheme(
     onSurfaceVariant = Color(0xFF4A4639)
 )
 
+// Same amber accent on a warm dark base, so the look stays recognizably the app's.
+private val SfeDarkColors = darkColorScheme(
+    primary = Amber,
+    onPrimary = Color(0xFF1D1B16),
+    primaryContainer = Color(0xFF5C4600),
+    onPrimaryContainer = Color(0xFFFFECB3),
+    secondary = Color(0xFFD9C683),
+    onSecondary = Color(0xFF241A00),
+    secondaryContainer = Color(0xFF5C4600),
+    onSecondaryContainer = Color(0xFFFFE08A),
+    background = Color(0xFF16130D),
+    onBackground = Color(0xFFE9E2D4),
+    surface = Color(0xFF16130D),
+    onSurface = Color(0xFFE9E2D4),
+    surfaceVariant = Color(0xFF2A2519),
+    onSurfaceVariant = Color(0xFFCFC5AE)
+)
+
 @Composable
-fun AppTheme(content: @Composable () -> Unit) {
+fun AppTheme(mode: ThemeMode = ThemeMode.LIGHT, content: @Composable () -> Unit) {
+    val dark = mode == ThemeMode.DARK || (mode == ThemeMode.SYSTEM && isSystemInDarkTheme())
     MaterialTheme(
-        colorScheme = SfeColors,
+        colorScheme = if (dark) SfeDarkColors else SfeColors,
         typography = SfeTypography,
         content = content
     )

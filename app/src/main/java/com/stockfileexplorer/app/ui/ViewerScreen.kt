@@ -387,6 +387,7 @@ private fun ArchiveViewer(file: File) {
     var current by remember { mutableStateOf("") }
     var extracted by remember { mutableStateOf<File?>(null) }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val failed = stringResource(R.string.viewer_archive_error)
     LaunchedEffect(file.path) {
         try { entries = withContext(Dispatchers.IO) { Archives.list(file) } }
@@ -410,9 +411,12 @@ private fun ArchiveViewer(file: File) {
             }
         }
         val canExtract = entries != null && !busy && extracted == null
+        val extractHereOnly = com.stockfileexplorer.app.AppSettings.extractMode(context) == com.stockfileexplorer.app.ExtractMode.HERE
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(enabled = canExtract, onClick = { runExtract(null) }) { Text(stringResource(if (busy) R.string.viewer_extracting else R.string.viewer_extract_here)) }
-            OutlinedButton(enabled = canExtract, onClick = { pickFolder = true }) { Text(stringResource(R.string.viewer_extract_choose)) }
+            if (!extractHereOnly) {
+                OutlinedButton(enabled = canExtract, onClick = { pickFolder = true }) { Text(stringResource(R.string.viewer_extract_choose)) }
+            }
         }
         if (pickFolder) FolderPickerDialog(
             title = stringResource(R.string.viewer_extract_choose),
@@ -424,7 +428,6 @@ private fun ArchiveViewer(file: File) {
         if (busy) { LinearProgressIndicator(Modifier.fillMaxWidth()); Text(current, maxLines = 1, overflow = TextOverflow.Ellipsis) }
         extracted?.let { folder ->
             Text(stringResource(R.string.viewer_extracted, folder.absolutePath), Modifier.padding(vertical = 8.dp), style = MaterialTheme.typography.bodyMedium)
-            val context = LocalContext.current
             TextButton(colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface), onClick = {
                 context.startActivity(android.content.Intent(context, com.stockfileexplorer.app.MainActivity::class.java)
                     .putExtra("browse_path", folder.absolutePath)

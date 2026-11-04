@@ -65,3 +65,42 @@ fun SelectionQuickActionsPopup(
         }
     }
 }
+
+/**
+ * Classic-style counterpart to [SelectionQuickActionsPopup]: the same Rename/Share
+ * actions behind the selection bar's More step, as a modal picker. Shown when the user
+ * picks the classic bottom-bar menu style in Settings.
+ */
+@Composable
+fun SelectionActionsDialog(
+    renameEnabled: Boolean,
+    onShare: () -> Unit,
+    onRename: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(
+                onClick = onDismiss,
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+            ) { Text(stringResource(R.string.cancel)) }
+        },
+        title = { Text(stringResource(R.string.more)) },
+        text = {
+            Column {
+                TextButton(
+                    onClick = { onDismiss(); onRename() },
+                    enabled = renameEnabled,
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+                    modifier = Modifier.testTag("classic_rename"),
+                ) { Text(stringResource(R.string.rename)) }
+                TextButton(
+                    onClick = { onDismiss(); onShare() },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+                    modifier = Modifier.testTag("classic_share"),
+                ) { Text(stringResource(R.string.share)) }
+            }
+        },
+    )
+}

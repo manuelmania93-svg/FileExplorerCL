@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.IconButton
 import androidx.compose.ui.platform.testTag
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -64,12 +65,19 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            AppTheme {
+            var themeMode by remember { mutableStateOf(AppSettings.themeMode(applicationContext)) }
+            AppTheme(themeMode) {
                 Surface(
                     modifier = Modifier.fillMaxSize().semantics { testTagsAsResourceId = true },
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    Root(intent.getStringExtra("browse_path"), intent.getBooleanExtra("storage_analysis", false), intent.getBooleanExtra("papierkorb", false))
+                    Root(
+                        intent.getStringExtra("browse_path"),
+                        intent.getBooleanExtra("storage_analysis", false),
+                        intent.getBooleanExtra("papierkorb", false),
+                        themeMode = themeMode,
+                        onThemeMode = { themeMode = it; AppSettings.setThemeMode(applicationContext, it) },
+                    )
                 }
             }
         }
@@ -81,7 +89,13 @@ private const val TAB_LIBRARY = 1
 private const val TAB_NETWORK = 2
 
 @Composable
-fun Root(initialBrowsePath: String? = null, initialStorageAnalysis: Boolean = false, initialPapierkorb: Boolean = false) {
+fun Root(
+    initialBrowsePath: String? = null,
+    initialStorageAnalysis: Boolean = false,
+    initialPapierkorb: Boolean = false,
+    themeMode: ThemeMode = ThemeMode.LIGHT,
+    onThemeMode: (ThemeMode) -> Unit = {},
+) {
     var hasAccess by remember { mutableStateOf(Environment.isExternalStorageManager()) }
     val lifecycleOwner = LocalLifecycleOwner.current
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -100,13 +114,19 @@ fun Root(initialBrowsePath: String? = null, initialStorageAnalysis: Boolean = fa
         PermissionScreen()
     } else {
         androidx.compose.runtime.LaunchedEffect(Unit) { com.stockfileexplorer.app.data.FileIndex.start(context) }
-        MainScaffold(initialBrowsePath, initialStorageAnalysis, initialPapierkorb)
+        MainScaffold(initialBrowsePath, initialStorageAnalysis, initialPapierkorb, themeMode, onThemeMode)
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScaffold(initialBrowsePath: String? = null, initialStorageAnalysis: Boolean = false, initialPapierkorb: Boolean = false) {
+fun MainScaffold(
+    initialBrowsePath: String? = null,
+    initialStorageAnalysis: Boolean = false,
+    initialPapierkorb: Boolean = false,
+    themeMode: ThemeMode = ThemeMode.LIGHT,
+    onThemeMode: (ThemeMode) -> Unit = {},
+) {
     var tab by remember { mutableIntStateOf(TAB_LOCAL) }
     var browsePath by remember { mutableStateOf<String?>(initialBrowsePath) }
     // A category opened out of the storage analysis overlays it on the Local tab (null = not open).
@@ -117,12 +137,13 @@ fun MainScaffold(initialBrowsePath: String? = null, initialStorageAnalysis: Bool
     var showApps by remember { mutableStateOf(false) }
     var showPapierkorb by remember { mutableStateOf(initialPapierkorb) }
     var showStorageAnalysis by remember { mutableStateOf(initialStorageAnalysis) }
+    var showSettings by remember { mutableStateOf(false) }
     val storageRoot = remember { Environment.getExternalStorageDirectory().absolutePath }
     val downloadsPath = remember { Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).absolutePath }
 
     // Intercept Back only while the screen it closes is visible - all of these live on the
     // Local tab. Closing hidden state read as "Back does nothing, then the app exits".
-    BackHandler(enabled = tab == TAB_LOCAL && (savedView != null || showSearch || browsePath != null || analysisCategory != null || showApps || showStorageAnalysis || showPapierkorb)) {
+    BackHandler(enabled = tab == TAB_LOCAL && (savedView != null || showSearch || browsePath != null || analysisCategory != null || showApps || showStorageAnalysis || showPapierkorb || showSettings)) {
         // An open folder or category closes first, so Back from a destination opened out of
         // the analysis returns to the analysis.
         if (savedView != null) savedView = null
@@ -132,6 +153,7 @@ fun MainScaffold(initialBrowsePath: String? = null, initialStorageAnalysis: Bool
         else if (showPapierkorb) showPapierkorb = false
         else if (showStorageAnalysis) { showStorageAnalysis = false; analysisHolder.report = null }
         else if (showApps) showApps = false
+        else if (showSettings) showSettings = false
     }
 
     Scaffold(
@@ -162,7 +184,15 @@ fun MainScaffold(initialBrowsePath: String? = null, initialStorageAnalysis: Bool
             TAB_LOCAL -> {
                 val path = browsePath
                 val analysisCat = analysisCategory
-                if (savedView != null) {
+                if (showSettings) {
+                    Column(Modifier.fillMaxSize().padding(padding)) {
+                        com.stockfileexplorer.app.ui.SettingsScreen(
+                            themeMode = themeMode,
+                            onThemeMode = onThemeMode,
+                            onBack = { showSettings = false },
+                        )
+                    }
+                } else if (savedView != null) {
                     Column(Modifier.fillMaxSize().padding(padding)) {
                         com.stockfileexplorer.app.ui.SavedLocationsScreen(shortcuts = savedView == "shortcuts", onBack = { savedView = null })
                     }
@@ -213,6 +243,9 @@ fun MainScaffold(initialBrowsePath: String? = null, initialStorageAnalysis: Bool
                                 }
                                 IconButton(onClick = { showSearch = true }, modifier = Modifier.testTag("home_search")) {
                                     Icon(Icons.Filled.Search, stringResource(R.string.search_files), modifier = Modifier.size(22.dp))
+                                }
+                                IconButton(onClick = { showSettings = true }, modifier = Modifier.testTag("home_settings")) {
+                                    Icon(Icons.Filled.Settings, stringResource(R.string.settings_title), modifier = Modifier.size(22.dp))
                                 }
                             },
                             colors = TopAppBarDefaults.topAppBarColors(containerColor = androidx.compose.ui.graphics.Color.Transparent))

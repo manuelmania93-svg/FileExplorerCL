@@ -234,4 +234,26 @@
     <string name="viewer_extract_here">Hier entpacken</string>
     <string name="viewer_extract_choose">Ordner wählen</string>
     <string name="viewer_extract_here_short">In diesen Ordner entpacken</string>
+
+    <!-- Settings screen -->
+    <string name="settings_title">Einstellungen</string>
+    <string name="settings_design">Design</string>
+    <string name="settings_theme_light">Hell (Gelb)</string>
+    <string name="settings_theme_dark">Dunkel</string>
+    <string name="settings_theme_system">System folgen</string>
+    <string name="settings_menus">Menüs</string>
+    <string name="settings_menu_floating">Schwebende Umbenennen/Teilen-Karte</string>
+    <string name="settings_menu_classic">Untere Leiste mit Mehr-Schritt</string>
+    <string name="settings_fileops">Dateioperationen</string>
+    <string name="settings_extract">Archive entpacken</string>
+    <string name="settings_extract_ask">Fragen: hier oder Ordner wählen</string>
+    <string name="settings_extract_here">Immer hier entpacken</string>
+    <string name="settings_conflict">Namenskonflikte</string>
+    <string name="settings_conflict_ask">Jedes Mal fragen</string>
+    <string name="settings_conflict_rename">Automatisch in "name (1)" umbenennen</string>
+    <string name="settings_conflict_skip">Vorhandene Namen überspringen</string>
+    <string name="conflict_title">Name existiert bereits</string>
+    <string name="conflict_message">"%1$s" existiert bereits im Ziel. Es wird nichts überschrieben.</string>
+    <string name="skip">Überspringen</string>
+    <string name="transfer_skipped">%1$d übersprungen</string>
 </resources>

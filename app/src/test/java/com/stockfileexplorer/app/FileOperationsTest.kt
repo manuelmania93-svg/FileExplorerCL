@@ -40,3 +40,48 @@ class FileOperationsTest {
         assertFalse(File(root, "same (1).txt").exists())
     }
 }
+
+class FileOperationsConflictTest {
+    @Test fun skipOnConflictLeavesBothSidesUntouched() {
+        val root = Files.createTempDirectory("sfe-skip").toFile()
+        val destination = File(root, "dest").apply { mkdirs() }
+        val source = File(root, "note.txt").apply { writeText("new") }
+        File(destination, "note.txt").writeText("existing")
+
+        val outcome = FileOperations.transferOutcome(source, destination, move = false) {
+            FileOperations.ConflictResolution.SKIP
+        }
+        assertEquals(FileOperations.TransferOutcome.SKIPPED, outcome)
+        assertEquals("existing", File(destination, "note.txt").readText())
+        assertTrue(source.exists())
+        assertFalse(File(destination, "note (1).txt").exists())
+    }
+
+    @Test fun conflictCallbackOnlyRunsWhenNameExists() {
+        val root = Files.createTempDirectory("sfe-cb").toFile()
+        val destination = File(root, "dest").apply { mkdirs() }
+        val free = File(root, "free.txt").apply { writeText("free") }
+        var calls = 0
+        val outcome = FileOperations.transferOutcome(free, destination, move = false) {
+            calls++
+            FileOperations.ConflictResolution.SKIP
+        }
+        assertEquals(FileOperations.TransferOutcome.DONE, outcome)
+        assertEquals(0, calls)
+        assertTrue(File(destination, "free.txt").exists())
+    }
+
+    @Test fun renameResolutionKeepsAutoRename() {
+        val root = Files.createTempDirectory("sfe-rn").toFile()
+        val destination = File(root, "dest").apply { mkdirs() }
+        val source = File(root, "note.txt").apply { writeText("new") }
+        File(destination, "note.txt").writeText("existing")
+
+        val outcome = FileOperations.transferOutcome(source, destination, move = false) {
+            FileOperations.ConflictResolution.RENAME
+        }
+        assertEquals(FileOperations.TransferOutcome.DONE, outcome)
+        assertEquals("existing", File(destination, "note.txt").readText())
+        assertEquals("new", File(destination, "note (1).txt").readText())
+    }
+}

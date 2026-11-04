@@ -234,4 +234,26 @@
     <string name="viewer_extract_here">Extract here</string>
     <string name="viewer_extract_choose">Choose folder</string>
     <string name="viewer_extract_here_short">Extract to this folder</string>
+
+    <!-- Settings screen -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_design">Design</string>
+    <string name="settings_theme_light">Light (yellow)</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_theme_system">Follow system</string>
+    <string name="settings_menus">Menus</string>
+    <string name="settings_menu_floating">Floating Rename/Share card</string>
+    <string name="settings_menu_classic">Bottom bar with More step</string>
+    <string name="settings_fileops">File operations</string>
+    <string name="settings_extract">Archive extraction</string>
+    <string name="settings_extract_ask">Ask: here or choose folder</string>
+    <string name="settings_extract_here">Always extract here</string>
+    <string name="settings_conflict">Name conflicts</string>
+    <string name="settings_conflict_ask">Ask every time</string>
+    <string name="settings_conflict_rename">Auto-rename to "name (1)"</string>
+    <string name="settings_conflict_skip">Skip existing names</string>
+    <string name="conflict_title">Name already exists</string>
+    <string name="conflict_message">"%1$s" already exists in the destination. Nothing is overwritten.</string>
+    <string name="skip">Skip</string>
+    <string name="transfer_skipped">%1$d skipped</string>
 </resources>

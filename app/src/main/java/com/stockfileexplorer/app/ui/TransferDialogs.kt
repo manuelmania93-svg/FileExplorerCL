@@ -171,3 +171,70 @@ fun PropertiesDialog(
 private fun PropertyLine(label: String, value: String) {
     Text("$label: $value", style = MaterialTheme.typography.bodyMedium)
 }
+
+
+/**
+ * Decides what happens to [sourceName] in [destination] under the user's conflict
+ * setting. Returns null when the user cancels the whole transfer from the ask dialog.
+ * Reads the pref and stats the destination on the caller's (IO) dispatcher; only the
+ * ask-mode prompt touches the main thread.
+ */
+suspend fun resolveConflict(
+    context: android.content.Context,
+    destination: File,
+    sourceName: String,
+    showPrompt: (ConflictPrompt?) -> Unit,
+): FileOperations.ConflictResolution? {
+    if (!File(destination, sourceName).exists()) return FileOperations.ConflictResolution.RENAME
+    return when (com.stockfileexplorer.app.AppSettings.conflictMode(context)) {
+        com.stockfileexplorer.app.ConflictMode.RENAME -> FileOperations.ConflictResolution.RENAME
+        com.stockfileexplorer.app.ConflictMode.SKIP -> FileOperations.ConflictResolution.SKIP
+        com.stockfileexplorer.app.ConflictMode.ASK -> {
+            val prompt = ConflictPrompt(sourceName, kotlinx.coroutines.CompletableDeferred())
+            withContext(Dispatchers.Main) { showPrompt(prompt) }
+            val answer = prompt.answer.await()
+            withContext(Dispatchers.Main) { showPrompt(null) }
+            answer
+        }
+    }
+}
+
+/** A pending name conflict the user has to settle before the transfer continues. */
+class ConflictPrompt(
+    val name: String,
+    val answer: kotlinx.coroutines.CompletableDeferred<FileOperations.ConflictResolution?>,
+)
+
+/**
+ * Ask-mode conflict dialog: never overwrites, the user picks auto-rename ("name (1)"),
+ * skip this file, or cancel the rest of the transfer.
+ */
+@Composable
+fun ConflictDialog(prompt: ConflictPrompt) {
+    AlertDialog(
+        onDismissRequest = { prompt.answer.complete(null) },
+        title = { Text(stringResource(R.string.conflict_title)) },
+        text = { Text(stringResource(R.string.conflict_message, prompt.name)) },
+        confirmButton = {
+            TextButton(
+                onClick = { prompt.answer.complete(FileOperations.ConflictResolution.RENAME) },
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+                modifier = Modifier.testTag("conflict_rename"),
+            ) { Text(stringResource(R.string.rename)) }
+        },
+        dismissButton = {
+            Row {
+                TextButton(
+                    onClick = { prompt.answer.complete(FileOperations.ConflictResolution.SKIP) },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+                    modifier = Modifier.testTag("conflict_skip"),
+                ) { Text(stringResource(R.string.skip)) }
+                TextButton(
+                    onClick = { prompt.answer.complete(null) },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+                    modifier = Modifier.testTag("conflict_cancel"),
+                ) { Text(stringResource(R.string.cancel)) }
+            }
+        },
+    )
+}

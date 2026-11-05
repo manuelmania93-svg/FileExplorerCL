@@ -27,7 +27,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
@@ -59,6 +58,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
@@ -308,7 +309,8 @@ fun BrowserScreen(
                         Icon(SfeIcons.Link, stringResource(R.string.copy_path))
                     }
                     IconButton(onClick = { selection = items.map { it.file.absolutePath }.filterNot { it in selection }.toSet(); openQuickActions() }, modifier = Modifier.testTag("selection_invert")) {
-                        Icon(androidx.compose.material.icons.Icons.Filled.SwapVert, stringResource(R.string.invert_selection))
+                        val invertLabel = stringResource(R.string.invert_selection)
+                        Text("↕", modifier = Modifier.semantics { contentDescription = invertLabel })
                     }
                     IconButton(
                         onClick = {

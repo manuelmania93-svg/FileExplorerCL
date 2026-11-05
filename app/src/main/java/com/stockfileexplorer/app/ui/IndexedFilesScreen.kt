@@ -14,6 +14,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -154,7 +156,8 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
                         selection = all.filterNot { it in selection }.toSet()
                         openQuickActions()
                     } }, modifier = Modifier.testTag("selection_invert")) {
-                        Icon(androidx.compose.material.icons.Icons.Filled.SwapVert, stringResource(R.string.invert_selection))
+                        val invertLabel = stringResource(R.string.invert_selection)
+                        Text("↕", modifier = Modifier.semantics { contentDescription = invertLabel })
                     }
                     IconButton(onClick = {
                         scope.launch {

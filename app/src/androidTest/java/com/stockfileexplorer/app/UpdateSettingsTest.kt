@@ -28,9 +28,20 @@ class UpdateSettingsTest {
             UpdateTestSupport.shot("update-settings-no-gear"); fail("gear missing")
         }
         device.findObject(By.res("home_settings")).click()
-        // After the silent launch check settles (any outcome), the manual check row exists.
-        if (!device.wait(Until.hasObject(By.res("update_check")), 30000)) {
-            UpdateTestSupport.shot("update-settings-no-row"); fail("update check row missing")
+        // The update section is the 4th settings section - below the fold on the
+        // emulator (evidence: sfe-update-update-settings-no-row.png showed only
+        // Design/Menus/File operations). Scroll the settings list with bounded
+        // swipes until the manual check row appears, then assert.
+        var rowFound = device.wait(Until.hasObject(By.res("update_check")), 10000)
+        var swipes = 0
+        while (!rowFound && swipes < 8) {
+            device.swipe(device.displayWidth / 2, device.displayHeight * 3 / 4, device.displayWidth / 2, device.displayHeight / 4, 30)
+            device.waitForIdle()
+            rowFound = device.wait(Until.hasObject(By.res("update_check")), 1500)
+            swipes++
+        }
+        if (!rowFound) {
+            UpdateTestSupport.shot("update-settings-no-row"); fail("update check row missing after scrolling")
         }
         val versionLabel = context.getString(
             R.string.update_current,

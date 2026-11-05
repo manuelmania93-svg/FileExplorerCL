@@ -81,8 +81,11 @@ class MenuOptionsTest {
                     FileActionPreferences.setOrder(context, listOf(action) + FileMenuAction.entries.filterNot { it == action })
                     invoked.set("")
                     scenario.onActivity { activity -> activity.setContent { com.stockfileexplorer.app.theme.AppTheme(ThemeMode.LIGHT) {
-                        Box(Modifier.semantics { testTagsAsResourceId = true }) { FileActionMenu("callback fixture.txt", false, false, {}, callbacks()) }
+                        androidx.compose.runtime.key("${layout.name}-${action.name}") {
+                            Box(Modifier.semantics { testTagsAsResourceId = true }) { FileActionMenu("callback ${layout.name} ${action.name}", false, false, {}, callbacks()) }
+                        }
                     } } }
+                    assertNotNull(device.wait(Until.findObject(By.text("callback ${layout.name} ${action.name}")), 10000))
                     control("context_action_${action.name}").click()
                     val until = android.os.SystemClock.uptimeMillis() + 5000
                     while (invoked.get().isEmpty() && android.os.SystemClock.uptimeMillis() < until) Thread.sleep(50)
@@ -134,7 +137,9 @@ class MenuOptionsTest {
         fun text(value: String) = device.wait(Until.findObject(By.text(value)), 15000) ?: throw AssertionError("Missing $value")
         val intent = android.content.Intent(context, MainActivity::class.java).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK).putExtra("browse_path", root.absolutePath)
         ActivityScenario.launch<MainActivity>(intent).use { scenario ->
-            text("menu-1.txt").longClick()
+            device.waitForIdle(); Thread.sleep(750)
+            val center = text("menu-1.txt").visibleCenter
+            device.swipe(center.x, center.y, center.x, center.y, 90)
             control("selection_invert").click()
             control("selection_copy_path").click()
             Thread.sleep(500)
@@ -152,7 +157,9 @@ class MenuOptionsTest {
                     com.stockfileexplorer.app.ui.IndexedFilesScreen(null, "Menu fixture index", {})
                 }
             } } }
-            text("menu-1.txt").longClick()
+            device.waitForIdle(); Thread.sleep(750)
+            val indexedCenter = text("menu-1.txt").visibleCenter
+            device.swipe(indexedCenter.x, indexedCenter.y, indexedCenter.x, indexedCenter.y, 90)
             control("selection_invert").click()
             control("selection_copy_path").click()
             Thread.sleep(500)

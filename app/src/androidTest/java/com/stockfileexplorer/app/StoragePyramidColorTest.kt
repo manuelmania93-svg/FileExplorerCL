@@ -40,7 +40,10 @@ class StoragePyramidColorTest {
         // for a VISIBLE match and scroll one settle-checked step at a time until it
         // appears or the list cannot move further.
         val scrollable = UiScrollable(UiSelector().scrollable(true)).setMaxSearchSwipes(60)
-        val visible = By.textContains(text).visible(true)
+        // NOTE: BySelector has no .visible() in uiautomator 2.3.0 (run 42034086442 compile
+        // error). A tree match can be a LazyColumn lookahead item; the follow-up pixel
+        // screenshot is the visibility evidence, verified before any green claim.
+        val visible = By.textContains(text)
         repeat(60) {
             if (device.hasObject(visible)) return true
             val moved = try {

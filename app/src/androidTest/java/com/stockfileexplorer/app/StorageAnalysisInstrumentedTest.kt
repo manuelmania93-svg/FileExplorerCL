@@ -42,11 +42,22 @@ class StorageAnalysisInstrumentedTest {
     }
 
     private fun reveal(selector: BySelector, value: String, maxSwipes: Int = 12): UiObject2 {
+        // Bounded search DOWN the page, then back UP to the top, then one settled
+        // poll: rows composed after the first pass (analysis data still settling
+        // when swiping starts) sit above the current position, and a one-directional
+        // search can never reach them again (run 41948498894: the legend was missed
+        // while the same row rendered minutes later in the same job).
         repeat(maxSwipes) {
             device.wait(Until.findObject(selector), 500)?.let { return it }
             device.swipe(device.displayWidth / 2, device.displayHeight * 3 / 4, device.displayWidth / 2, device.displayHeight / 4, 45)  // slow swipe: a fast one flings past short sections
             device.waitForIdle()
         }
+        repeat(maxSwipes) {
+            device.swipe(device.displayWidth / 2, device.displayHeight / 4, device.displayWidth / 2, device.displayHeight * 3 / 4, 45)
+            device.waitForIdle()
+            device.wait(Until.findObject(selector), 500)?.let { return it }
+        }
+        device.wait(Until.findObject(selector), 2000)?.let { return it }
         screenshot("sfe-storage-analysis-missing")
         throw AssertionError("Missing UI text after scrolling: $value. Visible: " + device.findObjects(By.pkg(context.packageName)).mapNotNull { it.text }.distinct().take(30))
     }
@@ -92,8 +103,9 @@ class StorageAnalysisInstrumentedTest {
         // waiting for it in the initial viewport.
         revealText(label("Other used storage", "Übriger belegter Speicher"))
         screenshot("sfe-storage-analysis-pyramid-${if (german) "de" else "en"}")
-        swipeUp()
-        waitText(label("Categories", "Kategorien"))
+        // Bounded search, not a blind fixed swipe: a single swipeUp flings this
+        // short list past the Categories header (run 41956160052).
+        revealText(label("Categories", "Kategorien"))
         revealText(label("Largest folders", "Größte Ordner"))
         screenshot("sfe-storage-analysis-scrolled-${if (german) "de" else "en"}")
         revealText("Download")

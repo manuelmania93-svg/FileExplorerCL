@@ -66,13 +66,15 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
       - name: Build update manifest (sfe-update.json)
-        # Preparatory for release publishing (policy still open): records versionCode,
-        # versionName and the APK digest. apkUrl is filled at publish time.
+        # Records the APK's own versionCode/versionName + digest. apkUrl is filled by the
+        # publish job at release time; this artifact is the publish job's metadata source.
         run: |
           APK=app/build/outputs/apk/debug/app-debug.apk
           SHA=$(sha256sum "$APK" | awk '{print $1}')
-          VERSION_NAME=$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/build.gradle.kts)
-          jq -n --argjson vc "${{ github.run_number }}" --arg vn "$VERSION_NAME" --arg sha "$SHA" \
+          VC=$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p")
+          VN=$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p")
+          test -n "$VC" && test -n "$VN"
+          jq -n --argjson vc "$VC" --arg vn "$VN" --arg sha "$SHA" \
             '{versionCode: $vc, versionName: $vn, apkUrl: "", sha256: $sha}' > sfe-update.json
           cat sfe-update.json
       - uses: actions/upload-artifact@v4
@@ -92,3 +94,96 @@ jobs:
       - name: Remove runner signing-key copy
         if: always()
         run: rm -f "$RUNNER_TEMP/sfe-signing.p12"
+
+  publish:
+    name: Publish release
+    # Automatic release after the full gate on the exact main head (policy approved by the
+    # user 2026-11-05: "do automatic"). Dispatch runs never publish. Nothing is ever
+    # deleted or overwritten: existing releases/assets are preserved.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    concurrency:
+      group: release-publish
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      checks: read
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      EXPECTED_CERT_SHA256: 5837c9c96e17ecd864a8664d1422c01361423cbd945950043f8fecdd03429173
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools platforms;android-35 build-tools;35.0.0
+      - uses: actions/download-artifact@v4
+        with:
+          name: StockFileExplorer-Debug-APK
+          path: apk
+      - name: Gate and publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=apk/app-debug.apk
+          test -s "$APK"
+          AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+
+          VC=$("$AAPT" dump badging "$APK" | sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p")
+          VN=$("$AAPT" dump badging "$APK" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p")
+          test -n "$VC" && test -n "$VN"
+          TAG="v$VN"
+          ASSET="File-Explorer-CL-$VN.apk"
+          echo "head=$GITHUB_SHA tag=$TAG versionCode=$VC"
+
+          # Gate 1: signature must be the stable CI key, not a substituted artifact.
+          CERT=$("$APKSIGNER" verify --print-certs "$APK" | sed -n "s/Signer #1 certificate SHA-256 digest: //p")
+          echo "cert=$CERT"
+          [ "$CERT" = "$EXPECTED_CERT_SHA256" ] || { echo "PUBLISH ABORTED: unexpected signing certificate"; exit 1; }
+
+          # Gate 2: complete check inventory on this exact head: every check run outside
+          # this publish job must be completed and successful (no failed/partial head).
+          gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/check-runs" \
+            --jq '[.check_runs[] | select(.name != "Publish release") | {name, status, conclusion}]'
+          BAD=$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/check-runs" \
+            --jq '[.check_runs[] | select(.name != "Publish release") | select(.status != "completed" or (.conclusion != "success" and .conclusion != "neutral" and .conclusion != "skipped"))] | length')
+          [ "$BAD" = "0" ] || { echo "PUBLISH ABORTED: $BAD incomplete/unsuccessful checks on $GITHUB_SHA"; exit 1; }
+
+          # Gate 3: tag must not exist. A merge without a versionName bump publishes
+          # nothing (the updater keeps following the existing latest release).
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::notice::Release $TAG already exists; versionName was not bumped - nothing to publish."
+            exit 0
+          fi
+
+          # Gate 4: monotonic versionCode - strictly newer than the previous manifest.
+          PREV=0
+          PREV_MANIFEST_URL=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" \
+            --jq '.assets[] | select(.name == "sfe-update.json") | .browser_download_url' 2>/dev/null || true)
+          if [ -n "$PREV_MANIFEST_URL" ]; then
+            PREV=$(curl -fsSL "$PREV_MANIFEST_URL" | jq -r '.versionCode')
+          fi
+          echo "previous manifest versionCode=$PREV new=$VC"
+          [ "$VC" -gt "$PREV" ] || { echo "PUBLISH ABORTED: versionCode $VC not newer than published $PREV"; exit 1; }
+
+          # Publish: release + APK asset first, manifest LAST, so clients only ever see a
+          # manifest once its APK is downloadable (partial state reads as "no update info").
+          mv "$APK" "$ASSET"
+          SHA=$(sha256sum "$ASSET" | awk '{print $1}')
+          gh release create "$TAG" "$ASSET" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "$TAG" \
+            --notes "Automatic release $TAG (versionCode $VC) after the full gate on $GITHUB_SHA."
+          APK_URL="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$ASSET"
+          jq -n --argjson vc "$VC" --arg vn "$VN" --arg url "$APK_URL" --arg sha "$SHA" \
+            '{versionCode: $vc, versionName: $vn, apkUrl: $url, sha256: $sha}' > sfe-update.json
+          cat sfe-update.json
+          gh release upload "$TAG" sfe-update.json --repo "$GITHUB_REPOSITORY"
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json tagName,assets --jq '{tag: .tagName, assets: [.assets[].name]}'

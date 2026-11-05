@@ -30,6 +30,13 @@ object InstalledAppsStats {
         val incomplete: Boolean,
         /** Per-package dataBytes for the packages that measured cleanly (for overlap accounting). */
         val dataBytesByPackage: Map<String, Long> = emptyMap(),
+        /**
+         * Sum of the per-package cacheBytes the system reports. Already included in [bytes]
+         * (cacheBytes is part of dataBytes), so this is a sub-figure for display only: the
+         * system reports it as reclaimable, but it is not a guarantee that every byte can be
+         * reclaimed right now.
+         */
+        val cacheBytes: Long = 0L,
     )
 
     /**
@@ -58,6 +65,7 @@ object InstalledAppsStats {
             return null
         }
         var total = 0L
+        var cacheTotal = 0L
         var failures = 0
         val dataBytesByPackage = mutableMapOf<String, Long>()
         for (info in packages) {
@@ -65,6 +73,7 @@ object InstalledAppsStats {
                 val stats = statsManager.queryStatsForPackage(
                     StorageManager.UUID_DEFAULT, info.packageName, Process.myUserHandle())
                 total += stats.appBytes + stats.dataBytes
+                cacheTotal += stats.cacheBytes
                 dataBytesByPackage[info.packageName] = stats.dataBytes
             } catch (_: PackageManager.NameNotFoundException) {
                 // Uninstalled between listing and measuring: nothing to add.
@@ -76,7 +85,7 @@ object InstalledAppsStats {
         }
         // A 100% failure rate means the query path itself is broken, not empty storage.
         if (packages.isNotEmpty() && failures == packages.size) return null
-        return Measurement(total, incomplete = failures > 0, dataBytesByPackage = dataBytesByPackage)
+        return Measurement(total, incomplete = failures > 0, dataBytesByPackage = dataBytesByPackage, cacheBytes = cacheTotal)
     }
 
     private const val TAG = "InstalledAppsStats"

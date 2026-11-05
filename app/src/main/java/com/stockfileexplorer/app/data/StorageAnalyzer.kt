@@ -3,6 +3,8 @@ package com.stockfileexplorer.app.data
 import android.content.Context
 import android.os.Environment
 import android.os.StatFs
+import android.os.UserManager
+import android.provider.MediaStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
@@ -52,6 +54,23 @@ object StorageAnalyzer {
          * [mediaOverlapBytes]). The UI must say the value is estimated.
          */
         val installedAppsOverlapEstimated: Boolean = false,
+        /**
+         * System-reported app cache (sub-figure of [installedAppsBytes]; the API includes
+         * cache in dataBytes). Displayed as context for the apps figure, never added again.
+         * The system reports it as reclaimable; that is a report, not a guarantee.
+         */
+        val installedAppsCacheBytes: Long? = null,
+        /**
+         * Bytes of MediaStore-trashed files that are in no category and not attributed to
+         * an installed app (see [measureUnindexedBytes]). 0 when none.
+         */
+        val trashedBytes: Long = 0L,
+        /** Bytes in hidden (dot) directories, with the same exclusions as [trashedBytes]. */
+        val hiddenDirBytes: Long = 0L,
+        /** True when the trashed/hidden accounting could not run completely. */
+        val unindexedIncomplete: Boolean = false,
+        /** True when the device has further users/profiles whose app data is not included. */
+        val otherProfilesPresent: Boolean = false,
         val loading: Boolean = false,
         /** True when more than [DUPLICATE_CANDIDATE_CAP] same-size files existed and only that many were compared. */
         val duplicatesLimited: Boolean = false,
@@ -125,6 +144,16 @@ object StorageAnalyzer {
         // Runs parallel to the filesystem sections: per-package queries are many binder
         // calls and must not delay the fast sections above.
         val appsJob = async { if (hasUsageAccess) InstalledAppsStats.measurePrimaryVolumeBytes(context) else null }
+        val unindexedJob = async { measureUnindexedBytes(context, root, rows) }
+        val userManager = context.getSystemService(Context.USER_SERVICE) as UserManager
+        // getUserProfiles() sees the profile group (a work profile appears here); getUserCount()
+        // additionally sees separate users. Neither includes their app data in the per-package
+        // measurement above, which is scoped to the current user (Process.myUserHandle()).
+        val otherProfilesPresent = try {
+            userManager.userProfiles.size > 1 || userManager.userCount > 1
+        } catch (t: Throwable) {
+            false
+        }
         val measurement = appsJob.await()
         val mediaOverlap = measurement?.let { mediaOverlapBytes(indexedMediaBytesByPackage, it.dataBytesByPackage) } ?: 0L
         val appsSlice = measurement?.let { installedAppsSlice(it.bytes, mediaOverlap) }
@@ -138,23 +167,127 @@ object StorageAnalyzer {
             indexedTotal + installedAppsBytes > usedBytes + (usedBytes / 50)
         val base = fastBase.copy(
             installedAppsBytes = installedAppsBytes,
+            installedAppsCacheBytes = measurement?.cacheBytes,
             installedAppsFailed = hasUsageAccess && measurement == null,
             installedAppsIncomplete = measurement?.incomplete == true || inconsistent,
             installedAppsInconsistent = inconsistent,
             installedAppsOverlapEstimated = appsSlice?.overlapEstimated == true,
+            otherProfilesPresent = otherProfilesPresent,
         )
         onPartial(base.copy(loading = true))
         val empty = emptyJob.await()
         val duplicates = duplicatesJob.await()
         val recycle = recycleJob.await()
+        val unindexed = unindexedJob.await()
         base.copy(
             emptyFolders = empty.folders,
             duplicates = duplicates.groups,
             recycleBins = recycle.folders,
             duplicatesLimited = duplicates.limited,
-            incomplete = base.incomplete || empty.incomplete || duplicates.incomplete || recycle.incomplete,
+            trashedBytes = unindexed.trashedBytes,
+            hiddenDirBytes = unindexed.hiddenDirBytes,
+            unindexedIncomplete = unindexed.incomplete,
+            incomplete = base.incomplete || empty.incomplete || duplicates.incomplete || recycle.incomplete || unindexed.incomplete,
             loading = false,
         )
+    }
+
+    /** Trashed + hidden-directory bytes outside both the index and the app attribution. */
+    internal data class UnindexedMeasurement(
+        val trashedBytes: Long,
+        val hiddenDirBytes: Long,
+        val incomplete: Boolean,
+    )
+
+    /**
+     * Analysis-time accounting of accessible bytes the category index does not contain.
+     * Normal listings and the index are untouched; this only re-labels residual bytes.
+     *
+     * Overlap reconciliation (every exclusion below prevents double counting):
+     *  - anything already in the index (path set) is skipped: MediaStore can index files
+     *    inside dot-directories even though the index's filesystem walk skips them;
+     *  - anything under root/Android is skipped: Android/media bytes are part of the
+     *    per-package StorageStats attribution (project id), Android/data and Android/obb
+     *    are inaccessible to this app even with MANAGE_EXTERNAL_STORAGE;
+     *  - the MediaStore trash query skips paths inside dot-directories, because the
+     *    hidden-directory walk counts those bytes;
+     *  - symlinks are never followed, so aliased targets are not counted twice;
+     *  - trash rows whose file no longer exists (stale MediaStore entry) are skipped.
+     * Unreadable directories or a failed trash query mark the result incomplete instead
+     * of silently undercounting.
+     */
+    internal fun measureUnindexedBytes(context: Context, root: File, rows: List<FileItem>): UnindexedMeasurement {
+        val indexedPaths = rows.mapTo(HashSet(rows.size * 2)) { it.file.absolutePath }
+        val rootPrefix = root.absolutePath + "/"
+        var incomplete = false
+        var trashed = 0L
+        try {
+            val collection = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+            val projection = arrayOf(MediaStore.MediaColumns.DATA, MediaStore.MediaColumns.SIZE)
+            context.contentResolver.query(
+                collection, projection,
+                "${MediaStore.MediaColumns.IS_TRASHED}=1", null, null,
+            )?.use { c ->
+                val dataIdx = c.getColumnIndex(MediaStore.MediaColumns.DATA)
+                val sizeIdx = c.getColumnIndex(MediaStore.MediaColumns.SIZE)
+                while (c.moveToNext()) {
+                    val data = if (dataIdx >= 0) c.getString(dataIdx) else null
+                    val size = if (sizeIdx >= 0) c.getLong(sizeIdx) else 0L
+                    if (data.isNullOrEmpty() || size <= 0L) continue
+                    if (!data.startsWith(rootPrefix)) continue
+                    val rel = data.removePrefix(rootPrefix)
+                    if (rel.startsWith("Android/")) continue
+                    if (rel.contains("/.")) continue
+                    if (indexedPaths.contains(data)) continue
+                    if (!File(data).isFile) continue
+                    trashed += size
+                }
+            } ?: run { incomplete = true }
+        } catch (t: Throwable) {
+            incomplete = true
+        }
+
+        val cap = 100_000
+        var visited = 0
+        var hidden = 0L
+        fun budgetExhausted(): Boolean {
+            visited++
+            if (visited > cap) { incomplete = true; return true }
+            return false
+        }
+        fun sumHiddenDir(dir: File) {
+            val children = try { dir.listFiles() } catch (e: SecurityException) { incomplete = true; return }
+                ?: run { incomplete = true; return }
+            for (child in children) {
+                if (budgetExhausted()) return
+                try {
+                    if (Files.isSymbolicLink(child.toPath())) continue
+                    if (child.isDirectory) {
+                        sumHiddenDir(child)
+                    } else if (child.isFile && !indexedPaths.contains(child.absolutePath)) {
+                        hidden += child.length()
+                    }
+                } catch (e: SecurityException) {
+                    incomplete = true
+                }
+            }
+        }
+        fun scan(dir: File, depth: Int) {
+            if (depth > 32) return
+            val children = try { dir.listFiles() } catch (e: SecurityException) { incomplete = true; return }
+                ?: run { if (depth == 0) incomplete = true; return }
+            for (child in children) {
+                if (budgetExhausted()) return
+                val name = child.name
+                val isDir = try { child.isDirectory } catch (e: SecurityException) { incomplete = true; false }
+                if (!isDir) continue
+                if (Files.isSymbolicLink(child.toPath())) continue
+                if (depth == 0 && name == "Android") continue
+                if (name.startsWith(".")) sumHiddenDir(child) else scan(child, depth + 1)
+            }
+        }
+        scan(root, 0)
+        return UnindexedMeasurement(trashed, hidden, incomplete)
     }
 
     internal fun buildRowsReport(

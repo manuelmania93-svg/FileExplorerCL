@@ -144,8 +144,12 @@ fun StorageAnalysisScreen(
                             Spacer(Modifier.height(6.dp))
                             Text(
                                 stringResource(
-                                    if (value.installedAppsBytes != null) R.string.analysis_indexed_scope_installed
-                                    else R.string.analysis_indexed_scope,
+                                    if (value.installedAppsBytes != null) {
+                                        if (value.installedAppsOverlapEstimated) R.string.analysis_indexed_scope_installed_estimated
+                                        else R.string.analysis_indexed_scope_installed
+                                    } else {
+                                        R.string.analysis_indexed_scope
+                                    },
                                 ),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -178,6 +182,30 @@ fun StorageAnalysisScreen(
                                     stringResource(R.string.analysis_apps_partial),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            value.installedAppsCacheBytes?.takeIf { it > 0 && !value.installedAppsFailed }?.let { cacheBytes ->
+                                Spacer(Modifier.height(6.dp))
+                                Text(
+                                    stringResource(R.string.analysis_apps_cache_line, FileLogic.formatSize(cacheBytes)),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            if (value.otherProfilesPresent) {
+                                Spacer(Modifier.height(6.dp))
+                                Text(
+                                    stringResource(R.string.analysis_other_profiles),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            if (value.unindexedIncomplete) {
+                                Spacer(Modifier.height(6.dp))
+                                Text(
+                                    stringResource(R.string.analysis_unindexed_partial),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error,
                                 )
                             }
                             if (!value.installedAppsFailed && value.installedAppsOverlapEstimated) {
@@ -331,15 +359,23 @@ private data class PyramidSlice(
     val color: Color,
 )
 
-/** Grey remainder of the pyramid: used space neither indexed nor attributed to installed apps. */
-internal fun pyramidResidualBytes(usedBytes: Long, indexedBytes: Long, installedAppsBytes: Long?): Long =
-    (usedBytes - indexedBytes - (installedAppsBytes ?: 0L)).coerceAtLeast(0L)
+/** Grey remainder of the pyramid: used space neither indexed, attributed to installed apps, nor accounted as trashed/hidden. */
+internal fun pyramidResidualBytes(
+    usedBytes: Long,
+    indexedBytes: Long,
+    installedAppsBytes: Long?,
+    trashedBytes: Long = 0L,
+    hiddenDirBytes: Long = 0L,
+): Long =
+    (usedBytes - indexedBytes - (installedAppsBytes ?: 0L) - trashedBytes - hiddenDirBytes).coerceAtLeast(0L)
 
 @Composable
 private fun StoragePyramid(report: StorageAnalyzer.Report) {
     val usedBytes = (report.totalBytes - report.freeBytes).coerceAtLeast(0L)
     val indexedBytes = report.categories.values.sum()
-    val remainingBytes = pyramidResidualBytes(usedBytes, indexedBytes, report.installedAppsBytes)
+    val remainingBytes = pyramidResidualBytes(
+        usedBytes, indexedBytes, report.installedAppsBytes, report.trashedBytes, report.hiddenDirBytes,
+    )
     val categorySlices = report.categories.entries
         .filter { it.value > 0 }
         .map { (category, bytes) -> PyramidSlice(categoryLabel(category), bytes, categoryColor(category)) }
@@ -359,7 +395,19 @@ private fun StoragePyramid(report: StorageAnalyzer.Report) {
     } else {
         null
     }
-    val slices = (categorySlices + listOfNotNull(remainingSlice, installedAppsSlice)).sortedBy { it.bytes }
+    // Brown for trashed files, dark blue-grey for hidden dirs: both distinct from the
+    // residual grey, the apps red and every category color.
+    val trashedSlice = if (report.trashedBytes > 0) {
+        PyramidSlice(stringResource(R.string.cat_trashed_files), report.trashedBytes, Color(0xFF6D4C41))
+    } else {
+        null
+    }
+    val hiddenSlice = if (report.hiddenDirBytes > 0) {
+        PyramidSlice(stringResource(R.string.cat_hidden_dirs), report.hiddenDirBytes, Color(0xFF455A64))
+    } else {
+        null
+    }
+    val slices = (categorySlices + listOfNotNull(remainingSlice, installedAppsSlice, trashedSlice, hiddenSlice)).sortedBy { it.bytes }
     if (slices.isEmpty()) return
 
     Card {
@@ -401,6 +449,8 @@ private fun StoragePyramid(report: StorageAnalyzer.Report) {
             Spacer(Modifier.height(10.dp))
             remainingSlice?.let { PyramidLegendLine(it, usedBytes) }
             installedAppsSlice?.let { PyramidLegendLine(it, usedBytes) }
+            trashedSlice?.let { PyramidLegendLine(it, usedBytes) }
+            hiddenSlice?.let { PyramidLegendLine(it, usedBytes) }
             categorySlices.forEach { slice ->
                 PyramidLegendLine(slice, usedBytes)
             }

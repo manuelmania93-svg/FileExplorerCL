@@ -278,4 +278,17 @@
     <string name="update_install">Jetzt installieren</string>
     <string name="update_failed">Update fehlgeschlagen. Später erneut versuchen.</string>
     <string name="update_banner">Update verfügbar: %1$s</string>
+    <string name="copy_path">Pfad kopieren</string>
+    <string name="invert_selection">Auswahl umkehren</string>
+    <string name="reset_defaults">Standard wiederherstellen</string>
+    <string name="context_layout">Layout des Dateikontextmenüs</string>
+    <string name="context_list">Listendialog (bisher)</string>
+    <string name="context_grid">Kompaktes Symbolraster</string>
+    <string name="context_sheet">Großes unteres Menü</string>
+    <string name="selection_style_title">Stil des Auswahlmenüs</string>
+    <string name="reorder_hint">Griff halten und ziehen zum Sortieren. Pfeile verschieben schrittweise.</string>
+    <string name="move_up">Nach oben</string>
+    <string name="move_down">Nach unten</string>
+    <string name="reorder_action">Aktion verschieben</string>
+    <string name="path_copied">Pfad kopiert</string>
 </resources>

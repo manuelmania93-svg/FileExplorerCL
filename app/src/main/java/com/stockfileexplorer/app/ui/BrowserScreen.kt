@@ -303,6 +303,12 @@ fun BrowserScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { com.stockfileexplorer.app.copyPaths(context, selection.sorted()) }, modifier = Modifier.testTag("selection_copy_path")) {
+                        Icon(SfeIcons.Link, stringResource(R.string.copy_path))
+                    }
+                    IconButton(onClick = { selection = items.map { it.file.absolutePath }.filterNot { it in selection }.toSet(); openQuickActions() }, modifier = Modifier.testTag("selection_invert")) {
+                        Icon(SfeIcons.CheckBox, stringResource(R.string.invert_selection))
+                    }
                     IconButton(
                         onClick = {
                             selection = items.map { it.file.absolutePath }.toSet()
@@ -519,6 +525,7 @@ fun BrowserScreen(
             isFavorite = item.file.absolutePath in favoritePaths,
             onDismiss = { menuTarget = null },
             callbacks = FileActionCallbacks(
+                onCopyPath = { com.stockfileexplorer.app.copyPaths(context, listOf(item.file.absolutePath)) },
                 onSaveLocation = {
                     val location = if (item.isDirectory) item.file.absolutePath else item.file.parent
                     location?.let { com.stockfileexplorer.app.FileActionPreferences.saveShortcut(context, it) }

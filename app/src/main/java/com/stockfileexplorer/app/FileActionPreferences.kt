@@ -8,6 +8,7 @@ enum class FileMenuAction(val labelRes: Int, val filesOnly: Boolean = false) {
     SAVE_LOCATION(R.string.save_location),
     CONTAINING_FOLDER(R.string.open_containing_folder, filesOnly = true),
     COPY(R.string.copy),
+    COPY_PATH(R.string.copy_path),
     MOVE(R.string.move_to),
     RENAME(R.string.rename),
     PROPERTIES(R.string.properties),
@@ -34,6 +35,18 @@ object FileActionPreferences {
             return updated
         }
         return actions
+    }
+
+    fun orderedActions(context: Context): List<FileMenuAction> {
+        val stored = preferences(context).getString("menu-action-order", "").orEmpty().split(",")
+            .mapNotNull { name -> FileMenuAction.entries.firstOrNull { it.name == name } }.distinct()
+        return stored + FileMenuAction.entries.filterNot { it in stored }
+    }
+    fun setOrder(context: Context, order: List<FileMenuAction>) {
+        preferences(context).edit().putString("menu-action-order", order.distinct().joinToString(",") { it.name }).apply()
+    }
+    fun resetMenu(context: Context) {
+        preferences(context).edit().remove("menu-action-order").remove(VISIBLE_ACTIONS).putBoolean("location-actions-added", true).apply()
     }
 
     fun setVisibleActions(context: Context, actions: Set<FileMenuAction>) {

@@ -146,6 +146,16 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
                     }
                 }
                 if (selection.isNotEmpty()) {
+                    IconButton(onClick = { com.stockfileexplorer.app.copyPaths(context, selection.sorted()) }, modifier = Modifier.testTag("selection_copy_path")) {
+                        Icon(SfeIcons.Link, stringResource(R.string.copy_path))
+                    }
+                    IconButton(onClick = { scope.launch {
+                        val all = FileIndex.page(category, Int.MAX_VALUE, sort, ascending, query).items.map { it.file.absolutePath }
+                        selection = all.filterNot { it in selection }.toSet()
+                        openQuickActions()
+                    } }, modifier = Modifier.testTag("selection_invert")) {
+                        Icon(SfeIcons.CheckBox, stringResource(R.string.invert_selection))
+                    }
                     IconButton(onClick = {
                         scope.launch {
                             selection = FileIndex.page(category, Int.MAX_VALUE, sort, ascending, query).items
@@ -251,6 +261,7 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
             isFavorite = item.file.absolutePath in favoritePaths,
             onDismiss = { menu = null },
             callbacks = FileActionCallbacks(
+                onCopyPath = { com.stockfileexplorer.app.copyPaths(context, listOf(item.file.absolutePath)) },
                 onOpen = { openFile(context, item.file, noApp, page.items.map { it.file }) },
                 onSaveLocation = { item.file.parent?.let { FileActionPreferences.saveShortcut(context, it) }; Toast.makeText(context, R.string.location_saved, Toast.LENGTH_SHORT).show() },
                 onContainingFolder = { item.file.parent?.let { containingFolder = it } },

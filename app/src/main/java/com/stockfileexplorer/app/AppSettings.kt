@@ -20,6 +20,10 @@ enum class SelectionMenuStyle {
     }
 }
 
+enum class ContextMenuLayout { LIST, GRID, SHEET;
+    companion object { fun parse(name: String?): ContextMenuLayout = entries.firstOrNull { it.name == name } ?: LIST }
+}
+
 enum class ExtractMode {
     ASK, HERE;
     companion object {
@@ -39,6 +43,8 @@ object AppSettings {
     private const val PREFS = "app-settings"
     private const val THEME_MODE = "theme-mode"
     private const val MENU_STYLE = "selection-menu-style"
+    fun contextMenuLayout(context: Context): ContextMenuLayout = ContextMenuLayout.parse(preferences(context).getString("context-menu-layout", null))
+    fun setContextMenuLayout(context: Context, layout: ContextMenuLayout) { preferences(context).edit().putString("context-menu-layout", layout.name).apply() }
     private const val EXTRACT_MODE = "extract-mode"
     private const val CONFLICT_MODE = "conflict-mode"
 

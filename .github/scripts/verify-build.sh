@@ -35,6 +35,21 @@ if_package_present() {
     echo "package absent at $label; skipping: $*"
   fi
 }
+# installDebug can report success and the package still be absent seconds later
+# (intermittent PackageManager disappearance, cause undetermined - gate run
+# 41948509465 died with "No UID for com.stockfileexplorer.app" on an appops call
+# right after a passing suite). Verify presence, retry the install once, then fail
+# loud; never run appops/force-stop against an absent package under set -e.
+ensure_pkg_present() {
+  local label="$1"
+  if adb shell pm list packages | tr -d '\r' | grep -qx 'package:com.stockfileexplorer.app'; then return 0; fi
+  echo "package absent at $label; reinstalling"
+  ./gradlew installDebug
+  if ! adb shell pm list packages | tr -d '\r' | grep -qx 'package:com.stockfileexplorer.app'; then
+    echo "package STILL absent at $label after reinstall; failing loudly"
+    return 1
+  fi
+}
 ensure_installed_de_at() {
   echo "packages before $1: $(adb shell pm list packages | grep -i stockfileexplorer | tr -d '\r')"
   ./gradlew installDebug
@@ -178,22 +193,26 @@ cp app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/sfe-wrongcert-unsigne
 "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign --ks "$RUNNER_TEMP/sfe-throwaway.jks" --ks-pass pass:throwaway1 --out "$RUNNER_TEMP/sfe-wrongcert.apk" "$RUNNER_TEMP/sfe-wrongcert-unsigned.apk"
 "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$RUNNER_TEMP/sfe-wrongcert.apk" | head -2
 ./gradlew installDebug
+ensure_pkg_present "update-download"
 adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
 adb shell am force-stop com.stockfileexplorer.app
 adb push "$RUNNER_TEMP/sfe-wrongcert.apk" /sdcard/Download/sfe-wrongcert.apk
 ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.UpdateDownloadTest -Pandroid.testInstrumentationRunnerArguments.capture=update || { capture; adb logcat -d > app/build/reports/device/logcat-update.txt || true; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }
 capture
+ensure_pkg_present "update-install-allowed"
 adb shell am force-stop com.stockfileexplorer.app
 adb shell appops set com.stockfileexplorer.app REQUEST_INSTALL_PACKAGES allow
 ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.UpdateInstallAllowedTest -Pandroid.testInstrumentationRunnerArguments.capture=update || { capture; adb logcat -d > app/build/reports/device/logcat-update.txt || true; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }
 capture
+ensure_pkg_present "update-install-denied"
 adb shell am force-stop com.stockfileexplorer.app
 adb shell appops set com.stockfileexplorer.app REQUEST_INSTALL_PACKAGES deny
 ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.UpdateInstallDeniedTest -Pandroid.testInstrumentationRunnerArguments.capture=update || { capture; adb logcat -d > app/build/reports/device/logcat-update.txt || true; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }
 capture
-adb shell am force-stop com.stockfileexplorer.app
-adb shell appops set com.stockfileexplorer.app REQUEST_INSTALL_PACKAGES default
+adb shell am force-stop com.stockfileexplorer.app || true
+if_package_present "update-settings appop reset" adb shell appops set com.stockfileexplorer.app REQUEST_INSTALL_PACKAGES default
 ./gradlew installDebug
+ensure_pkg_present "update-settings"
 adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
 adb shell am force-stop com.stockfileexplorer.app
 ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.UpdateSettingsTest -Pandroid.testInstrumentationRunnerArguments.capture=update || { capture; adb logcat -d > app/build/reports/device/logcat-update.txt || true; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }

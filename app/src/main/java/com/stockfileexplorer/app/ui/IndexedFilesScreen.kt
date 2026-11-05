@@ -154,7 +154,7 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
                         selection = all.filterNot { it in selection }.toSet()
                         openQuickActions()
                     } }, modifier = Modifier.testTag("selection_invert")) {
-                        Icon(SfeIcons.CheckBox, stringResource(R.string.invert_selection))
+                        Icon(androidx.compose.material.icons.Icons.Filled.SwapVert, stringResource(R.string.invert_selection))
                     }
                     IconButton(onClick = {
                         scope.launch {

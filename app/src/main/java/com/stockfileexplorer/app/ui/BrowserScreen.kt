@@ -27,6 +27,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
@@ -307,7 +308,7 @@ fun BrowserScreen(
                         Icon(SfeIcons.Link, stringResource(R.string.copy_path))
                     }
                     IconButton(onClick = { selection = items.map { it.file.absolutePath }.filterNot { it in selection }.toSet(); openQuickActions() }, modifier = Modifier.testTag("selection_invert")) {
-                        Icon(SfeIcons.CheckBox, stringResource(R.string.invert_selection))
+                        Icon(androidx.compose.material.icons.Icons.Filled.SwapVert, stringResource(R.string.invert_selection))
                     }
                     IconButton(
                         onClick = {

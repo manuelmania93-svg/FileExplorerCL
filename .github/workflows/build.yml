@@ -44,6 +44,8 @@ jobs:
         # versionCode is stamped from the run number so every published build is strictly
         # newer than the last - the in-app updater compares versionCode, not versionName.
         run: ./gradlew assembleDebug testDebugUnitTest -PsfeVersionCode=${{ github.run_number }}
+      - name: Publish-script fixture tests
+        run: bash .github/scripts/publish-release-test.sh
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -127,63 +129,4 @@ jobs:
           name: StockFileExplorer-Debug-APK
           path: apk
       - name: Gate and publish
-        shell: bash
-        run: |
-          set -euo pipefail
-          APK=apk/app-debug.apk
-          test -s "$APK"
-          AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
-          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
-
-          VC=$("$AAPT" dump badging "$APK" | sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p")
-          VN=$("$AAPT" dump badging "$APK" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p")
-          test -n "$VC" && test -n "$VN"
-          TAG="v$VN"
-          ASSET="File-Explorer-CL-$VN.apk"
-          echo "head=$GITHUB_SHA tag=$TAG versionCode=$VC"
-
-          # Gate 1: signature must be the stable CI key, not a substituted artifact.
-          CERT=$("$APKSIGNER" verify --print-certs "$APK" | sed -n "s/Signer #1 certificate SHA-256 digest: //p")
-          echo "cert=$CERT"
-          [ "$CERT" = "$EXPECTED_CERT_SHA256" ] || { echo "PUBLISH ABORTED: unexpected signing certificate"; exit 1; }
-
-          # Gate 2: complete check inventory on this exact head: every check run outside
-          # this publish job must be completed and successful (no failed/partial head).
-          gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/check-runs" \
-            --jq '[.check_runs[] | select(.name != "Publish release") | {name, status, conclusion}]'
-          BAD=$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/check-runs" \
-            --jq '[.check_runs[] | select(.name != "Publish release") | select(.status != "completed" or (.conclusion != "success" and .conclusion != "neutral" and .conclusion != "skipped"))] | length')
-          [ "$BAD" = "0" ] || { echo "PUBLISH ABORTED: $BAD incomplete/unsuccessful checks on $GITHUB_SHA"; exit 1; }
-
-          # Gate 3: tag must not exist. A merge without a versionName bump publishes
-          # nothing (the updater keeps following the existing latest release).
-          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "::notice::Release $TAG already exists; versionName was not bumped - nothing to publish."
-            exit 0
-          fi
-
-          # Gate 4: monotonic versionCode - strictly newer than the previous manifest.
-          PREV=0
-          PREV_MANIFEST_URL=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" \
-            --jq '.assets[] | select(.name == "sfe-update.json") | .browser_download_url' 2>/dev/null || true)
-          if [ -n "$PREV_MANIFEST_URL" ]; then
-            PREV=$(curl -fsSL "$PREV_MANIFEST_URL" | jq -r '.versionCode')
-          fi
-          echo "previous manifest versionCode=$PREV new=$VC"
-          [ "$VC" -gt "$PREV" ] || { echo "PUBLISH ABORTED: versionCode $VC not newer than published $PREV"; exit 1; }
-
-          # Publish: release + APK asset first, manifest LAST, so clients only ever see a
-          # manifest once its APK is downloadable (partial state reads as "no update info").
-          mv "$APK" "$ASSET"
-          SHA=$(sha256sum "$ASSET" | awk '{print $1}')
-          gh release create "$TAG" "$ASSET" \
-            --repo "$GITHUB_REPOSITORY" \
-            --target "$GITHUB_SHA" \
-            --title "$TAG" \
-            --notes "Automatic release $TAG (versionCode $VC) after the full gate on $GITHUB_SHA."
-          APK_URL="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$ASSET"
-          jq -n --argjson vc "$VC" --arg vn "$VN" --arg url "$APK_URL" --arg sha "$SHA" \
-            '{versionCode: $vc, versionName: $vn, apkUrl: $url, sha256: $sha}' > sfe-update.json
-          cat sfe-update.json
-          gh release upload "$TAG" sfe-update.json --repo "$GITHUB_REPOSITORY"
-          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json tagName,assets --jq '{tag: .tagName, assets: [.assets[].name]}'
+        run: bash .github/scripts/publish-release.sh apk/app-debug.apk

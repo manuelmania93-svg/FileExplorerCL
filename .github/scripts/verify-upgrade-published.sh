@@ -23,7 +23,10 @@ echo "UPGRADE before: $(adb shell dumpsys package $PKG | grep -E 'versionName' |
 out=$(adb install -r "$NEW"); echo "$out"; echo "$out" | grep -q Success
 out=$(adb install -r -t "$TESTAPK"); echo "$out"; echo "$out" | grep -q Success
 echo "UPGRADE after:  $(adb shell dumpsys package $PKG | grep -E 'versionName|versionCode' | head -2 | tr -d '\r' | tr '\n' ' ')"
-run() { out=$(adb shell am instrument -w -e class "com.stockfileexplorer.app.UpgradeStateTest#$1" $PKG.test/androidx.test.runner.AndroidJUnitRunner); echo "$out"; echo "$out" | grep -q "^OK ("; }
+EXP_VN=$("$AAPT" dump badging "$NEW" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p")
+EXP_VC=$("$AAPT" dump badging "$NEW" | sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p")
+test -n "$EXP_VN" && test -n "$EXP_VC"
+run() { out=$(adb shell am instrument -w -e expectedVersionName "$EXP_VN" -e expectedVersionCode "$EXP_VC" -e class "com.stockfileexplorer.app.UpgradeStateTest#$1" $PKG.test/androidx.test.runner.AndroidJUnitRunner); echo "$out"; echo "$out" | grep -q "^OK ("; }
 run upgradedAppHasNewVersionLabelAndIncomingHandlers
 # Real UI path: choose Size in the sort menu, watch the app's own prefs file on disk, force-stop, relaunch.
 runc() { out=$(adb shell am instrument -w -e class "com.stockfileexplorer.app.SortPersistenceUiTest#$1" $PKG.test/androidx.test.runner.AndroidJUnitRunner); echo "$out"; echo "$out" | grep -q "^OK ("; }

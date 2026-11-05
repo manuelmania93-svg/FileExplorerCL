@@ -26,8 +26,13 @@ class UpgradeStateTest {
     @Test
     fun upgradedAppHasNewVersionLabelAndIncomingHandlers() {
         val info = context.packageManager.getPackageInfo(context.packageName, 0)
-        assertEquals("0.2.13", info.versionName)
-        assertEquals(16L, info.longVersionCode)
+        // Expected values come from the build under test (verify-upgrade-published.sh passes
+        // them as instrumentation args); fallbacks cover direct local runs of this class.
+        val args = InstrumentationRegistry.getArguments()
+        val expectedVersionName = args.getString("expectedVersionName") ?: "0.3.0"
+        val expectedVersionCode = args.getString("expectedVersionCode")?.toLongOrNull() ?: 16L
+        assertEquals(expectedVersionName, info.versionName)
+        assertEquals(expectedVersionCode, info.longVersionCode)
         assertEquals("File Explorer CL", context.packageManager.getApplicationLabel(context.applicationInfo).toString())
         listOf("text/plain", "application/pdf", "image/jpeg", "video/mp4", "application/zip").forEach {
             assertTrue("Not offered for $it after upgrade", offered(it))

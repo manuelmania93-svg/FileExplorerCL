@@ -58,4 +58,33 @@ class StoragePyramidTest {
         // Safety only: overlapping attribution must not produce a negative residual.
         assertEquals(0L, pyramidResidualBytes(usedBytes = 100L, indexedBytes = 40L, installedAppsBytes = 90L))
     }
+
+    @Test fun hiddenDirsShrinkTheResidualGrey() {
+        // 100 used, 40 indexed, 35 apps, 7 hidden: residual 18, and the four
+        // slices partition the used total exactly.
+        val residual = pyramidResidualBytes(
+            usedBytes = 100L, indexedBytes = 40L, installedAppsBytes = 35L,
+            hiddenDirBytes = 7L,
+        )
+        assertEquals(18L, residual)
+        assertEquals(100L, 40L + 35L + 7L + residual)
+    }
+
+    @Test fun primaryRootAliasesNormalizeToTheSameRelativePath() {
+        val root = "/storage/emulated/0"
+        val expected = "Download/a.bin"
+        assertEquals(expected, com.stockfileexplorer.app.data.StorageAnalyzer.relativeToPrimaryRoot("/storage/emulated/0/Download/a.bin", root))
+        assertEquals(expected, com.stockfileexplorer.app.data.StorageAnalyzer.relativeToPrimaryRoot("/sdcard/Download/a.bin", root))
+        assertEquals(expected, com.stockfileexplorer.app.data.StorageAnalyzer.relativeToPrimaryRoot("/storage/self/primary/Download/a.bin", root))
+        assertEquals(expected, com.stockfileexplorer.app.data.StorageAnalyzer.relativeToPrimaryRoot("/storage/emulated/10/Download/a.bin", root))
+        assertEquals(null, com.stockfileexplorer.app.data.StorageAnalyzer.relativeToPrimaryRoot("/storage/1234-ABCD/Download/a.bin", root))
+        assertEquals(null, com.stockfileexplorer.app.data.StorageAnalyzer.relativeToPrimaryRoot("/data/app/x", root))
+    }
+
+    @Test fun hiddenDirsNeverPushResidualNegative() {
+        assertEquals(0L, pyramidResidualBytes(
+            usedBytes = 100L, indexedBytes = 40L, installedAppsBytes = 35L,
+            hiddenDirBytes = 40L,
+        ))
+    }
 }

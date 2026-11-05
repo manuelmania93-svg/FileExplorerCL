@@ -301,7 +301,7 @@ class StoragePyramidUsageAccessTest {
      * min(indexed media bytes, measured package data bytes), and this package's
      * data bytes are always > 0) must flip the pyramid to its estimated variant:
      * scope-card note "kann zu niedrig sein", pyramid note "geschätzt", and the
-     * legend row "Installierte Apps (inkl. Daten, geschätzt)". This is the
+     * legend row "Installierte Apps (geschätzt)". This is the
      * disclosure path main requires to stay covered independently of the
      * hidden-fixture attribution test above.
      */
@@ -352,7 +352,7 @@ class StoragePyramidUsageAccessTest {
                 "slice=${diagReport.installedAppsBytes} estimated=${diagReport.installedAppsOverlapEstimated} " +
                 "appsFailed=${diagReport.installedAppsFailed} appsIncomplete=${diagReport.installedAppsIncomplete}"
             System.out.println("SfeEstimateDiag: $diag")
-            val legendFound = scrollToText(device, "Installierte Apps (inkl. Daten, geschätzt)")
+            val legendFound = scrollToText(device, "Installierte Apps (geschätzt)")
             if (!legendFound) {
                 val dumpFile = File("/sdcard/Download/sfe-estimated-hierarchy.xml")
                 device.dumpWindowHierarchy(dumpFile)

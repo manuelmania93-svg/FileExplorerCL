@@ -82,8 +82,22 @@ class StorageAnalysisInstrumentedTest {
         val dataReport = com.stockfileexplorer.app.data.StorageAnalyzer.analyze(context, { })
         val groupSummary = dataReport.duplicates.map { g -> "${g.sizeBytes}B x${g.paths.size} ${g.paths.first().substringAfterLast('/')}" }
         android.util.Log.i("SfeAnalysisData", "duplicate groups (${groupSummary.size}): $groupSummary")
-        assertTrue("Analyzer data has the duplicate-a/b group; groups=$groupSummary",
+        // Diagnostics-first: name WHERE the fixture got lost (never written vs not
+        // indexed vs dropped by the duplicate prefilter) instead of a bare miss.
+        val rowsNow = FileIndex.allFiles()
+        val aInRows = rowsNow.any { it.file.name == "duplicate-a.txt" }
+        val bInRows = rowsNow.any { it.file.name == "duplicate-b.txt" }
+        val docsListing = File(root, "Documents").list()?.joinToString(",") ?: "<null>"
+        val diag = "aInRows=$aInRows bInRows=$bInRows docs=[$docsListing] rows=${rowsNow.size} " +
+            "limited=${dataReport.duplicatesLimited} incomplete=${dataReport.incomplete}"
+        android.util.Log.i("SfeAnalysisData", diag)
+        assertTrue("Analyzer data has the duplicate-a/b group; $diag; groups=$groupSummary",
             dataReport.duplicates.any { g -> g.paths.any { it.endsWith("duplicate-a.txt") } && g.paths.any { it.endsWith("duplicate-b.txt") } })
+        // Dot-dir accounting: .recycle_bin/trash.tmp (23 bytes) is neither indexed
+        // (MediaScanner and the index walk skip dot-dirs) nor app-attributed, so the
+        // hidden-dir bucket must contain it and the residual must shrink accordingly.
+        android.util.Log.i("SfeAnalysisData", "hidden=${dataReport.hiddenDirBytes} unindexedIncomplete=${dataReport.unindexedIncomplete}")
+        assertTrue("hidden-dir fixture counted; hidden=${dataReport.hiddenDirBytes}", dataReport.hiddenDirBytes >= 23L)
 
         val intent = Intent(context, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
@@ -102,6 +116,7 @@ class StorageAnalysisInstrumentedTest {
         // missing) can push the legend below the fold, so scroll to the row instead of
         // waiting for it in the initial viewport.
         revealText(label("Other used storage", "Übriger belegter Speicher"))
+        revealText(label("Hidden folders", "Versteckte Ordner"))
         screenshot("sfe-storage-analysis-pyramid-${if (german) "de" else "en"}")
         // Bounded search, not a blind fixed swipe: a single swipeUp flings this
         // short list past the Categories header (run 41956160052).

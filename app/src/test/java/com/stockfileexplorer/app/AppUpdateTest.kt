@@ -89,4 +89,44 @@ class AppUpdateTest {
             file.delete()
         }
     }
+
+    private val ownCert = ByteArray(32) { it.toByte() }
+    private val otherCert = ByteArray(32) { (it + 1).toByte() }
+
+    private fun candidate(
+        pkg: String = "com.stockfileexplorer.app",
+        vc: Long = 2042,
+        cert: ByteArray = ownCert,
+    ) = AppUpdate.CandidateApk(pkg, vc, cert)
+
+    @Test
+    fun `checkCandidate accepts newer same-package same-cert`() {
+        assertTrue(AppUpdate.checkCandidate(candidate(), "com.stockfileexplorer.app", 2041, ownCert))
+    }
+
+    @Test
+    fun `checkCandidate rejects same version`() {
+        assertFalse(AppUpdate.checkCandidate(candidate(vc = 2041), "com.stockfileexplorer.app", 2041, ownCert))
+    }
+
+    @Test
+    fun `checkCandidate rejects older version`() {
+        assertFalse(AppUpdate.checkCandidate(candidate(vc = 2040), "com.stockfileexplorer.app", 2041, ownCert))
+    }
+
+    @Test
+    fun `checkCandidate rejects wrong package`() {
+        assertFalse(AppUpdate.checkCandidate(candidate(pkg = "com.other.app"), "com.stockfileexplorer.app", 1, ownCert))
+    }
+
+    @Test
+    fun `checkCandidate rejects wrong certificate`() {
+        assertFalse(AppUpdate.checkCandidate(candidate(cert = otherCert), "com.stockfileexplorer.app", 1, ownCert))
+    }
+
+    @Test
+    fun `checkCandidate rejects unreadable apk and missing own cert`() {
+        assertFalse(AppUpdate.checkCandidate(null, "com.stockfileexplorer.app", 1, ownCert))
+        assertFalse(AppUpdate.checkCandidate(candidate(), "com.stockfileexplorer.app", 1, null))
+    }
 }

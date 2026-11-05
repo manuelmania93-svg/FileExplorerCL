@@ -188,23 +188,45 @@ object AppUpdate {
             }
         }
 
+    /** Facts extracted from a downloaded APK, checked before the install sheet is offered. */
+    internal data class CandidateApk(val packageName: String, val versionCode: Long, val signerSha256: ByteArray)
+
     /**
-     * Verifies the downloaded APK beyond its digest: it must be this app's package, carry a
-     * higher versionCode than the installed build, and be signed with the same certificate
-     * as the installed app. The package manager also enforces signature continuity at
-     * install time; this check fails early with a clear result instead of a system error.
+     * The pure acceptance rule, unit-tested directly: the candidate must be this app's
+     * package, strictly newer than the installed build, and signed with the same
+     * certificate as the installed app. Anything else is refused before the system
+     * install sheet is offered (which itself enforces signature continuity again).
+     */
+    internal fun checkCandidate(
+        candidate: CandidateApk?,
+        ownPackage: String,
+        installedVersionCode: Long,
+        ownSignerSha256: ByteArray?,
+    ): Boolean {
+        if (candidate == null || ownSignerSha256 == null) return false
+        if (candidate.packageName != ownPackage) return false
+        if (candidate.versionCode <= installedVersionCode) return false
+        return candidate.signerSha256.contentEquals(ownSignerSha256)
+    }
+
+    /**
+     * Verifies the downloaded APK beyond its digest: package name, versionCode and signing
+     * certificate are read from the APK itself (a manifest lying about versionCode or
+     * pointing at a different build is caught here) and checked with [checkCandidate].
      */
     fun verifyApk(context: Context, apk: File, installedVersionCode: Long): Boolean {
         val pm = context.packageManager
         val info = packageArchiveInfo(pm, apk.absolutePath) ?: return false
-        if (info.packageName != context.packageName) return false
         val apkVersionCode =
             if (Build.VERSION.SDK_INT >= 28) info.longVersionCode else @Suppress("DEPRECATION") info.versionCode.toLong()
-        if (apkVersionCode <= installedVersionCode) return false
         val apkSigner = info.signingInfo?.apkContentsSigners?.firstOrNull()?.toByteArray() ?: return false
         val ownSigner = packageInfo(pm, context.packageName)?.signingInfo?.apkContentsSigners?.firstOrNull()?.toByteArray()
-            ?: return false
-        return sha256(apkSigner).contentEquals(sha256(ownSigner))
+        return checkCandidate(
+            CandidateApk(info.packageName, apkVersionCode, sha256(apkSigner)),
+            context.packageName,
+            installedVersionCode,
+            ownSigner?.let { sha256(it) },
+        )
     }
 
     private fun packageArchiveInfo(pm: PackageManager, path: String): PackageInfo? =

@@ -9,6 +9,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.UiScrollable
+import androidx.test.uiautomator.UiSelector
 import androidx.test.uiautomator.Until
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -30,16 +32,34 @@ import java.util.concurrent.TimeUnit
 class StoragePyramidColorTest {
 
     private fun scrollToText(device: UiDevice, text: String): Boolean {
-        // Slow short drags, not quick swipes: a fast swipe flings the LazyColumn and
-        // can carry the target row past the viewport between checks, scrolling the
-        // page to its bottom without ever matching (run 41491727508). A 300 px drag
-        // cannot move a ~60 px legend row across the ~1200 px viewport in one step.
-        repeat(40) {
-            if (device.hasObject(By.textContains(text))) return true
-            device.swipe(300, 1000, 300, 700, 100)
-            Thread.sleep(300)
+        // UiScrollable.scrollIntoView matches with childSelector, i.e. only DIRECT
+        // children of the scrollable: Compose nests the legend text inside a card
+        // container, so it can never match (run 42032536177: 60 swipes scrolled the
+        // list to the bottom with the row fully visible, still no match; hierarchy
+        // dump showed the row nested, visible-to-user=true). Search the whole window
+        // and scroll one step at a time until it appears.
+        val scrollable = UiScrollable(UiSelector().scrollable(true)).setMaxSearchSwipes(60)
+        // NOTE: BySelector has no .visible() in uiautomator 2.3.0 (run 42034086442 compile
+        // error). A tree match can be a LazyColumn lookahead item; the follow-up pixel
+        // screenshot is the visibility evidence, verified before any green claim.
+        // Run 42035009070 proved the analysis result loads ASYNCHRONOUSLY: the search
+        // gave up ~4s in because scrollForward could not move yet, and the failure
+        // screenshot + dump (captured milliseconds later) show the legend fully
+        // rendered above the fold. No-progress therefore must NOT end the search:
+        // poll for the full 60s budget, scrolling when possible, so a late-composing
+        // row is still found.
+        val visible = By.textContains(text)
+        val deadline = System.currentTimeMillis() + 60_000
+        while (System.currentTimeMillis() < deadline) {
+            if (device.hasObject(visible)) return true
+            try {
+                scrollable.scrollForward()
+            } catch (e: Exception) {
+                // List not scrollable (yet): content still loading. Keep polling.
+            }
+            device.wait(Until.hasObject(visible), 1_000)
         }
-        return device.hasObject(By.textContains(text))
+        return device.hasObject(visible)
     }
 
 
@@ -115,6 +135,9 @@ class StoragePyramidColorTest {
         } catch (t: Throwable) {
             // Evidence for CI diagnosis: capture the actual screen on ANY failure path.
             device.takeScreenshot(File("/sdcard/Download/sfe-pyramid-colors-FAILED.png"))
+            // Full window hierarchy: distinguishes a genuinely absent row from one
+            // the scroll search failed to match.
+            device.dumpWindowHierarchy(File("/sdcard/Download/sfe-pyramid-colors-FAILED.xml"))
             throw t
         } finally {
             fixture?.delete()

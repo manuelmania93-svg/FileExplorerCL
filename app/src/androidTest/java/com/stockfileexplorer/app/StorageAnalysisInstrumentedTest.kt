@@ -73,6 +73,10 @@ class StorageAnalysisInstrumentedTest {
         File(root, "analysis-debug.log").writeText("redundant candidate")
         File(root, ".recycle_bin").mkdirs()
         File(root, ".recycle_bin/trash.tmp").writeText("visible recycle fixture")
+        File(photos, "analysis-big.bin").writeBytes(ByteArray(1024 * 1024))
+        File(photos, "analysis-recent.txt").writeText("recent")
+        File(docs, "duplicate-a.txt").writeText("same duplicate content")
+        File(docs, "duplicate-b.txt").writeText("same duplicate content")
         FileIndex.verifyFixture(context, Environment.getExternalStorageDirectory(), clear = true)
         // Data check first, so a UI miss can be told apart from missing analyzer output.
         val dataReport = com.stockfileexplorer.app.data.StorageAnalyzer.analyze(context, { })

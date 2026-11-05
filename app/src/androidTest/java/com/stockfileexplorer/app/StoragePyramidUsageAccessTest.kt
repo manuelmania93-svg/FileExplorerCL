@@ -9,8 +9,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
-import androidx.test.uiautomator.UiScrollable
-import androidx.test.uiautomator.UiSelector
 import androidx.test.uiautomator.Until
 import com.stockfileexplorer.app.data.FileIndex
 import com.stockfileexplorer.app.data.InstalledAppsStats
@@ -35,23 +33,29 @@ import java.util.concurrent.TimeUnit
 @RunWith(AndroidJUnit4::class)
 class StoragePyramidUsageAccessTest {
 
-    private fun scrollToText(device: UiDevice, text: String): Boolean {
-        // Deterministic scroll instead of a fixed swipe budget: UiScrollable performs
-        // real scroll gestures and returns false at end-of-content, so the search
-        // terminates on the actual list bounds. Swipe budgets proved nondeterministic:
-        // gate 41923887652 burned 538 s and never reached a legend row that the
-        // pyramid had demonstrably drawn (red slice visible in the failure capture).
-        if (device.wait(Until.hasObject(By.textContains(text)), 2_000)) return true
-        val scrollable = UiScrollable(UiSelector().scrollable(true)).apply {
-            setAsVerticalList()
-            swipeDeadZonePercentage = 0.05
+    private fun scrollToText(device: UiDevice, text: String, maxSwipes: Int = 12): Boolean {
+        // Bounded device-swipe search down then back up (same approach as
+        // StorageAnalysisInstrumentedTest.reveal). UiScrollable picked a container
+        // it could not move on this screen: gate 41958673712 failed with
+        // forwardStops=0 while the Sonstige legend row sat below the fold with its
+        // slice visibly drawn (sfe-pyramid-granted-FAILED.png). Slow swipes avoid
+        // flinging past the row on this short page; assertions + capture retained.
+        if (device.wait(Until.hasObject(By.textContains(text)), 2_000)) {
+            Log.i("SfeScroll", "forwardStops=0 backwardStops=0 found=true")
+            return true
         }
         var forwardStops = 0
         var backwardStops = 0
-        runCatching {
-            while (!device.hasObject(By.textContains(text)) && scrollable.scrollForward()) forwardStops++
-            while (!device.hasObject(By.textContains(text)) && scrollable.scrollBackward()) backwardStops++
-        }.onFailure { Log.i("SfeScroll", "scroll error: ${it.message}") }
+        while (forwardStops < maxSwipes && !device.hasObject(By.textContains(text))) {
+            device.swipe(device.displayWidth / 2, device.displayHeight * 3 / 4, device.displayWidth / 2, device.displayHeight / 4, 45)
+            device.waitForIdle()
+            forwardStops++
+        }
+        while (backwardStops < maxSwipes && !device.hasObject(By.textContains(text))) {
+            device.swipe(device.displayWidth / 2, device.displayHeight / 4, device.displayWidth / 2, device.displayHeight * 3 / 4, 45)
+            device.waitForIdle()
+            backwardStops++
+        }
         val found = device.hasObject(By.textContains(text))
         Log.i("SfeScroll", "forwardStops=$forwardStops backwardStops=$backwardStops found=$found")
         return found

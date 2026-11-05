@@ -66,6 +66,9 @@ class MenuOptionsTest {
                 capture("layout-${layout.name}")
                 control("context_action_COPY_PATH").click()
                 device.waitForIdle()
+                val deadline = android.os.SystemClock.uptimeMillis() + 5000
+                while (invoked.get().isEmpty() && android.os.SystemClock.uptimeMillis() < deadline) Thread.sleep(50)
+                capture("after-copy-${layout.name}")
                 assertEquals("COPY_PATH", invoked.get())
                 scenario.onActivity {
                     assertEquals("/storage/emulated/0/Download/menu fixture.txt", (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).primaryClip!!.getItemAt(0).text.toString())

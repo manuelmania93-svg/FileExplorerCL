@@ -9,6 +9,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.UiScrollable
+import androidx.test.uiautomator.UiSelector
 import androidx.test.uiautomator.Until
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -30,16 +32,17 @@ import java.util.concurrent.TimeUnit
 class StoragePyramidColorTest {
 
     private fun scrollToText(device: UiDevice, text: String): Boolean {
-        // Slow short drags, not quick swipes: a fast swipe flings the LazyColumn and
-        // can carry the target row past the viewport between checks, scrolling the
-        // page to its bottom without ever matching (run 41491727508). A 300 px drag
-        // cannot move a ~60 px legend row across the ~1200 px viewport in one step.
-        repeat(40) {
-            if (device.hasObject(By.textContains(text))) return true
-            device.swipe(300, 1000, 300, 700, 100)
-            Thread.sleep(300)
+        // UiScrollable scrolls one settle-checked step at a time and stops when the
+        // selector matches. The previous fixed 300 px drags searched only between
+        // drags: once the header card grew (run 42026179375, "residual grey legend
+        // row missing" with the row present in the layout), the list could move far
+        // enough between two checks that the legend was never matched on screen.
+        val scrollable = UiScrollable(UiSelector().scrollable(true)).setMaxSearchSwipes(60)
+        return try {
+            scrollable.scrollIntoView(UiSelector().textContains(text))
+        } catch (e: Exception) {
+            false
         }
-        return device.hasObject(By.textContains(text))
     }
 
 
@@ -115,6 +118,9 @@ class StoragePyramidColorTest {
         } catch (t: Throwable) {
             // Evidence for CI diagnosis: capture the actual screen on ANY failure path.
             device.takeScreenshot(File("/sdcard/Download/sfe-pyramid-colors-FAILED.png"))
+            // Full window hierarchy: distinguishes a genuinely absent row from one
+            // the scroll search failed to match.
+            device.dumpWindowHierarchy(File("/sdcard/Download/sfe-pyramid-colors-FAILED.xml"))
             throw t
         } finally {
             fixture?.delete()

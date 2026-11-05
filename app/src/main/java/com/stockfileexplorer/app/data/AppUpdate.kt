@@ -248,6 +248,13 @@ object AppUpdate {
 
     private fun sha256(data: ByteArray): ByteArray = MessageDigest.getInstance("SHA-256").digest(data)
 
+    /**
+     * Resume decision after the user was sent to the unknown-sources grant page: offer the
+     * install sheet only when a verified download is still staged and the grant is now on.
+     */
+    internal fun shouldAutoPromptOnResume(pendingGrantReturn: Boolean, state: UpdateState, canInstall: Boolean): Boolean =
+        pendingGrantReturn && state is UpdateState.ReadyToInstall && canInstall
+
     /** Whether this app may request package installs (unknown-sources grant for the app). */
     fun canInstall(context: Context): Boolean = context.packageManager.canRequestPackageInstalls()
 

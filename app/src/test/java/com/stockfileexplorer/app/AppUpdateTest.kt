@@ -125,6 +125,19 @@ class AppUpdateTest {
     }
 
     @Test
+    fun `resume auto-prompt only with pending grant, staged download and grant on`() {
+        val ready = com.stockfileexplorer.app.data.UpdateState.ReadyToInstall(
+            AppUpdate.parseManifest(validManifest)!!,
+            File.createTempFile("sfe", ".apk"),
+        )
+        assertTrue(AppUpdate.shouldAutoPromptOnResume(true, ready, true))
+        assertFalse(AppUpdate.shouldAutoPromptOnResume(false, ready, true))
+        assertFalse(AppUpdate.shouldAutoPromptOnResume(true, ready, false))
+        assertFalse(AppUpdate.shouldAutoPromptOnResume(true, com.stockfileexplorer.app.data.UpdateState.Idle, true))
+        ready.apk.delete()
+    }
+
+    @Test
     fun `checkCandidate rejects unreadable apk and missing own cert`() {
         assertFalse(AppUpdate.checkCandidate(null, "com.stockfileexplorer.app", 1, ownCert))
         assertFalse(AppUpdate.checkCandidate(candidate(), "com.stockfileexplorer.app", 1, null))

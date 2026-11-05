@@ -166,6 +166,20 @@ class UpdateFlowTest {
     }
 
     @Test
+    fun wrongCertificateSamePackageApkIsRejected() {
+        // verify-build.sh signs a copy of the app APK with a throwaway key and pushes it.
+        // versionCode passes (installed-1), so only the certificate check can reject it.
+        val fixture = File("/sdcard/Download/sfe-wrongcert.apk")
+        if (!fixture.exists()) {
+            fail("CI fixture missing: verify-build.sh must push sfe-wrongcert.apk")
+        }
+        assertFalse(
+            "same package signed with a different certificate must be rejected",
+            AppUpdate.verifyApk(context, fixture, AppUpdate.currentVersionCode(context) - 1),
+        )
+    }
+
+    @Test
     fun httpErrorThrows() = runBlocking {
         val server = FixtureServer("/update.apk", byteArrayOf(1))
         server.start()

@@ -210,9 +210,9 @@ fun MainScaffold(
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME && pendingGrantReturn) {
                 pendingGrantReturn = false
-                val ready = updateState as? UpdateState.ReadyToInstall
-                if (ready != null && AppUpdate.canInstall(appContext)) {
-                    AppUpdate.promptInstall(appContext, ready.apk)
+                val state = updateState
+                if (AppUpdate.shouldAutoPromptOnResume(true, state, AppUpdate.canInstall(appContext))) {
+                    AppUpdate.promptInstall(appContext, (state as UpdateState.ReadyToInstall).apk)
                 }
             }
         }

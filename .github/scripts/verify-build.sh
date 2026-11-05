@@ -153,6 +153,17 @@ capture
 adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
 ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.UserFlowsTest || { capture; adb logcat -d > app/build/reports/device/logcat-flows.txt || true; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }
 capture
+# Updater runtime tests against loopback fixtures. The wrong-cert fixture: a copy of this
+# build's APK re-signed with a throwaway key - same package, parseable, must be rejected
+# by verifyApk before any install sheet. Never installed, removed after the suite.
+keytool -genkeypair -keystore "$RUNNER_TEMP/sfe-throwaway.jks" -storepass throwaway1 -keypass throwaway1 -alias wrong -keyalg RSA -keysize 2048 -validity 30 -dname "CN=SFE-Test-Throwaway" 2>/dev/null
+cp app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/sfe-wrongcert-unsigned.apk"
+"$ANDROID_HOME/build-tools/35.0.0/apksigner" sign --ks "$RUNNER_TEMP/sfe-throwaway.jks" --ks-pass pass:throwaway1 --out "$RUNNER_TEMP/sfe-wrongcert.apk" "$RUNNER_TEMP/sfe-wrongcert-unsigned.apk"
+"$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$RUNNER_TEMP/sfe-wrongcert.apk" | head -2
+adb push "$RUNNER_TEMP/sfe-wrongcert.apk" /sdcard/Download/sfe-wrongcert.apk
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.UpdateFlowTest -Pandroid.testInstrumentationRunnerArguments.capture=update || { capture; adb logcat -d > app/build/reports/device/logcat-update.txt || true; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }
+capture
+adb shell rm -f /sdcard/Download/sfe-wrongcert.apk
 ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.IncomingFileTest -Pandroid.testInstrumentationRunnerArguments.capture=incoming || { capture; adb logcat -d > app/build/reports/device/logcat-incoming.txt || true; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }
 capture
 ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.BuiltInViewersTest -Pandroid.testInstrumentationRunnerArguments.capture=viewers || { capture; adb logcat -d > app/build/reports/device/logcat-viewers.txt || true; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }
@@ -199,7 +210,7 @@ bash .github/scripts/verify-upgrade-published.sh || FAILED_SUITES="$FAILED_SUITE
 capture
 # The screenshots that prove the incoming-file, sort, extract and disk flows must exist: a skipped pull must not hide them.
 missing=""
-for f in sfe-flows-sort-4-after-rebuild.png sfe-flows-extract-5-done.png sfe-flows-chooser-2-text-viewer.png sfe-disk-1-before.png sfe-disk-3-after.png; do
+for f in sfe-flows-sort-4-after-rebuild.png sfe-flows-extract-5-done.png sfe-flows-chooser-2-text-viewer.png sfe-disk-1-before.png sfe-disk-3-after.png sfe-update-install-sheet.png sfe-update-unknown-sources-settings.png sfe-update-update-settings.png; do
   [ -s "app/build/reports/device/Download/$f" ] || { echo "MISSING required screenshot: $f"; missing="$missing $f"; }
 done
 [ -z "$missing" ] || { echo "Required screenshots missing:$missing"; FAILED_SUITES="$FAILED_SUITES missing-screenshots"; }

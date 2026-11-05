@@ -12,8 +12,12 @@ android {
         minSdk = 30
         targetSdk = 35
         // CI stamps versionCode from the Actions run number (-PsfeVersionCode=N) so every
-        // published build is strictly newer; local/source builds keep the base value.
-        versionCode = providers.gradleProperty("sfeVersionCode").orNull?.toIntOrNull() ?: 16
+        // published build is strictly newer. max() with the source floor matters: if CI
+        // run numbering ever resets (workflow recreated, repo forked), raising this floor
+        // above the last published versionCode keeps updates flowing instead of stalling
+        // below the installed base.
+        val stampedVersionCode = providers.gradleProperty("sfeVersionCode").orNull?.toIntOrNull() ?: 0
+        versionCode = maxOf(stampedVersionCode, 16)
         versionName = "0.2.13"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }

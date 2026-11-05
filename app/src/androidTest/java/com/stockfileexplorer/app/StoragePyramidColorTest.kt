@@ -32,17 +32,26 @@ import java.util.concurrent.TimeUnit
 class StoragePyramidColorTest {
 
     private fun scrollToText(device: UiDevice, text: String): Boolean {
-        // UiScrollable scrolls one settle-checked step at a time and stops when the
-        // selector matches. The previous fixed 300 px drags searched only between
-        // drags: once the header card grew (run 42026179375, "residual grey legend
-        // row missing" with the row present in the layout), the list could move far
-        // enough between two checks that the legend was never matched on screen.
+        // UiScrollable.scrollIntoView matches with childSelector, i.e. only DIRECT
+        // children of the scrollable: Compose nests the legend text inside a card
+        // container, so it can never match (run 42032536177: 60 swipes scrolled the
+        // list to the bottom with the row fully visible, still no match; hierarchy
+        // dump showed the row nested, visible-to-user=true). Search the whole window
+        // for a VISIBLE match and scroll one settle-checked step at a time until it
+        // appears or the list cannot move further.
         val scrollable = UiScrollable(UiSelector().scrollable(true)).setMaxSearchSwipes(60)
-        return try {
-            scrollable.scrollIntoView(UiSelector().textContains(text))
-        } catch (e: Exception) {
-            false
+        val visible = By.textContains(text).visible(true)
+        repeat(60) {
+            if (device.hasObject(visible)) return true
+            val moved = try {
+                scrollable.scrollForward()
+            } catch (e: Exception) {
+                false
+            }
+            if (!moved) return device.hasObject(visible)
+            device.wait(Until.hasObject(visible), 1_000)
         }
+        return device.hasObject(visible)
     }
 
 

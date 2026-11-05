@@ -70,6 +70,17 @@ class StoragePyramidTest {
         assertEquals(100L, 40L + 35L + 8L + 7L + residual)
     }
 
+    @Test fun primaryRootAliasesNormalizeToTheSameRelativePath() {
+        val root = "/storage/emulated/0"
+        val expected = "Download/a.bin"
+        assertEquals(expected, com.stockfileexplorer.app.data.StorageAnalyzer.relativeToPrimaryRoot("/storage/emulated/0/Download/a.bin", root))
+        assertEquals(expected, com.stockfileexplorer.app.data.StorageAnalyzer.relativeToPrimaryRoot("/sdcard/Download/a.bin", root))
+        assertEquals(expected, com.stockfileexplorer.app.data.StorageAnalyzer.relativeToPrimaryRoot("/storage/self/primary/Download/a.bin", root))
+        assertEquals(expected, com.stockfileexplorer.app.data.StorageAnalyzer.relativeToPrimaryRoot("/storage/emulated/10/Download/a.bin", root))
+        assertEquals(null, com.stockfileexplorer.app.data.StorageAnalyzer.relativeToPrimaryRoot("/storage/1234-ABCD/Download/a.bin", root))
+        assertEquals(null, com.stockfileexplorer.app.data.StorageAnalyzer.relativeToPrimaryRoot("/data/app/x", root))
+    }
+
     @Test fun trashedAndHiddenNeverPushResidualNegative() {
         assertEquals(0L, pyramidResidualBytes(
             usedBytes = 100L, indexedBytes = 40L, installedAppsBytes = 35L,

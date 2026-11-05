@@ -1,6 +1,8 @@
 package com.stockfileexplorer.app.data
 
+import android.content.ContentResolver
 import android.content.Context
+import android.os.Bundle
 import android.os.Environment
 import android.os.StatFs
 import android.os.UserManager
@@ -69,6 +71,13 @@ object StorageAnalyzer {
         val hiddenDirBytes: Long = 0L,
         /** True when the trashed/hidden accounting could not run completely. */
         val unindexedIncomplete: Boolean = false,
+        /**
+         * True when indexed + installed-app + trashed + hidden bytes exceed the used total
+         * beyond the timing tolerance: at least one slice overlaps another. The residual is
+         * still clamped at 0 so the pyramid stays drawable, but the contradiction is
+         * disclosed instead of presenting a mathematically exact partition.
+         */
+        val accountingInconsistent: Boolean = false,
         /** True when the device has further users/profiles whose app data is not included. */
         val otherProfilesPresent: Boolean = false,
         val loading: Boolean = false,
@@ -179,6 +188,8 @@ object StorageAnalyzer {
         val duplicates = duplicatesJob.await()
         val recycle = recycleJob.await()
         val unindexed = unindexedJob.await()
+        val accountedTotal = indexedTotal + (installedAppsBytes ?: 0L) + unindexed.trashedBytes + unindexed.hiddenDirBytes
+        val accountingInconsistent = accountedTotal > usedBytes + (usedBytes / 50)
         base.copy(
             emptyFolders = empty.folders,
             duplicates = duplicates.groups,
@@ -187,6 +198,7 @@ object StorageAnalyzer {
             trashedBytes = unindexed.trashedBytes,
             hiddenDirBytes = unindexed.hiddenDirBytes,
             unindexedIncomplete = unindexed.incomplete,
+            accountingInconsistent = accountingInconsistent,
             incomplete = base.incomplete || empty.incomplete || duplicates.incomplete || recycle.incomplete || unindexed.incomplete,
             loading = false,
         )
@@ -216,29 +228,54 @@ object StorageAnalyzer {
      * Unreadable directories or a failed trash query mark the result incomplete instead
      * of silently undercounting.
      */
+    /**
+     * Path of [path] relative to the primary shared-storage root, or null when [path] is
+     * outside it. The root is reachable under several canonical aliases
+     * (/sdcard -> /storage/self/primary -> /storage/emulated/<userId>) and different APIs
+     * report different ones (File walk vs MediaStore DATA), so comparisons must happen on
+     * relative paths or the same byte is counted twice / never matched.
+     */
+    internal fun relativeToPrimaryRoot(path: String, rootPath: String): String? {
+        if (path.startsWith("$rootPath/")) return path.substring(rootPath.length + 1)
+        for (alias in listOf("/sdcard", "/storage/self/primary")) {
+            if (path.startsWith("$alias/")) return path.substring(alias.length + 1)
+        }
+        if (path.startsWith("/storage/emulated/")) {
+            val rest = path.removePrefix("/storage/emulated/")
+            val slash = rest.indexOf('/')
+            if (slash > 0 && rest.substring(0, slash).all { it.isDigit() }) {
+                return rest.substring(slash + 1)
+            }
+        }
+        return null
+    }
+
     internal fun measureUnindexedBytes(context: Context, root: File, rows: List<FileItem>): UnindexedMeasurement {
-        val indexedPaths = rows.mapTo(HashSet(rows.size * 2)) { it.file.absolutePath }
-        val rootPrefix = root.absolutePath + "/"
+        val indexedRelPaths = rows.mapNotNullTo(HashSet(rows.size * 2)) {
+            relativeToPrimaryRoot(it.file.absolutePath, root.absolutePath)
+        }
         var incomplete = false
         var trashed = 0L
         try {
             val collection = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
             val projection = arrayOf(MediaStore.MediaColumns.DATA, MediaStore.MediaColumns.SIZE)
-            context.contentResolver.query(
-                collection, projection,
-                "${MediaStore.MediaColumns.IS_TRASHED}=1", null, null,
-            )?.use { c ->
+            // Trashed items are filtered away from MediaStore operations by default;
+            // MATCH_INCLUDE is the documented way to make them visible (minSdk 30).
+            val queryArgs = Bundle().apply {
+                putString(ContentResolver.QUERY_ARG_SQL_SELECTION, "${MediaStore.MediaColumns.IS_TRASHED}=1")
+                putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, MediaStore.MATCH_INCLUDE)
+            }
+            context.contentResolver.query(collection, projection, queryArgs, null)?.use { c ->
                 val dataIdx = c.getColumnIndex(MediaStore.MediaColumns.DATA)
                 val sizeIdx = c.getColumnIndex(MediaStore.MediaColumns.SIZE)
                 while (c.moveToNext()) {
                     val data = if (dataIdx >= 0) c.getString(dataIdx) else null
                     val size = if (sizeIdx >= 0) c.getLong(sizeIdx) else 0L
                     if (data.isNullOrEmpty() || size <= 0L) continue
-                    if (!data.startsWith(rootPrefix)) continue
-                    val rel = data.removePrefix(rootPrefix)
+                    val rel = relativeToPrimaryRoot(data, root.absolutePath) ?: continue
                     if (rel.startsWith("Android/")) continue
                     if (rel.contains("/.")) continue
-                    if (indexedPaths.contains(data)) continue
+                    if (indexedRelPaths.contains(rel)) continue
                     if (!File(data).isFile) continue
                     trashed += size
                 }
@@ -264,7 +301,8 @@ object StorageAnalyzer {
                     if (Files.isSymbolicLink(child.toPath())) continue
                     if (child.isDirectory) {
                         sumHiddenDir(child)
-                    } else if (child.isFile && !indexedPaths.contains(child.absolutePath)) {
+                    } else if (child.isFile && relativeToPrimaryRoot(child.absolutePath, root.absolutePath)
+                            ?.let { !indexedRelPaths.contains(it) } == true) {
                         hidden += child.length()
                     }
                 } catch (e: SecurityException) {

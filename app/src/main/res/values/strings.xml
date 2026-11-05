@@ -133,6 +133,7 @@
     <string name="analysis_indexed_scope_installed_estimated">Categories count files visible in the app index. Installed apps including their data are estimated (overlap with indexed app media subtracted). Remaining used space includes system data and unindexed storage.</string>
     <string name="analysis_apps_cache_line">Reported app cache: %1$s (included in \"Installed apps\"; the system can reclaim most of it)</string>
     <string name="analysis_other_profiles">This device has additional profiles (e.g. a work profile); their apps and data are not included.</string>
+    <string name="analysis_accounting_inconsistent">The individual figures together exceed the used storage; at least one figure is unreliable.</string>
     <string name="analysis_unindexed_partial">Trashed files and hidden folders could not be counted completely; other used storage may be larger accordingly.</string>
     <string name="storage_pyramid">Storage pyramid</string>
     <string name="storage_pyramid_note">Layer areas represent used storage. The gray layer is private app, system, and unindexed storage.</string>

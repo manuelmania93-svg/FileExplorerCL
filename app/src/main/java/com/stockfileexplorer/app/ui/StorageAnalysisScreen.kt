@@ -200,6 +200,14 @@ fun StorageAnalysisScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
+                            if (value.accountingInconsistent) {
+                                Spacer(Modifier.height(6.dp))
+                                Text(
+                                    stringResource(R.string.analysis_accounting_inconsistent),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            }
                             if (value.unindexedIncomplete) {
                                 Spacer(Modifier.height(6.dp))
                                 Text(

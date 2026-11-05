@@ -60,6 +60,8 @@ class MenuOptionsTest {
                         FileActionMenu("Long filename - document for checking German menu labels and line wrapping.txt", false, false, {}, callbacks())
                     }
                 } } }
+                Thread.sleep(1000)
+                capture("before-lookup-${layout.name}")
                 control("context_${layout.name}")
                 capture("layout-${layout.name}")
                 control("context_action_COPY_PATH").click()

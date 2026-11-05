@@ -11,6 +11,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -42,7 +45,7 @@ data class FileActionCallbacks(
     val onCustomize: () -> Unit,
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
 @Composable
 fun FileActionMenu(name: String, isDirectory: Boolean, isFavorite: Boolean,
                    onDismiss: () -> Unit, callbacks: FileActionCallbacks) {
@@ -73,7 +76,7 @@ fun FileActionMenu(name: String, isDirectory: Boolean, isFavorite: Boolean,
         }
     }
     val content: @Composable () -> Unit = {
-        Column(Modifier.fillMaxWidth().testTag("context_${layout.name}")) {
+        Column(Modifier.fillMaxWidth().semantics { testTagsAsResourceId = true }.testTag("context_${layout.name}")) {
             Text(name, style = MaterialTheme.typography.titleMedium, maxLines = 2,
                 overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(20.dp))
             HorizontalDivider()
@@ -144,12 +147,12 @@ private fun MenuAction(icon: ImageVector, label: String, tag: String, danger: Bo
     }
 }
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun MenuCustomizationDialog(onDismiss: () -> Unit) {
     val context = LocalContext.current
     var visible by remember { mutableStateOf(FileActionPreferences.visibleActions(context)) }
     var order by remember { mutableStateOf(FileActionPreferences.orderedActions(context)) }
-    var dragging by remember { mutableStateOf<FileMenuAction?>(null) }
     val step = with(LocalDensity.current) { 56.dp.toPx() }
     fun move(action: FileMenuAction, offset: Int) {
         val index = order.indexOf(action)
@@ -158,10 +161,11 @@ fun MenuCustomizationDialog(onDismiss: () -> Unit) {
         order = order.toMutableList().apply { removeAt(index); add(target, action) }
         FileActionPreferences.setOrder(context, order)
     }
+    val moveLatest by rememberUpdatedState<(FileMenuAction, Int) -> Unit>({ action, offset -> move(action, offset) })
     AlertDialog(onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.customize_menu_title)) },
         text = {
-            Column {
+            Column(Modifier.semantics { testTagsAsResourceId = true }) {
                 Text(stringResource(R.string.reorder_hint), style = MaterialTheme.typography.bodySmall)
                 Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
                     order.forEach { action ->
@@ -172,12 +176,12 @@ fun MenuCustomizationDialog(onDismiss: () -> Unit) {
                                         .pointerInput(action) {
                                             var distance = 0f
                                             detectDragGesturesAfterLongPress(
-                                                onDragStart = { dragging = action; distance = 0f },
-                                                onDragEnd = { dragging = null }, onDragCancel = { dragging = null },
+                                                onDragStart = { distance = 0f },
+                                                onDragEnd = { distance = 0f }, onDragCancel = { distance = 0f },
                                                 onDrag = { change, amount ->
                                                     change.consume(); distance += amount.y
-                                                    if (distance > step) { move(action, 1); distance -= step }
-                                                    if (distance < -step) { move(action, -1); distance += step }
+                                                    if (distance > step) { moveLatest(action, 1); distance -= step }
+                                                    if (distance < -step) { moveLatest(action, -1); distance += step }
                                                 })
                                         })
                                 Checkbox(action in visible, onCheckedChange = { checked ->

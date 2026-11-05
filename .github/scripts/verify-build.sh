@@ -11,6 +11,15 @@ capture() {
   while IFS= read -r path; do
     [ -n "$path" ] && { adb pull "$path" app/build/reports/device/Download/ || echo "capture: skipped $path"; }
   done < /tmp/sfe-capture-list
+  # BackNavigationTest writes into Download/SfeBackShots (kept out of the top-level
+  # listing so evidence files don't push fixtures off the app's first Download
+  # screen). Pull that subdirectory explicitly - top-level-only pulls silently
+  # dropped the analysis-row evidence.
+  mkdir -p app/build/reports/device/Download/SfeBackShots
+  adb shell 'find /sdcard/Download/SfeBackShots -maxdepth 1 -type f -name "sfe-*.png" 2>/dev/null' | tr -d '\r' > /tmp/sfe-capture-list-back
+  while IFS= read -r path; do
+    [ -n "$path" ] && { adb pull "$path" app/build/reports/device/Download/SfeBackShots/ || echo "capture: skipped $path"; }
+  done < /tmp/sfe-capture-list-back
 }
 # The package intermittently disappears from PackageManager between test classes
 # (cause undetermined); a following reinstall wipes the all-files grant and the
@@ -24,6 +33,21 @@ if_package_present() {
     "$@"
   else
     echo "package absent at $label; skipping: $*"
+  fi
+}
+# installDebug can report success and the package still be absent seconds later
+# (intermittent PackageManager disappearance, cause undetermined - gate run
+# 41948509465 died with "No UID for com.stockfileexplorer.app" on an appops call
+# right after a passing suite). Verify presence, retry the install once, then fail
+# loud; never run appops/force-stop against an absent package under set -e.
+ensure_pkg_present() {
+  local label="$1"
+  if adb shell pm list packages | tr -d '\r' | grep -qx 'package:com.stockfileexplorer.app'; then return 0; fi
+  echo "package absent at $label; reinstalling"
+  ./gradlew installDebug
+  if ! adb shell pm list packages | tr -d '\r' | grep -qx 'package:com.stockfileexplorer.app'; then
+    echo "package STILL absent at $label after reinstall; failing loudly"
+    return 1
   fi
 }
 ensure_installed_de_at() {
@@ -153,6 +177,47 @@ capture
 adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
 ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.UserFlowsTest || { capture; adb logcat -d > app/build/reports/device/logcat-flows.txt || true; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }
 capture
+# Updater runtime tests against loopback fixtures (cleartext to 127.0.0.1 allowed by
+# the debug-only network security config; release keeps cleartext denied). The
+# wrong-cert fixture: a copy of this build's APK re-signed with a throwaway key -
+# same package, parseable, must be rejected by verifyApk before any install sheet.
+# Never installed, removed after the suites.
+#
+# REQUEST_INSTALL_PACKAGES state is set from the SHELL with the app force-stopped,
+# never inside instrumentation: tightening a permission-relevant appop kills the app
+# process, which aborts the whole suite as "Process crashed". Hence four classes:
+# download/verify (no appop), install-allowed, install-denied, settings (needs the
+# all-files grant re-established for the home gear).
+keytool -genkeypair -keystore "$RUNNER_TEMP/sfe-throwaway.jks" -storepass throwaway1 -keypass throwaway1 -alias wrong -keyalg RSA -keysize 2048 -validity 30 -dname "CN=SFE-Test-Throwaway" 2>/dev/null
+cp app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/sfe-wrongcert-unsigned.apk"
+"$ANDROID_HOME/build-tools/35.0.0/apksigner" sign --ks "$RUNNER_TEMP/sfe-throwaway.jks" --ks-pass pass:throwaway1 --out "$RUNNER_TEMP/sfe-wrongcert.apk" "$RUNNER_TEMP/sfe-wrongcert-unsigned.apk"
+"$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$RUNNER_TEMP/sfe-wrongcert.apk" | head -2
+./gradlew installDebug
+ensure_pkg_present "update-download"
+adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
+adb shell am force-stop com.stockfileexplorer.app
+adb push "$RUNNER_TEMP/sfe-wrongcert.apk" /sdcard/Download/sfe-wrongcert.apk
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.UpdateDownloadTest -Pandroid.testInstrumentationRunnerArguments.capture=update || { capture; adb logcat -d > app/build/reports/device/logcat-update.txt || true; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }
+capture
+ensure_pkg_present "update-install-allowed"
+adb shell am force-stop com.stockfileexplorer.app
+adb shell appops set com.stockfileexplorer.app REQUEST_INSTALL_PACKAGES allow
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.UpdateInstallAllowedTest -Pandroid.testInstrumentationRunnerArguments.capture=update || { capture; adb logcat -d > app/build/reports/device/logcat-update.txt || true; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }
+capture
+ensure_pkg_present "update-install-denied"
+adb shell am force-stop com.stockfileexplorer.app
+adb shell appops set com.stockfileexplorer.app REQUEST_INSTALL_PACKAGES deny
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.UpdateInstallDeniedTest -Pandroid.testInstrumentationRunnerArguments.capture=update || { capture; adb logcat -d > app/build/reports/device/logcat-update.txt || true; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }
+capture
+adb shell am force-stop com.stockfileexplorer.app || true
+if_package_present "update-settings appop reset" adb shell appops set com.stockfileexplorer.app REQUEST_INSTALL_PACKAGES default
+./gradlew installDebug
+ensure_pkg_present "update-settings"
+adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
+adb shell am force-stop com.stockfileexplorer.app
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.UpdateSettingsTest -Pandroid.testInstrumentationRunnerArguments.capture=update || { capture; adb logcat -d > app/build/reports/device/logcat-update.txt || true; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }
+capture
+adb shell rm -f /sdcard/Download/sfe-wrongcert.apk
 ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.IncomingFileTest -Pandroid.testInstrumentationRunnerArguments.capture=incoming || { capture; adb logcat -d > app/build/reports/device/logcat-incoming.txt || true; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }
 capture
 ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.BuiltInViewersTest -Pandroid.testInstrumentationRunnerArguments.capture=viewers || { capture; adb logcat -d > app/build/reports/device/logcat-viewers.txt || true; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }
@@ -199,7 +264,7 @@ bash .github/scripts/verify-upgrade-published.sh || FAILED_SUITES="$FAILED_SUITE
 capture
 # The screenshots that prove the incoming-file, sort, extract and disk flows must exist: a skipped pull must not hide them.
 missing=""
-for f in sfe-flows-sort-4-after-rebuild.png sfe-flows-extract-5-done.png sfe-flows-chooser-2-text-viewer.png sfe-disk-1-before.png sfe-disk-3-after.png; do
+for f in sfe-flows-sort-4-after-rebuild.png sfe-flows-extract-5-done.png sfe-flows-chooser-2-text-viewer.png sfe-disk-1-before.png sfe-disk-3-after.png sfe-update-install-sheet.png sfe-update-unknown-sources-settings.png sfe-update-update-settings.png; do
   [ -s "app/build/reports/device/Download/$f" ] || { echo "MISSING required screenshot: $f"; missing="$missing $f"; }
 done
 [ -z "$missing" ] || { echo "Required screenshots missing:$missing"; FAILED_SUITES="$FAILED_SUITES missing-screenshots"; }

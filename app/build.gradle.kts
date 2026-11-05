@@ -11,8 +11,17 @@ android {
         applicationId = "com.stockfileexplorer.app"
         minSdk = 30
         targetSdk = 35
-        versionCode = 16
-        versionName = "0.2.13"
+        // CI stamps versionCode from the Actions run number (-PsfeVersionCode=N) so every
+        // published build is strictly newer. max() with the source floor matters: if CI
+        // run numbering ever resets (workflow recreated, repo forked), raising this floor
+        // above the last published versionCode keeps updates flowing instead of stalling
+        // below the installed base.
+        val stampedVersionCode = providers.gradleProperty("sfeVersionCode").orNull?.toIntOrNull() ?: 0
+        versionCode = maxOf(stampedVersionCode, 16)
+        // Semantic version. Every PR intended to produce a release bumps this (minor for
+        // features, patch for fixes); the publish job skips cleanly when the tag exists,
+        // so merges without a bump intentionally publish nothing.
+        versionName = "0.3.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
     }
@@ -78,6 +87,8 @@ dependencies {
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     testImplementation("junit:junit:4.13.2")
+    // Real org.json on the JVM so the update-manifest parser is unit-testable.
+    testImplementation("org.json:json:20240303")
 
     androidTestImplementation("androidx.test:runner:1.6.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")

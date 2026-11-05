@@ -1,5 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application>
+    <!-- Debug-only: instrumented updater tests serve fixture APK bytes from a
+         loopback HTTP server (127.0.0.1), which the platform cleartext default
+         blocks at targetSdk 35. The exception names 127.0.0.1 only; the release
+         manifest has no networkSecurityConfig and keeps cleartext denied. -->
+    <application android:networkSecurityConfig="@xml/sfe_debug_network_security">
         <activity
             android:name=".FolderStatsVisualActivity"
             android:exported="false" />

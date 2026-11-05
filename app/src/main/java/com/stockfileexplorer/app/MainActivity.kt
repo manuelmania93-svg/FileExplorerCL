@@ -20,6 +20,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.IconButton
@@ -40,6 +42,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,7 +52,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.ui.platform.LocalContext
+import com.stockfileexplorer.app.data.AppUpdate
 import com.stockfileexplorer.app.data.FileCategory
+import com.stockfileexplorer.app.data.UpdateState
+import kotlinx.coroutines.launch
 import com.stockfileexplorer.app.theme.AppTheme
 import com.stockfileexplorer.app.ui.BrowserScreen
 import com.stockfileexplorer.app.ui.SfeIcons
@@ -141,6 +148,81 @@ fun MainScaffold(
     val storageRoot = remember { Environment.getExternalStorageDirectory().absolutePath }
     val downloadsPath = remember { Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).absolutePath }
 
+    // --- In-app update flow ---
+    val appContext = LocalContext.current.applicationContext
+    val updateScope = rememberCoroutineScope()
+    var updateState by remember { mutableStateOf<UpdateState>(UpdateState.Idle) }
+    var pendingGrantReturn by remember { mutableStateOf(false) }
+    val installedVersionCode = remember { AppUpdate.currentVersionCode(appContext) }
+    val installedVersionName = remember { AppUpdate.currentVersionName(appContext) }
+
+    fun runUpdateCheck(silent: Boolean) {
+        if (updateState == UpdateState.Checking || updateState is UpdateState.Downloading) return
+        updateState = UpdateState.Checking
+        updateScope.launch {
+            val latest = AppUpdate.fetchLatest()
+            updateState = when {
+                latest == null -> if (silent) UpdateState.Idle else UpdateState.Failed(null)
+                AppUpdate.isNewer(latest, installedVersionCode) -> UpdateState.Available(latest)
+                else -> if (silent) UpdateState.Idle else UpdateState.UpToDate
+            }
+        }
+    }
+
+    val startUpdateDownload: () -> Unit = startUpdateDownload@{
+        val info = when (val s = updateState) {
+            is UpdateState.Available -> s.info
+            is UpdateState.Failed -> s.info
+            else -> null
+        } ?: return@startUpdateDownload
+        updateScope.launch {
+            updateState = UpdateState.Downloading(info, 0)
+            updateState = runCatching {
+                AppUpdate.download(appContext, info) { percent ->
+                    updateState = UpdateState.Downloading(info, percent)
+                }
+            }.fold(
+                onSuccess = { apk ->
+                    if (AppUpdate.verifyApk(appContext, apk, installedVersionCode)) UpdateState.ReadyToInstall(info, apk)
+                    else UpdateState.Failed(info)
+                },
+                onFailure = { UpdateState.Failed(info) },
+            )
+        }
+    }
+
+    val installUpdate: () -> Unit = {
+        val ready = updateState as? UpdateState.ReadyToInstall
+        if (ready != null) {
+            if (AppUpdate.canInstall(appContext)) {
+                AppUpdate.promptInstall(appContext, ready.apk)
+            } else {
+                // First update needs the one-time unknown-sources grant; on return the
+                // ON_RESUME observer below offers the install sheet straight away.
+                pendingGrantReturn = true
+                AppUpdate.openUnknownSourcesSettings(appContext)
+            }
+        }
+    }
+
+    val updateLifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(updateLifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME && pendingGrantReturn) {
+                pendingGrantReturn = false
+                val state = updateState
+                if (AppUpdate.shouldAutoPromptOnResume(true, state, AppUpdate.canInstall(appContext))) {
+                    AppUpdate.promptInstall(appContext, (state as UpdateState.ReadyToInstall).apk)
+                }
+            }
+        }
+        updateLifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { updateLifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    // One silent check per process start; offline or no manifest simply shows nothing.
+    androidx.compose.runtime.LaunchedEffect(Unit) { runUpdateCheck(silent = true) }
+
     // Intercept Back only while the screen it closes is visible - all of these live on the
     // Local tab. Closing hidden state read as "Back does nothing, then the app exits".
     BackHandler(enabled = tab == TAB_LOCAL && (savedView != null || showSearch || browsePath != null || analysisCategory != null || showApps || showStorageAnalysis || showPapierkorb || showSettings)) {
@@ -190,6 +272,12 @@ fun MainScaffold(
                             themeMode = themeMode,
                             onThemeMode = onThemeMode,
                             onBack = { showSettings = false },
+                            updateState = updateState,
+                            installedVersionName = installedVersionName,
+                            installedVersionCode = installedVersionCode,
+                            onCheckUpdate = { runUpdateCheck(silent = false) },
+                            onDownloadUpdate = startUpdateDownload,
+                            onInstallUpdate = installUpdate,
                         )
                     }
                 } else if (savedView != null) {
@@ -249,6 +337,25 @@ fun MainScaffold(
                                 }
                             },
                             colors = TopAppBarDefaults.topAppBarColors(containerColor = androidx.compose.ui.graphics.Color.Transparent))
+                        (updateState as? UpdateState.Available)?.let { available ->
+                            Surface(
+                                onClick = { showSettings = true },
+                                shape = MaterialTheme.shapes.medium,
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).testTag("update_banner"),
+                            ) {
+                                Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Filled.Notifications, contentDescription = null, modifier = Modifier.size(20.dp))
+                                    Spacer(Modifier.width(10.dp))
+                                    Text(
+                                        stringResource(R.string.update_banner, available.info.versionName),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    Icon(Icons.Filled.KeyboardArrowRight, contentDescription = null)
+                                }
+                            }
+                        }
                         DashboardScreen(
                             onOpenStorage = { browsePath = storageRoot },
                             onOpenDownloads = { browsePath = downloadsPath },

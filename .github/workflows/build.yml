@@ -41,7 +41,11 @@ jobs:
           printf 'SFE_KEYSTORE_PASSWORD=%s\n' "$SFE_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
           printf 'SFE_KEY_ALIAS=%s\n' "$SFE_KEY_ALIAS" >> "$GITHUB_ENV"
       - name: Build and unit tests
-        run: ./gradlew assembleDebug testDebugUnitTest
+        # versionCode is stamped from the run number so every published build is strictly
+        # newer than the last - the in-app updater compares versionCode, not versionName.
+        run: ./gradlew assembleDebug testDebugUnitTest -PsfeVersionCode=${{ github.run_number }}
+      - name: Publish-script fixture tests
+        run: bash .github/scripts/publish-release-test.sh
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -63,6 +67,23 @@ jobs:
           name: StockFileExplorer-Debug-APK
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+      - name: Build update manifest (sfe-update.json)
+        # Records the APK's own versionCode/versionName + digest. apkUrl is filled by the
+        # publish job at release time; this artifact is the publish job's metadata source.
+        run: |
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          SHA=$(sha256sum "$APK" | awk '{print $1}')
+          VC=$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p")
+          VN=$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p")
+          test -n "$VC" && test -n "$VN"
+          jq -n --argjson vc "$VC" --arg vn "$VN" --arg sha "$SHA" \
+            '{versionCode: $vc, versionName: $vn, apkUrl: "", sha256: $sha}' > sfe-update.json
+          cat sfe-update.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sfe-update-manifest
+          path: sfe-update.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -75,3 +96,37 @@ jobs:
       - name: Remove runner signing-key copy
         if: always()
         run: rm -f "$RUNNER_TEMP/sfe-signing.p12"
+
+  publish:
+    name: Publish release
+    # Automatic release after the full gate on the exact main head (policy approved by the
+    # user 2026-11-05: "do automatic"). Dispatch runs never publish. Nothing is ever
+    # deleted or overwritten: existing releases/assets are preserved.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    concurrency:
+      group: release-publish
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      checks: read
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      EXPECTED_CERT_SHA256: 5837c9c96e17ecd864a8664d1422c01361423cbd945950043f8fecdd03429173
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools platforms;android-35 build-tools;35.0.0
+      - uses: actions/download-artifact@v4
+        with:
+          name: StockFileExplorer-Debug-APK
+          path: apk
+      - name: Gate and publish
+        run: bash .github/scripts/publish-release.sh apk/app-debug.apk

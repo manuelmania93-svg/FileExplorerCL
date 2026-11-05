@@ -154,6 +154,12 @@ fun StorageAnalysisScreen(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                stringResource(R.string.analysis_trash_in_categories),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                             if (value.incomplete) {
                                 Spacer(Modifier.height(6.dp))
                                 Text(
@@ -372,17 +378,16 @@ internal fun pyramidResidualBytes(
     usedBytes: Long,
     indexedBytes: Long,
     installedAppsBytes: Long?,
-    trashedBytes: Long = 0L,
     hiddenDirBytes: Long = 0L,
 ): Long =
-    (usedBytes - indexedBytes - (installedAppsBytes ?: 0L) - trashedBytes - hiddenDirBytes).coerceAtLeast(0L)
+    (usedBytes - indexedBytes - (installedAppsBytes ?: 0L) - hiddenDirBytes).coerceAtLeast(0L)
 
 @Composable
 private fun StoragePyramid(report: StorageAnalyzer.Report) {
     val usedBytes = (report.totalBytes - report.freeBytes).coerceAtLeast(0L)
     val indexedBytes = report.categories.values.sum()
     val remainingBytes = pyramidResidualBytes(
-        usedBytes, indexedBytes, report.installedAppsBytes, report.trashedBytes, report.hiddenDirBytes,
+        usedBytes, indexedBytes, report.installedAppsBytes, report.hiddenDirBytes,
     )
     val categorySlices = report.categories.entries
         .filter { it.value > 0 }
@@ -403,19 +408,14 @@ private fun StoragePyramid(report: StorageAnalyzer.Report) {
     } else {
         null
     }
-    // Brown for trashed files, dark blue-grey for hidden dirs: both distinct from the
-    // residual grey, the apps red and every category color.
-    val trashedSlice = if (report.trashedBytes > 0) {
-        PyramidSlice(stringResource(R.string.cat_trashed_files), report.trashedBytes, Color(0xFF6D4C41))
-    } else {
-        null
-    }
+    // Dark blue-grey for hidden dirs: distinct from the residual grey, the apps red and
+    // every category color.
     val hiddenSlice = if (report.hiddenDirBytes > 0) {
         PyramidSlice(stringResource(R.string.cat_hidden_dirs), report.hiddenDirBytes, Color(0xFF455A64))
     } else {
         null
     }
-    val slices = (categorySlices + listOfNotNull(remainingSlice, installedAppsSlice, trashedSlice, hiddenSlice)).sortedBy { it.bytes }
+    val slices = (categorySlices + listOfNotNull(remainingSlice, installedAppsSlice, hiddenSlice)).sortedBy { it.bytes }
     if (slices.isEmpty()) return
 
     Card {
@@ -457,7 +457,6 @@ private fun StoragePyramid(report: StorageAnalyzer.Report) {
             Spacer(Modifier.height(10.dp))
             remainingSlice?.let { PyramidLegendLine(it, usedBytes) }
             installedAppsSlice?.let { PyramidLegendLine(it, usedBytes) }
-            trashedSlice?.let { PyramidLegendLine(it, usedBytes) }
             hiddenSlice?.let { PyramidLegendLine(it, usedBytes) }
             categorySlices.forEach { slice ->
                 PyramidLegendLine(slice, usedBytes)

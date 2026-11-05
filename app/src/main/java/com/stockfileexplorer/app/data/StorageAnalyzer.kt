@@ -1,12 +1,9 @@
 package com.stockfileexplorer.app.data
 
-import android.content.ContentResolver
 import android.content.Context
-import android.os.Bundle
 import android.os.Environment
 import android.os.StatFs
 import android.os.UserManager
-import android.provider.MediaStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
@@ -63,11 +60,12 @@ object StorageAnalyzer {
          */
         val installedAppsCacheBytes: Long? = null,
         /**
-         * Bytes of MediaStore-trashed files that are in no category and not attributed to
-         * an installed app (see [measureUnindexedBytes]). 0 when none.
+         * Bytes in hidden (dot) directories that are in no category and not attributed to
+         * an installed app (see [measureUnindexedBytes]). 0 when none. MediaStore-trashed
+         * files are deliberately NOT a separate bucket: the index's filesystem walk has no
+         * trash-state awareness and already counts them in their media categories, so a
+         * separate bucket would either double count or read zero.
          */
-        val trashedBytes: Long = 0L,
-        /** Bytes in hidden (dot) directories, with the same exclusions as [trashedBytes]. */
         val hiddenDirBytes: Long = 0L,
         /** True when the trashed/hidden accounting could not run completely. */
         val unindexedIncomplete: Boolean = false,
@@ -153,7 +151,7 @@ object StorageAnalyzer {
         // Runs parallel to the filesystem sections: per-package queries are many binder
         // calls and must not delay the fast sections above.
         val appsJob = async { if (hasUsageAccess) InstalledAppsStats.measurePrimaryVolumeBytes(context) else null }
-        val unindexedJob = async { measureUnindexedBytes(context, root, rows) }
+        val unindexedJob = async { measureUnindexedBytes(root, rows) }
         val userManager = context.getSystemService(Context.USER_SERVICE) as UserManager
         // getUserProfiles() sees the profile group (a work profile appears here); getUserCount()
         // additionally sees separate users. Neither includes their app data in the per-package
@@ -188,14 +186,13 @@ object StorageAnalyzer {
         val duplicates = duplicatesJob.await()
         val recycle = recycleJob.await()
         val unindexed = unindexedJob.await()
-        val accountedTotal = indexedTotal + (installedAppsBytes ?: 0L) + unindexed.trashedBytes + unindexed.hiddenDirBytes
+        val accountedTotal = indexedTotal + (installedAppsBytes ?: 0L) + unindexed.hiddenDirBytes
         val accountingInconsistent = accountedTotal > usedBytes + (usedBytes / 50)
         base.copy(
             emptyFolders = empty.folders,
             duplicates = duplicates.groups,
             recycleBins = recycle.folders,
             duplicatesLimited = duplicates.limited,
-            trashedBytes = unindexed.trashedBytes,
             hiddenDirBytes = unindexed.hiddenDirBytes,
             unindexedIncomplete = unindexed.incomplete,
             accountingInconsistent = accountingInconsistent,
@@ -204,9 +201,8 @@ object StorageAnalyzer {
         )
     }
 
-    /** Trashed + hidden-directory bytes outside both the index and the app attribution. */
+    /** Hidden-directory bytes outside both the index and the app attribution. */
     internal data class UnindexedMeasurement(
-        val trashedBytes: Long,
         val hiddenDirBytes: Long,
         val incomplete: Boolean,
     )
@@ -216,17 +212,15 @@ object StorageAnalyzer {
      * Normal listings and the index are untouched; this only re-labels residual bytes.
      *
      * Overlap reconciliation (every exclusion below prevents double counting):
-     *  - anything already in the index (path set) is skipped: MediaStore can index files
-     *    inside dot-directories even though the index's filesystem walk skips them;
+     *  - anything already in the index (relative path set) is skipped: MediaStore can
+     *    index files inside dot-directories even though the index's filesystem walk
+     *    skips them, so a walked byte must never be counted a second time here;
      *  - anything under root/Android is skipped: Android/media bytes are part of the
      *    per-package StorageStats attribution (project id), Android/data and Android/obb
      *    are inaccessible to this app even with MANAGE_EXTERNAL_STORAGE;
-     *  - the MediaStore trash query skips paths inside dot-directories, because the
-     *    hidden-directory walk counts those bytes;
-     *  - symlinks are never followed, so aliased targets are not counted twice;
-     *  - trash rows whose file no longer exists (stale MediaStore entry) are skipped.
-     * Unreadable directories or a failed trash query mark the result incomplete instead
-     * of silently undercounting.
+     *  - symlinks are never followed, so aliased targets are not counted twice.
+     * Unreadable directories mark the result incomplete instead of silently
+     * undercounting.
      */
     /**
      * Path of [path] relative to the primary shared-storage root, or null when [path] is
@@ -250,39 +244,11 @@ object StorageAnalyzer {
         return null
     }
 
-    internal fun measureUnindexedBytes(context: Context, root: File, rows: List<FileItem>): UnindexedMeasurement {
+    internal fun measureUnindexedBytes(root: File, rows: List<FileItem>): UnindexedMeasurement {
         val indexedRelPaths = rows.mapNotNullTo(HashSet(rows.size * 2)) {
             relativeToPrimaryRoot(it.file.absolutePath, root.absolutePath)
         }
         var incomplete = false
-        var trashed = 0L
-        try {
-            val collection = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-            val projection = arrayOf(MediaStore.MediaColumns.DATA, MediaStore.MediaColumns.SIZE)
-            // Trashed items are filtered away from MediaStore operations by default;
-            // MATCH_INCLUDE is the documented way to make them visible (minSdk 30).
-            val queryArgs = Bundle().apply {
-                putString(ContentResolver.QUERY_ARG_SQL_SELECTION, "${MediaStore.MediaColumns.IS_TRASHED}=1")
-                putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, MediaStore.MATCH_INCLUDE)
-            }
-            context.contentResolver.query(collection, projection, queryArgs, null)?.use { c ->
-                val dataIdx = c.getColumnIndex(MediaStore.MediaColumns.DATA)
-                val sizeIdx = c.getColumnIndex(MediaStore.MediaColumns.SIZE)
-                while (c.moveToNext()) {
-                    val data = if (dataIdx >= 0) c.getString(dataIdx) else null
-                    val size = if (sizeIdx >= 0) c.getLong(sizeIdx) else 0L
-                    if (data.isNullOrEmpty() || size <= 0L) continue
-                    val rel = relativeToPrimaryRoot(data, root.absolutePath) ?: continue
-                    if (rel.startsWith("Android/")) continue
-                    if (rel.contains("/.")) continue
-                    if (indexedRelPaths.contains(rel)) continue
-                    if (!File(data).isFile) continue
-                    trashed += size
-                }
-            } ?: run { incomplete = true }
-        } catch (t: Throwable) {
-            incomplete = true
-        }
 
         val cap = 100_000
         var visited = 0
@@ -325,7 +291,7 @@ object StorageAnalyzer {
             }
         }
         scan(root, 0)
-        return UnindexedMeasurement(trashed, hidden, incomplete)
+        return UnindexedMeasurement(hidden, incomplete)
     }
 
     internal fun buildRowsReport(

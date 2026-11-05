@@ -141,7 +141,7 @@
     <string name="installed_apps_title">Installed apps</string>
     <string name="cat_installed_apps">Installed apps (incl. data)</string>
     <string name="cat_installed_apps_estimated">Installed apps (estimated)</string>
-    <string name="cat_trashed_files">Trashed files</string>
+    <string name="analysis_trash_in_categories">Files in the system trash are counted within their media categories.</string>
     <string name="cat_hidden_dirs">Hidden folders</string>
     <string name="storage_pyramid_note_estimated">Layer areas approximately represent used storage. The installed-apps layer is estimated; the grey layer may also contain app data.</string>
     <string name="installed_apps_permission_hint">To show installed apps including their data in the pyramid, File Explorer needs the special \"Usage access\" permission. It is used only to read per-app storage sizes.</string>

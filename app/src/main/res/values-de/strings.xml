@@ -141,7 +141,7 @@
     <string name="installed_apps_title">Installierte Apps</string>
     <string name="cat_installed_apps">Installierte Apps (inkl. Daten)</string>
     <string name="cat_installed_apps_estimated">Installierte Apps (geschätzt)</string>
-    <string name="cat_trashed_files">Papierkorb-Dateien</string>
+    <string name="analysis_trash_in_categories">Dateien im System-Papierkorb zählen zu ihren Medien-Kategorien.</string>
     <string name="cat_hidden_dirs">Versteckte Ordner</string>
     <string name="storage_pyramid_note_estimated">Die Ebenenflächen entsprechen ungefähr dem belegten Speicher. Die Ebene der installierten Apps ist geschätzt; die graue Ebene kann auch App-Daten enthalten.</string>
     <string name="installed_apps_permission_hint">Um installierte Apps inklusive ihrer Daten in der Pyramide anzuzeigen, braucht File Explorer den speziellen „App-Nutzungszugriff“. Er wird nur zum Auslesen der Speichergrößen pro App verwendet.</string>

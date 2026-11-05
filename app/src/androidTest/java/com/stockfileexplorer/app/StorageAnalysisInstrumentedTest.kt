@@ -1,9 +1,7 @@
 package com.stockfileexplorer.app
 
-import android.content.ContentValues
 import android.content.Intent
 import android.os.Environment
-import android.provider.MediaStore
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
@@ -75,43 +73,6 @@ class StorageAnalysisInstrumentedTest {
         File(root, "analysis-debug.log").writeText("redundant candidate")
         File(root, ".recycle_bin").mkdirs()
         File(root, ".recycle_bin/trash.tmp").writeText("visible recycle fixture")
-        // Trashed-row fixture: the app owns this MediaStore row (inserted by it), so
-        // IS_TRASHED may be set directly per the documented owner rule. SIZE is set
-        // explicitly because the bucket sums the row's SIZE column.
-        val trashValues = ContentValues().apply {
-            put(MediaStore.MediaColumns.DISPLAY_NAME, "sfe-trash-fixture.bin")
-            put(MediaStore.MediaColumns.RELATIVE_PATH, "Download/")
-            put(MediaStore.MediaColumns.MIME_TYPE, "application/octet-stream")
-            put(MediaStore.MediaColumns.SIZE, 19L)
-        }
-        val trashUri = context.contentResolver.insert(
-            MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY), trashValues)
-        checkNotNull(trashUri) { "MediaStore insert for trash fixture failed" }
-        context.contentResolver.openOutputStream(trashUri)!!.use { it.write(ByteArray(19)) }
-        val trashUpdate = ContentValues().apply { put(MediaStore.MediaColumns.IS_TRASHED, 1) }
-        check(context.contentResolver.update(trashUri, trashUpdate, null, null) == 1) { "staging IS_TRASHED=1 on own row failed" }
-        // Cross-app visibility probe (diagnostics): a shell-staged trashed row decides
-        // whether the bucket can see trash owned by someone else on this build.
-        val shellFile = File(Environment.getExternalStorageDirectory(), "Download/sfe-shell-trash-probe.bin")
-        shellFile.writeBytes(ByteArray(7))
-        device.executeShellCommand(
-            "content insert --uri content://media/external_primary/file " +
-                "--bind _data:s:${shellFile.absolutePath} --bind _size:i:7 --bind mime_type:s:application/octet-stream")
-        val probeQuery = device.executeShellCommand(
-            "content query --uri content://media/external_primary/file --projection _id " +
-                "--where \"_data='${shellFile.absolutePath}'\"")
-        val probeId = Regex("_id=(\\d+)").find(probeQuery)?.groupValues?.get(1)
-        var probeStaged = false
-        var probeUri = ""
-        if (probeId != null) {
-            probeUri = "content://media/external_primary/file/$probeId"
-            device.executeShellCommand("content update --uri $probeUri --bind is_trashed:i:1")
-            probeStaged = true
-        }
-        File(photos, "analysis-big.bin").writeBytes(ByteArray(1024 * 1024))
-        File(photos, "analysis-recent.txt").writeText("recent")
-        File(docs, "duplicate-a.txt").writeText("same duplicate content")
-        File(docs, "duplicate-b.txt").writeText("same duplicate content")
         FileIndex.verifyFixture(context, Environment.getExternalStorageDirectory(), clear = true)
         // Data check first, so a UI miss can be told apart from missing analyzer output.
         val dataReport = com.stockfileexplorer.app.data.StorageAnalyzer.analyze(context, { })
@@ -122,16 +83,8 @@ class StorageAnalysisInstrumentedTest {
         // Dot-dir accounting: .recycle_bin/trash.tmp (23 bytes) is neither indexed
         // (MediaScanner and the index walk skip dot-dirs) nor app-attributed, so the
         // hidden-dir bucket must contain it and the residual must shrink accordingly.
-        android.util.Log.i("SfeAnalysisData", "trashed=${dataReport.trashedBytes} hidden=${dataReport.hiddenDirBytes} unindexedIncomplete=${dataReport.unindexedIncomplete}")
+        android.util.Log.i("SfeAnalysisData", "hidden=${dataReport.hiddenDirBytes} unindexedIncomplete=${dataReport.unindexedIncomplete}")
         assertTrue("hidden-dir fixture counted; hidden=${dataReport.hiddenDirBytes}", dataReport.hiddenDirBytes >= 23L)
-        assertTrue("trashed fixture counted; trashed=${dataReport.trashedBytes}", dataReport.trashedBytes >= 19L)
-        if (probeStaged) {
-            val probeVisible = dataReport.trashedBytes >= 26L
-            android.util.Log.i("SfeTrashProbe", "shell-owned trashed row visible to app query: $probeVisible (trashed=${dataReport.trashedBytes})")
-            System.out.println("SfeTrashProbe: shellOwnedVisible=$probeVisible trashed=${dataReport.trashedBytes}")
-        } else {
-            System.out.println("SfeTrashProbe: shell staging failed, probe skipped (query output: $probeQuery)")
-        }
 
         val intent = Intent(context, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
@@ -151,7 +104,6 @@ class StorageAnalysisInstrumentedTest {
         // waiting for it in the initial viewport.
         revealText(label("Other used storage", "Übriger belegter Speicher"))
         revealText(label("Hidden folders", "Versteckte Ordner"))
-        revealText(label("Trashed files", "Papierkorb-Dateien"))
         screenshot("sfe-storage-analysis-pyramid-${if (german) "de" else "en"}")
         // Bounded search, not a blind fixed swipe: a single swipeUp flings this
         // short list past the Categories header (run 41956160052).
@@ -170,14 +122,6 @@ class StorageAnalysisInstrumentedTest {
         revealText(label("Recycle bin folders", "Papierkorb-Ordner"))
         revealText(".recycle_bin")
         screenshot("sfe-storage-analysis-redundant-recycle-${if (german) "de" else "en"}")
-        runCatching {
-            context.contentResolver.update(trashUri, ContentValues().apply { put(MediaStore.MediaColumns.IS_TRASHED, 0) }, null, null)
-            context.contentResolver.delete(trashUri, null, null)
-        }
-        if (probeStaged) runCatching {
-            device.executeShellCommand("content delete --uri $probeUri")
-            shellFile.delete()
-        }
         root.deleteRecursively()
         }
     }

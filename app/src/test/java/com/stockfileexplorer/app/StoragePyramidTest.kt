@@ -59,15 +59,15 @@ class StoragePyramidTest {
         assertEquals(0L, pyramidResidualBytes(usedBytes = 100L, indexedBytes = 40L, installedAppsBytes = 90L))
     }
 
-    @Test fun trashedAndHiddenShrinkTheResidualGrey() {
-        // 100 used, 40 indexed, 35 apps, 8 trashed, 7 hidden: residual 10, and the five
+    @Test fun hiddenDirsShrinkTheResidualGrey() {
+        // 100 used, 40 indexed, 35 apps, 7 hidden: residual 18, and the four
         // slices partition the used total exactly.
         val residual = pyramidResidualBytes(
             usedBytes = 100L, indexedBytes = 40L, installedAppsBytes = 35L,
-            trashedBytes = 8L, hiddenDirBytes = 7L,
+            hiddenDirBytes = 7L,
         )
-        assertEquals(10L, residual)
-        assertEquals(100L, 40L + 35L + 8L + 7L + residual)
+        assertEquals(18L, residual)
+        assertEquals(100L, 40L + 35L + 7L + residual)
     }
 
     @Test fun primaryRootAliasesNormalizeToTheSameRelativePath() {
@@ -81,10 +81,10 @@ class StoragePyramidTest {
         assertEquals(null, com.stockfileexplorer.app.data.StorageAnalyzer.relativeToPrimaryRoot("/data/app/x", root))
     }
 
-    @Test fun trashedAndHiddenNeverPushResidualNegative() {
+    @Test fun hiddenDirsNeverPushResidualNegative() {
         assertEquals(0L, pyramidResidualBytes(
             usedBytes = 100L, indexedBytes = 40L, installedAppsBytes = 35L,
-            trashedBytes = 20L, hiddenDirBytes = 20L,
+            hiddenDirBytes = 40L,
         ))
     }
 }

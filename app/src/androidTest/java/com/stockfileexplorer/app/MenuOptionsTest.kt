@@ -55,7 +55,7 @@ class MenuOptionsTest {
                 AppSettings.setContextMenuLayout(context, layout)
                 assertEquals(layout, AppSettings.contextMenuLayout(context))
                 invoked.set("")
-                scenario.onActivity { activity -> activity.setContent { MaterialTheme {
+                scenario.onActivity { activity -> activity.setContent { com.stockfileexplorer.app.theme.AppTheme(ThemeMode.LIGHT) {
                     Box(Modifier.semantics { testTagsAsResourceId = true }) {
                         FileActionMenu("Long filename - document for checking German menu labels and line wrapping.txt", false, false, {}, callbacks())
                     }
@@ -74,8 +74,31 @@ class MenuOptionsTest {
                     assertEquals("/storage/emulated/0/Download/menu fixture.txt", (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).primaryClip!!.getItemAt(0).text.toString())
                 }
             }
+            // Every layout dispatches the same callback; put each target first so scrolling is not a confounder.
+            for (layout in ContextMenuLayout.entries) {
+                AppSettings.setContextMenuLayout(context, layout)
+                for (action in FileMenuAction.entries) {
+                    FileActionPreferences.setOrder(context, listOf(action) + FileMenuAction.entries.filterNot { it == action })
+                    invoked.set("")
+                    scenario.onActivity { activity -> activity.setContent { com.stockfileexplorer.app.theme.AppTheme(ThemeMode.LIGHT) {
+                        Box(Modifier.semantics { testTagsAsResourceId = true }) { FileActionMenu("callback fixture.txt", false, false, {}, callbacks()) }
+                    } } }
+                    control("context_action_${action.name}").click()
+                    val until = android.os.SystemClock.uptimeMillis() + 5000
+                    while (invoked.get().isEmpty() && android.os.SystemClock.uptimeMillis() < until) Thread.sleep(50)
+                    assertEquals("$layout callback", action.name, invoked.get())
+                }
+                scenario.onActivity { activity -> activity.setContent { com.stockfileexplorer.app.theme.AppTheme(ThemeMode.LIGHT) {
+                    Box(Modifier.semantics { testTagsAsResourceId = true }) { FileActionMenu("Directory fixture", true, false, {}, callbacks()) }
+                } } }
+                control("context_${layout.name}")
+                assertFalse(device.hasObject(By.res("context_action_SHARE")))
+                assertFalse(device.hasObject(By.res("context_action_OPEN_WITH")))
+                assertFalse(device.hasObject(By.res("context_action_CONTAINING_FOLDER")))
+            }
+            FileActionPreferences.setOrder(context, order)
             // Real long-press drag plus arrow fallback in customization.
-            scenario.onActivity { activity -> activity.setContent { MaterialTheme {
+            scenario.onActivity { activity -> activity.setContent { com.stockfileexplorer.app.theme.AppTheme(ThemeMode.LIGHT) {
                 Box(Modifier.semantics { testTagsAsResourceId = true }) { MenuCustomizationDialog {} }
             } } }
             capture("customization-before")
@@ -104,4 +127,44 @@ class MenuOptionsTest {
             capture("customization-reset")
         }
     }
+    @Test fun folderAndIndexedSelectionIntegration() {
+        device.executeShellCommand("appops set --uid ${context.packageName} MANAGE_EXTERNAL_STORAGE allow")
+        val root = File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS), "CLMenuFixture").apply { mkdirs() }
+        val files = (1..3).map { File(root, "menu-$it.txt").apply { writeText("menu fixture $it") } }
+        fun text(value: String) = device.wait(Until.findObject(By.text(value)), 15000) ?: throw AssertionError("Missing $value")
+        val intent = android.content.Intent(context, MainActivity::class.java).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK).putExtra("browse_path", root.absolutePath)
+        ActivityScenario.launch<MainActivity>(intent).use { scenario ->
+            text("menu-1.txt").longClick()
+            control("selection_invert").click()
+            control("selection_copy_path").click()
+            Thread.sleep(500)
+            scenario.onActivity {
+                val copied = (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).primaryClip!!.getItemAt(0).text.toString().lines().toSet()
+                assertEquals(files.drop(1).map { it.absolutePath }.toSet(), copied)
+            }
+            capture("folder-inverted-multipath")
+            control("selection_all").click()
+            control("selection_invert").click()
+            assertTrue("Invert all must clear selection", device.wait(Until.gone(By.res("selection_copy_path")), 5000))
+            kotlinx.coroutines.runBlocking { com.stockfileexplorer.app.data.FileIndex.verifyFixture(context, root, clear = true) }
+            scenario.onActivity { activity -> activity.setContent { com.stockfileexplorer.app.theme.AppTheme(ThemeMode.LIGHT) {
+                Box(Modifier.semantics { testTagsAsResourceId = true }) {
+                    com.stockfileexplorer.app.ui.IndexedFilesScreen(null, "Menu fixture index", {})
+                }
+            } } }
+            text("menu-1.txt").longClick()
+            control("selection_invert").click()
+            control("selection_copy_path").click()
+            Thread.sleep(500)
+            scenario.onActivity {
+                val copied = (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).primaryClip!!.getItemAt(0).text.toString().lines().toSet()
+                assertEquals(files.drop(1).map { it.absolutePath }.toSet(), copied)
+            }
+            capture("indexed-inverted-multipath")
+            control("selection_all").click()
+            control("selection_invert").click()
+            assertTrue("Indexed invert all must clear selection", device.wait(Until.gone(By.res("selection_copy_path")), 5000))
+        }
+    }
+
 }

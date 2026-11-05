@@ -11,7 +11,9 @@ android {
         applicationId = "com.stockfileexplorer.app"
         minSdk = 30
         targetSdk = 35
-        versionCode = 16
+        // CI stamps versionCode from the Actions run number (-PsfeVersionCode=N) so every
+        // published build is strictly newer; local/source builds keep the base value.
+        versionCode = providers.gradleProperty("sfeVersionCode").orNull?.toIntOrNull() ?: 16
         versionName = "0.2.13"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
@@ -78,6 +80,8 @@ dependencies {
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     testImplementation("junit:junit:4.13.2")
+    // Real org.json on the JVM so the update-manifest parser is unit-testable.
+    testImplementation("org.json:json:20240303")
 
     androidTestImplementation("androidx.test:runner:1.6.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")

@@ -41,7 +41,9 @@ jobs:
           printf 'SFE_KEYSTORE_PASSWORD=%s\n' "$SFE_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
           printf 'SFE_KEY_ALIAS=%s\n' "$SFE_KEY_ALIAS" >> "$GITHUB_ENV"
       - name: Build and unit tests
-        run: ./gradlew assembleDebug testDebugUnitTest
+        # versionCode is stamped from the run number so every published build is strictly
+        # newer than the last - the in-app updater compares versionCode, not versionName.
+        run: ./gradlew assembleDebug testDebugUnitTest -PsfeVersionCode=${{ github.run_number }}
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -63,6 +65,21 @@ jobs:
           name: StockFileExplorer-Debug-APK
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+      - name: Build update manifest (sfe-update.json)
+        # Preparatory for release publishing (policy still open): records versionCode,
+        # versionName and the APK digest. apkUrl is filled at publish time.
+        run: |
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          SHA=$(sha256sum "$APK" | awk '{print $1}')
+          VERSION_NAME=$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/build.gradle.kts)
+          jq -n --argjson vc "${{ github.run_number }}" --arg vn "$VERSION_NAME" --arg sha "$SHA" \
+            '{versionCode: $vc, versionName: $vn, apkUrl: "", sha256: $sha}' > sfe-update.json
+          cat sfe-update.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sfe-update-manifest
+          path: sfe-update.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:

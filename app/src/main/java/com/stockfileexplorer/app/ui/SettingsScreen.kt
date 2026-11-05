@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
@@ -36,6 +37,7 @@ import com.stockfileexplorer.app.MenuCustomizationDialog
 import com.stockfileexplorer.app.R
 import com.stockfileexplorer.app.SelectionMenuStyle
 import com.stockfileexplorer.app.ThemeMode
+import com.stockfileexplorer.app.data.UpdateState
 
 /**
  * Settings behind the gear on the home top bar: background design, context-menu style
@@ -48,6 +50,12 @@ fun SettingsScreen(
     themeMode: ThemeMode,
     onThemeMode: (ThemeMode) -> Unit,
     onBack: () -> Unit,
+    updateState: UpdateState,
+    installedVersionName: String,
+    installedVersionCode: Long,
+    onCheckUpdate: () -> Unit,
+    onDownloadUpdate: () -> Unit,
+    onInstallUpdate: () -> Unit,
 ) {
     val context = LocalContext.current
     var menuStyle by remember { mutableStateOf(AppSettings.selectionMenuStyle(context)) }
@@ -116,6 +124,49 @@ fun SettingsScreen(
                 conflictMode = ConflictMode.SKIP
                 AppSettings.setConflictMode(context, ConflictMode.SKIP)
             }
+
+            SectionHeader(stringResource(R.string.update_section))
+            Text(
+                stringResource(R.string.update_current, installedVersionName, installedVersionCode),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            when (val state = updateState) {
+                UpdateState.Idle ->
+                    UpdateActionRow(stringResource(R.string.update_check), "update_check", onCheckUpdate)
+                UpdateState.Checking ->
+                    UpdateStatusText(stringResource(R.string.update_checking))
+                UpdateState.UpToDate -> {
+                    UpdateStatusText(stringResource(R.string.update_latest))
+                    UpdateActionRow(stringResource(R.string.update_check), "update_check", onCheckUpdate)
+                }
+                is UpdateState.Available -> {
+                    UpdateStatusText(stringResource(R.string.update_available, state.info.versionName))
+                    state.info.notes?.let {
+                        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    UpdateActionRow(stringResource(R.string.update_download), "update_download", onDownloadUpdate)
+                }
+                is UpdateState.Downloading -> {
+                    UpdateStatusText(stringResource(R.string.update_downloading, state.percent))
+                    LinearProgressIndicator(
+                        progress = { state.percent / 100f },
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    )
+                }
+                is UpdateState.ReadyToInstall -> {
+                    UpdateStatusText(stringResource(R.string.update_ready))
+                    UpdateActionRow(stringResource(R.string.update_install), "update_install", onInstallUpdate)
+                }
+                is UpdateState.Failed -> {
+                    Text(
+                        stringResource(R.string.update_failed),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    UpdateActionRow(stringResource(R.string.update_check), "update_check", onCheckUpdate)
+                }
+            }
         }
     }
 
@@ -132,6 +183,22 @@ private fun SectionHeader(title: String) {
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.padding(top = 20.dp, bottom = 4.dp),
     )
+}
+
+@Composable
+private fun UpdateStatusText(text: String) {
+    Text(text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 2.dp))
+}
+
+@Composable
+private fun UpdateActionRow(label: String, tag: String, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 12.dp).testTag(tag),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+        Icon(Icons.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
 }
 
 @Composable

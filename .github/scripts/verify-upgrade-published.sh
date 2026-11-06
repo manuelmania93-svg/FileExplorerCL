@@ -5,13 +5,13 @@ set -e
 PKG=com.stockfileexplorer.app
 NEW=app/build/outputs/apk/debug/app-debug.apk
 TESTAPK=app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-OLD="$RUNNER_TEMP/sfe-published-0.2.12.apk"
+OLD="$RUNNER_TEMP/sfe-published-0.3.0.apk"
 [ -s "$TESTAPK" ] || ./gradlew assembleDebugAndroidTest
 APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
 AAPT=$(ls "$ANDROID_HOME"/build-tools/*/aapt | sort -V | tail -1)
-curl -fL --retry 3 -o "$OLD" https://github.com/manuelmania93-svg/FileExplorerCL/releases/download/v0.2.12/File-Explorer-Control-0.2.12.apk
+curl -fL --retry 3 -o "$OLD" https://github.com/manuelmania93-svg/FileExplorerCL/releases/download/v0.3.0/File-Explorer-CL-0.3.0.apk
 echo "UPGRADE built APK sha256: $(sha256sum $NEW | cut -d' ' -f1)  source commit: ${GITHUB_SHA:-unknown}"
-echo "UPGRADE published 0.2.12 sha256: $(sha256sum $OLD | cut -d' ' -f1)"
+echo "UPGRADE published 0.3.0 sha256: $(sha256sum $OLD | cut -d' ' -f1)"
 old_cert=$("$APKSIGNER" verify --print-certs "$OLD" | grep -m1 'certificate SHA-256 digest' | awk '{print $NF}')
 new_cert=$("$APKSIGNER" verify --print-certs "$NEW" | grep -m1 'certificate SHA-256 digest' | awk '{print $NF}')
 echo "UPGRADE signer published: $old_cert"; echo "UPGRADE signer built:     $new_cert"
@@ -45,4 +45,4 @@ echo "UPGRADE DIAG prefs file after seedSort (key browser-sort only):"; adb shel
 out=$(adb install -r "$NEW"); echo "$out"; echo "$out" | grep -q Success
 echo "UPGRADE DIAG prefs file after reinstall (key browser-sort only):"; adb shell run-as $PKG cat shared_prefs/file-action-preferences.xml | grep -o "browser-sort[^<]*" || echo "(browser-sort not in file)"
 run sortSurvivedReinstall
-echo "UPGRADE OK: published 0.2.12 -> built test build, same signer, label/handlers/version checked, saved sort survives reinstall"
+echo "UPGRADE OK: published 0.3.0 -> built test build, same signer, label/handlers/version checked, saved sort survives reinstall"

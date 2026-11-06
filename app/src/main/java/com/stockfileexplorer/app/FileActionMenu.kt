@@ -82,7 +82,7 @@ fun FileActionMenu(name: String, isDirectory: Boolean, isFavorite: Boolean,
             HorizontalDivider()
             LazyColumn(Modifier.weight(1f, fill = false)) {
                 if (layout == ContextMenuLayout.GRID) {
-                    items(actions.chunked(3)) { row ->
+                    items(actions.chunked(2)) { row ->
                         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
                             row.forEach { action ->
                                 Column(Modifier.weight(1f).clickable { invoke(action) }
@@ -93,7 +93,7 @@ fun FileActionMenu(name: String, isDirectory: Boolean, isFavorite: Boolean,
                                         textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.padding(top = 6.dp))
                                 }
                             }
-                            repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+                            repeat(2 - row.size) { Spacer(Modifier.weight(1f)) }
                         }
                     }
                 } else {
@@ -199,8 +199,8 @@ fun MenuCustomizationDialog(onDismiss: () -> Unit) {
                         }
                     }
                 }
-                TextButton(onClick = { FileActionPreferences.resetMenu(context); order = FileActionPreferences.orderedActions(context); visible = FileActionPreferences.visibleActions(context) }, modifier = Modifier.testTag("menu_reset")) { Text(stringResource(R.string.reset_defaults)) }
+                TextButton(colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface), onClick = { FileActionPreferences.resetMenu(context); order = FileActionPreferences.orderedActions(context); visible = FileActionPreferences.visibleActions(context) }, modifier = Modifier.testTag("menu_reset")) { Text(stringResource(R.string.reset_defaults)) }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.done)) } })
+        confirmButton = { TextButton(colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface), onClick = onDismiss) { Text(stringResource(R.string.done)) } })
 }

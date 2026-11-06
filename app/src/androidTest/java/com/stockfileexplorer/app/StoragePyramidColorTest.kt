@@ -30,16 +30,28 @@ import java.util.concurrent.TimeUnit
 class StoragePyramidColorTest {
 
     private fun scrollToText(device: UiDevice, text: String): Boolean {
-        // Slow short drags, not quick swipes: a fast swipe flings the LazyColumn and
-        // can carry the target row past the viewport between checks, scrolling the
-        // page to its bottom without ever matching (run 41491727508). A 300 px drag
-        // cannot move a ~60 px legend row across the ~1200 px viewport in one step.
-        repeat(40) {
-            if (device.hasObject(By.textContains(text))) return true
-            device.swipe(300, 1000, 300, 700, 100)
-            Thread.sleep(300)
+        // Match inside the real scroll node, checking both directions. Analysis can
+        // recompose while its report finishes; a coordinate-only downward swipe
+        // can overshoot a legend row and never look above the current viewport.
+        val selector = By.textContains(text)
+        fun scan(direction: androidx.test.uiautomator.Direction): Boolean {
+            repeat(50) {
+                if (device.hasObject(selector)) return true
+                val region = device.findObject(By.scrollable(true)) ?: return false
+                try {
+                    val moved = region.scroll(direction, 0.2f)
+                    device.waitForIdle()
+                    if (device.hasObject(selector)) return true
+                    if (!moved) return false
+                } catch (_: androidx.test.uiautomator.StaleObjectException) {
+                    device.waitForIdle()
+                }
+            }
+            return device.hasObject(selector)
         }
-        return device.hasObject(By.textContains(text))
+        return device.hasObject(selector) || scan(androidx.test.uiautomator.Direction.DOWN) ||
+            scan(androidx.test.uiautomator.Direction.UP)
+
     }
 
 
@@ -115,6 +127,7 @@ class StoragePyramidColorTest {
         } catch (t: Throwable) {
             // Evidence for CI diagnosis: capture the actual screen on ANY failure path.
             device.takeScreenshot(File("/sdcard/Download/sfe-pyramid-colors-FAILED.png"))
+            device.dumpWindowHierarchy(File(context.getExternalFilesDir(null), "pyramid-failure.xml"))
             throw t
         } finally {
             fixture?.delete()

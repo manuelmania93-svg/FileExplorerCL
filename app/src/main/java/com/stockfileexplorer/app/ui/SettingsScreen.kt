@@ -58,6 +58,7 @@ fun SettingsScreen(
     onInstallUpdate: () -> Unit,
 ) {
     val context = LocalContext.current
+    var contextLayout by remember { mutableStateOf(com.stockfileexplorer.app.AppSettings.contextMenuLayout(context)) }
     var menuStyle by remember { mutableStateOf(AppSettings.selectionMenuStyle(context)) }
     var extractMode by remember { mutableStateOf(AppSettings.extractMode(context)) }
     var conflictMode by remember { mutableStateOf(AppSettings.conflictMode(context)) }
@@ -85,6 +86,16 @@ fun SettingsScreen(
             }
 
             SectionHeader(stringResource(R.string.settings_menus))
+            Text(stringResource(R.string.context_layout), style = MaterialTheme.typography.titleSmall)
+            listOf(com.stockfileexplorer.app.ContextMenuLayout.LIST to R.string.context_list,
+                com.stockfileexplorer.app.ContextMenuLayout.GRID to R.string.context_grid,
+                com.stockfileexplorer.app.ContextMenuLayout.SHEET to R.string.context_sheet).forEach { (layout, label) ->
+                RadioRow(stringResource(label), contextLayout == layout, "context_layout_${layout.name}") {
+                    contextLayout = layout
+                    com.stockfileexplorer.app.AppSettings.setContextMenuLayout(context, layout)
+                }
+            }
+            Text(stringResource(R.string.selection_style_title), style = MaterialTheme.typography.titleSmall)
             RadioRow(stringResource(R.string.settings_menu_floating), menuStyle == SelectionMenuStyle.FLOATING, "settings_menu_floating") {
                 menuStyle = SelectionMenuStyle.FLOATING
                 AppSettings.setSelectionMenuStyle(context, SelectionMenuStyle.FLOATING)

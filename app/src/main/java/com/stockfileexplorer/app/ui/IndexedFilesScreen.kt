@@ -14,6 +14,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -146,6 +148,17 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
                     }
                 }
                 if (selection.isNotEmpty()) {
+                    IconButton(onClick = { com.stockfileexplorer.app.copyPaths(context, selection.sorted()) }, modifier = Modifier.testTag("selection_copy_path")) {
+                        Icon(SfeIcons.Link, stringResource(R.string.copy_path))
+                    }
+                    IconButton(onClick = { scope.launch {
+                        val all = FileIndex.page(category, Int.MAX_VALUE, sort, ascending, query).items.map { it.file.absolutePath }
+                        selection = all.filterNot { it in selection }.toSet()
+                        openQuickActions()
+                    } }, modifier = Modifier.testTag("selection_invert")) {
+                        val invertLabel = stringResource(R.string.invert_selection)
+                        Text("↕", modifier = Modifier.semantics { contentDescription = invertLabel })
+                    }
                     IconButton(onClick = {
                         scope.launch {
                             selection = FileIndex.page(category, Int.MAX_VALUE, sort, ascending, query).items
@@ -251,6 +264,7 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
             isFavorite = item.file.absolutePath in favoritePaths,
             onDismiss = { menu = null },
             callbacks = FileActionCallbacks(
+                onCopyPath = { com.stockfileexplorer.app.copyPaths(context, listOf(item.file.absolutePath)) },
                 onOpen = { openFile(context, item.file, noApp, page.items.map { it.file }) },
                 onSaveLocation = { item.file.parent?.let { FileActionPreferences.saveShortcut(context, it) }; Toast.makeText(context, R.string.location_saved, Toast.LENGTH_SHORT).show() },
                 onContainingFolder = { item.file.parent?.let { containingFolder = it } },

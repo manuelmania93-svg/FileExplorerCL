@@ -278,4 +278,17 @@
     <string name="update_install">Install now</string>
     <string name="update_failed">Update failed. Try again later.</string>
     <string name="update_banner">Update available: %1$s</string>
+    <string name="copy_path">Copy path</string>
+    <string name="invert_selection">Invert selection</string>
+    <string name="reset_defaults">Reset defaults</string>
+    <string name="context_layout">File context menu layout</string>
+    <string name="context_list">List dialog (existing)</string>
+    <string name="context_grid">Compact icon grid</string>
+    <string name="context_sheet">Full bottom sheet</string>
+    <string name="selection_style_title">Selection menu style</string>
+    <string name="reorder_hint">Hold the grip and drag to reorder. Use arrows for precise moves.</string>
+    <string name="move_up">Move up</string>
+    <string name="move_down">Move down</string>
+    <string name="reorder_action">Reorder action</string>
+    <string name="path_copied">Path copied</string>
 </resources>

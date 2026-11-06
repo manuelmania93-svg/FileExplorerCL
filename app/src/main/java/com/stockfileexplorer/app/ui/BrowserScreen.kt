@@ -58,6 +58,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
@@ -303,6 +305,13 @@ fun BrowserScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { com.stockfileexplorer.app.copyPaths(context, selection.sorted()) }, modifier = Modifier.testTag("selection_copy_path")) {
+                        Icon(SfeIcons.Link, stringResource(R.string.copy_path))
+                    }
+                    IconButton(onClick = { selection = items.map { it.file.absolutePath }.filterNot { it in selection }.toSet(); openQuickActions() }, modifier = Modifier.testTag("selection_invert")) {
+                        val invertLabel = stringResource(R.string.invert_selection)
+                        Text("↕", modifier = Modifier.semantics { contentDescription = invertLabel })
+                    }
                     IconButton(
                         onClick = {
                             selection = items.map { it.file.absolutePath }.toSet()
@@ -519,6 +528,7 @@ fun BrowserScreen(
             isFavorite = item.file.absolutePath in favoritePaths,
             onDismiss = { menuTarget = null },
             callbacks = FileActionCallbacks(
+                onCopyPath = { com.stockfileexplorer.app.copyPaths(context, listOf(item.file.absolutePath)) },
                 onSaveLocation = {
                     val location = if (item.isDirectory) item.file.absolutePath else item.file.parent
                     location?.let { com.stockfileexplorer.app.FileActionPreferences.saveShortcut(context, it) }

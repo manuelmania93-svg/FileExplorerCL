@@ -24,6 +24,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.ui.platform.testTag
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -66,7 +68,9 @@ fun DashboardScreen(
     onOpenDownloads: () -> Unit,
     onOpenApps: () -> Unit,
     onOpenStorageAnalysis: () -> Unit,
-    onOpenPapierkorb: () -> Unit = {}
+    onOpenPapierkorb: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
+    onOpenRecent: () -> Unit = {}
 ) {
     val root = remember { Environment.getExternalStorageDirectory() }
     val usage by com.stockfileexplorer.app.data.VolumeStats.usage.collectAsState()
@@ -181,6 +185,8 @@ fun DashboardScreen(
         item { ShortcutCard(SfeIcons.Download, Color(0xFF009688), stringResource(R.string.downloads), onOpenDownloads) }
         item { ShortcutCard(SfeIcons.Android, Color(0xFF4CAF50), stringResource(R.string.installed_apps_title), onOpenApps) }
         item { ShortcutCard(Icons.Filled.Delete, Color(0xFF607D8B), stringResource(R.string.papierkorb), onOpenPapierkorb) }
+        item { ShortcutCard(Icons.Filled.Settings, Color(0xFF795548), stringResource(R.string.settings_title), onOpenSettings, Modifier.testTag("home_settings_tile")) }
+        item { ShortcutCard(SfeIcons.Schedule, Color(0xFF3F51B5), stringResource(R.string.cat_recent), onOpenRecent, Modifier.testTag("home_recent_tile")) }
     }
 }
 

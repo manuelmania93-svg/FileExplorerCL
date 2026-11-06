@@ -32,6 +32,7 @@ fun LibraryScreen(
     initialCategory: FileCategory? = null,
     onConsumedInitial: () -> Unit = {}
 ) {
+    var action by remember { mutableStateOf<String?>(null) }
     var selected by remember { mutableStateOf(initialCategory) }
     // Neue Dateien is a recent-files view, not a scanned FileCategory.
     var showRecent by remember { mutableStateOf(false) }
@@ -48,6 +49,11 @@ fun LibraryScreen(
         return
     }
 
+    when (action) {
+        "select" -> { IndexedFilesScreen(null, stringResource(R.string.library_select_files), { action = null }, selectionMode = true); return }
+        "large" -> { IndexedFilesScreen(null, stringResource(R.string.library_large_files), { action = null }, largestFirst = true); return }
+    }
+
     val current = selected
     if (current == null) {
         Column(Modifier.fillMaxSize()) {
@@ -59,6 +65,8 @@ fun LibraryScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
+                item { CategoryCircle(SfeIcons.CheckBox, AmberDark, stringResource(R.string.library_select_files)) { action = "select" } }
+                item { CategoryCircle(SfeIcons.Analytics, AmberDark, stringResource(R.string.library_large_files)) { action = "large" } }
                 item { CategoryCircle(categoryIcon(FileCategory.IMAGES), categoryColor(FileCategory.IMAGES), categoryLabel(FileCategory.IMAGES)) { selected = FileCategory.IMAGES } }
                 item { CategoryCircle(categoryIcon(FileCategory.AUDIO), categoryColor(FileCategory.AUDIO), categoryLabel(FileCategory.AUDIO)) { selected = FileCategory.AUDIO } }
                 item { CategoryCircle(categoryIcon(FileCategory.VIDEOS), categoryColor(FileCategory.VIDEOS), categoryLabel(FileCategory.VIDEOS)) { selected = FileCategory.VIDEOS } }

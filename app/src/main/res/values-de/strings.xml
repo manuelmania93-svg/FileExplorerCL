@@ -291,4 +291,6 @@
     <string name="move_down">Nach unten</string>
     <string name="reorder_action">Aktion verschieben</string>
     <string name="path_copied">Pfad kopiert</string>
+    <string name="library_select_files">Dateien auswählen</string>
+    <string name="library_large_files">Große Dateien</string>
 </resources>

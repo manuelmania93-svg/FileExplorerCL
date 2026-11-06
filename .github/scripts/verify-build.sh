@@ -1,5 +1,7 @@
 #!/bin/bash
 set -e
+# Use the emulator-only runner that records/dismisses only the exact Pixel Launcher ANR.
+export ORG_GRADLE_PROJECT_sfeTestRunner=com.stockfileexplorer.app.ReleaseTestRunner
 # Functional suites do not abort the script: every later suite, the upgrade checks and the screenshot gate still run.
 # Any failed suite makes the final status red (see the end of this file).
 FAILED_SUITES=""

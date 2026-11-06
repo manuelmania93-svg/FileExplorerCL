@@ -22,7 +22,7 @@ android {
         // features, patch for fixes); the publish job skips cleanly when the tag exists,
         // so merges without a bump intentionally publish nothing.
         versionName = "0.3.1"
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner = providers.gradleProperty("sfeTestRunner").orNull ?: "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
     }
 

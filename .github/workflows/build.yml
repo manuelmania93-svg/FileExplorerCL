@@ -4,6 +4,10 @@ on:
     branches: [main]
   workflow_dispatch:
     inputs:
+      upgrade_viewers_only:
+        description: Run viewers and actual published 0.3.0 upgrade checks only
+        type: boolean
+        default: false
       playback_only:
         description: Run the scoped remote/search/totals tests only
         type: boolean
@@ -63,7 +67,7 @@ jobs:
           profile: pixel_2
           disable-animations: true
           script: |
-            bash .github/scripts/verify-build.sh '${{ inputs.playback_only }}' '${{ inputs.pyramid_only }}'
+            bash .github/scripts/verify-build.sh '${{ inputs.playback_only }}' '${{ inputs.pyramid_only }}' '${{ inputs.upgrade_viewers_only }}'
       - uses: actions/upload-artifact@v4
         if: always()
         with:

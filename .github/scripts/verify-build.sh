@@ -119,6 +119,14 @@ if [ "${2:-false}" = "true" ]; then
   if_package_present "locale reset (pyramid only)" adb shell cmd locale set-app-locales com.stockfileexplorer.app --locales ""
   exit 0
 fi
+if [ "${3:-false}" = "true" ]; then
+  ./gradlew installDebug
+  adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
+  ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.BuiltInViewersTest
+  bash .github/scripts/verify-upgrade-published.sh
+  capture
+  exit 0
+fi
 ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.SavedLocationsTest || { capture; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }
 capture
 ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.RemoteAndSearchTest -Pandroid.testInstrumentationRunnerArguments.capture=remote-search || { capture; adb logcat -d > app/build/reports/device/logcat-remote-search.txt || true; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }

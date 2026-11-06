@@ -3,6 +3,7 @@
 # Test build only: nothing is published or uploaded anywhere.
 set -e
 PKG=com.stockfileexplorer.app
+RUNNER=${ORG_GRADLE_PROJECT_sfeTestRunner:-androidx.test.runner.AndroidJUnitRunner}
 NEW=app/build/outputs/apk/debug/app-debug.apk
 TESTAPK=app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 OLD="$RUNNER_TEMP/sfe-published-0.3.0.apk"
@@ -26,10 +27,10 @@ echo "UPGRADE after:  $(adb shell dumpsys package $PKG | grep -E 'versionName|ve
 EXP_VN=$("$AAPT" dump badging "$NEW" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p")
 EXP_VC=$("$AAPT" dump badging "$NEW" | sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p")
 test -n "$EXP_VN" && test -n "$EXP_VC"
-run() { out=$(adb shell am instrument -w -e expectedVersionName "$EXP_VN" -e expectedVersionCode "$EXP_VC" -e class "com.stockfileexplorer.app.UpgradeStateTest#$1" $PKG.test/androidx.test.runner.AndroidJUnitRunner); echo "$out"; echo "$out" | grep -q "^OK ("; }
+run() { out=$(adb shell am instrument -w -e expectedVersionName "$EXP_VN" -e expectedVersionCode "$EXP_VC" -e class "com.stockfileexplorer.app.UpgradeStateTest#$1" $PKG.test/$RUNNER); echo "$out"; echo "$out" | grep -q "^OK ("; }
 run upgradedAppHasNewVersionLabelAndIncomingHandlers
 # Real UI path: choose Size in the sort menu, watch the app's own prefs file on disk, force-stop, relaunch.
-runc() { out=$(adb shell am instrument -w -e class "com.stockfileexplorer.app.SortPersistenceUiTest#$1" $PKG.test/androidx.test.runner.AndroidJUnitRunner); echo "$out"; echo "$out" | grep -q "^OK ("; }
+runc() { out=$(adb shell am instrument -w -e class "com.stockfileexplorer.app.SortPersistenceUiTest#$1" $PKG.test/$RUNNER); echo "$out"; echo "$out" | grep -q "^OK ("; }
 runc phase1ChooseSizeInMenu
 t0=$(date +%s%N); seen=no
 for i in $(seq 1 100); do

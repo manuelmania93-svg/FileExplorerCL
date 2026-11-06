@@ -33,19 +33,12 @@ fun LibraryScreen(
     onConsumedInitial: () -> Unit = {}
 ) {
     var selected by remember { mutableStateOf(initialCategory) }
-    // Neue Dateien is a recent-files view, not a scanned FileCategory.
-    var showRecent by remember { mutableStateOf(false) }
 
     LaunchedEffect(initialCategory) {
         if (initialCategory != null) {
             selected = initialCategory
             onConsumedInitial()
         }
-    }
-
-    if (showRecent) {
-        RecentFilesScreen(onBack = { showRecent = false })
-        return
     }
 
     val current = selected
@@ -63,7 +56,6 @@ fun LibraryScreen(
                 item { CategoryCircle(categoryIcon(FileCategory.AUDIO), categoryColor(FileCategory.AUDIO), categoryLabel(FileCategory.AUDIO)) { selected = FileCategory.AUDIO } }
                 item { CategoryCircle(categoryIcon(FileCategory.VIDEOS), categoryColor(FileCategory.VIDEOS), categoryLabel(FileCategory.VIDEOS)) { selected = FileCategory.VIDEOS } }
                 item { CategoryCircle(categoryIcon(FileCategory.DOCUMENTS), categoryColor(FileCategory.DOCUMENTS), categoryLabel(FileCategory.DOCUMENTS)) { selected = FileCategory.DOCUMENTS } }
-                item { CategoryCircle(SfeIcons.Schedule, AmberDark, stringResource(R.string.cat_recent)) { showRecent = true } }
                 item { CategoryCircle(categoryIcon(FileCategory.APPS), categoryColor(FileCategory.APPS), stringResource(R.string.cat_apk)) { selected = FileCategory.APPS } }
                 item { CategoryCircle(categoryIcon(FileCategory.ARCHIVES), categoryColor(FileCategory.ARCHIVES), categoryLabel(FileCategory.ARCHIVES)) { selected = FileCategory.ARCHIVES } }
             }

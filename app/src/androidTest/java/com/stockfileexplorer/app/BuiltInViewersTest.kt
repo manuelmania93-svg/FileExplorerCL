@@ -155,9 +155,9 @@ class BuiltInViewersTest {
         open("broken.pdf");waitText("Cannot open this file");screenshot("broken-pdf-error");device.pressBack()
         open("unsafe.zip");waitText("Cannot open this file");screenshot("unsafe-zip-error");device.pressBack()
         context.startActivity(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
-        // Recent files is a Library tile now.
-        clickStable("Library")
-        clickStable("Recent files")
+        // Recent files moved from Library to Local home.
+        device.wait(Until.findObject(By.res("home_recent_tile")), 15000)?.click()
+            ?: throw AssertionError("Missing Local recent-files tile")
         open("sample-picture.jpg");waitText("Rotate");screenshot("recent-picture-route");device.pressBack()
         // Category route through the Library tab grid.
         context.startActivity(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))

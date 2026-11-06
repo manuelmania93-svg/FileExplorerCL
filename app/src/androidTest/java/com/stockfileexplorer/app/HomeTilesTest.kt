@@ -48,5 +48,10 @@ class HomeTilesTest {
         device.pressBack()
         node("home_settings_tile")
         shot("returned-home")
+        device.findObject(By.text(context.getString(R.string.tab_library))).click()
+        device.waitForIdle()
+        assertFalse("Recent moved out of Library", device.hasObject(By.text(context.getString(R.string.cat_recent))))
+        assertNotNull(device.wait(Until.findObject(By.text(context.getString(R.string.cat_apk))), 15000))
+        shot("library-without-recent")
     }
 }

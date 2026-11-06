@@ -30,27 +30,21 @@ import java.util.concurrent.TimeUnit
 class StoragePyramidColorTest {
 
     private fun scrollToText(device: UiDevice, text: String): Boolean {
-        // Match inside the real scroll node, checking both directions. Analysis can
-        // recompose while its report finishes; a coordinate-only downward swipe
-        // can overshoot a legend row and never look above the current viewport.
         val selector = By.textContains(text)
-        fun scan(direction: androidx.test.uiautomator.Direction): Boolean {
-            repeat(50) {
+        fun scan(up: Boolean): Boolean {
+            repeat(80) {
                 if (device.hasObject(selector)) return true
-                val region = device.findObject(By.scrollable(true)) ?: return false
-                try {
-                    val moved = region.scroll(direction, 0.2f)
-                    device.waitForIdle()
-                    if (device.hasObject(selector)) return true
-                    if (!moved) return false
-                } catch (_: androidx.test.uiautomator.StaleObjectException) {
-                    device.waitForIdle()
-                }
+                // Short, non-flinging drags inside the content area work even when
+                // the large pyramid item hides the lazy scroll accessibility node.
+                val x = device.displayWidth / 2
+                val y = device.displayHeight / 2
+                val delta = device.displayHeight / 16
+                device.swipe(x, y, x, y + if (up) delta else -delta, 80)
+                device.waitForIdle()
             }
             return device.hasObject(selector)
         }
-        return device.hasObject(selector) || scan(androidx.test.uiautomator.Direction.DOWN) ||
-            scan(androidx.test.uiautomator.Direction.UP)
+        return device.hasObject(selector) || scan(false) || scan(true)
 
     }
 

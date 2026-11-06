@@ -28,6 +28,9 @@ class LibraryActionsTest {
     @Test fun selectionAndLargeFilesUseSharedIndex() {
         device.executeShellCommand("appops set --uid ${context.packageName} MANAGE_EXTERNAL_STORAGE allow")
         val root = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "CLLibraryFixture").apply { mkdirs() }
+        root.deleteRecursively()
+        root.mkdirs()
+        val destination = File(root, "copy-destination").apply { mkdirs() }
         val small = File(root, "small.txt").apply { writeText("small") }
         val large = File(root, "large.mp3").apply { writeBytes(ByteArray(10000) { 42 }) }
         runBlocking { FileIndex.verifyFixture(context, root, clear = true) }
@@ -45,7 +48,18 @@ class LibraryActionsTest {
         text(context.getString(R.string.copy)).click()
         text(context.getString(R.string.choose_copy_destination))
         shot("shared-copy-destination")
-        device.pressBack()
+        text("Download").click()
+        text(root.name).click()
+        text(destination.name).click()
+        text(context.getString(R.string.copy_here)).click()
+        val until = android.os.SystemClock.uptimeMillis() + 15000
+        while ((!File(destination, small.name).exists() || !File(destination, large.name).exists()) && android.os.SystemClock.uptimeMillis() < until) Thread.sleep(100)
+        assertEquals("small", File(destination, small.name).readText())
+        assertArrayEquals(large.readBytes(), File(destination, large.name).readBytes())
+        assertTrue("Both sources preserved", small.readText() == "small" && large.length() == 10000L)
+        shot("copied-both-categories")
+        // Remove only destination fixture copies before proving order of original rows.
+        destination.deleteRecursively()
         device.pressBack()
         device.pressBack()
         text(context.getString(R.string.library_large_files)).click()

@@ -99,5 +99,12 @@ EOF
 }
 run_case pending-check-aborts setup_pending_check 1 0
 
+setup_duplicate_builds() { good_checks "$1"; python3 - "$1/check-runs.json" <<'PYCASE'
+import json,sys
+p=sys.argv[1];d=json.load(open(p));d['check_runs'].append({'name':'build','status':'completed','conclusion':'success'});json.dump(d,open(p,'w'))
+PYCASE
+}
+run_case duplicate-successful-builds setup_duplicate_builds 0 4
+
 echo "== $PASS passed, $FAIL failed =="
 [ "$FAIL" = "0" ]

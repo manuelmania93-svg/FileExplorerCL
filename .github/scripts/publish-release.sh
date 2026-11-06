@@ -43,7 +43,7 @@ echo "cert=$CERT"
 # exist and be green (no vacuous pass); every check run except this publish job must be
 # completed with an acceptable conclusion.
 CHECKS=$(api check-runs.json gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/check-runs")
-echo "$CHECKS" | jq -e '[.check_runs[] | select(.name == "build" and .status == "completed" and .conclusion == "success")] | length == 1' >/dev/null \
+echo "$CHECKS" | jq -e '[.check_runs[] | select(.name == "build" and .status == "completed" and .conclusion == "success")] | length >= 1' >/dev/null \
   || { echo "PUBLISH ABORTED: successful 'build' check run not found on $GITHUB_SHA"; exit 1; }
 BAD=$(echo "$CHECKS" | jq '[.check_runs[] | select(.name != "Publish release")
   | select(.status != "completed" or ((.conclusion == "success" or .conclusion == "neutral" or .conclusion == "skipped") | not))] | length')

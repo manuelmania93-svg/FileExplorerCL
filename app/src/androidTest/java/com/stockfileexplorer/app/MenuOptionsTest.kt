@@ -26,7 +26,21 @@ class MenuOptionsTest {
     private val context = inst.targetContext
     private val device = UiDevice.getInstance(inst)
     private val invoked = AtomicReference("")
-    private fun control(tag: String): UiObject2 = device.wait(Until.findObject(By.res(tag)), 10000) ?: throw AssertionError("Missing $tag")
+    private fun dismissLauncherAnr() {
+        // Emulator-only launcher ANR is not an app failure. Never dismiss a CL ANR.
+        if (device.hasObject(By.text("Pixel Launcher isn't responding"))) {
+            capture("launcher-anr")
+            device.findObject(By.text("Close app"))?.click()
+            device.waitForIdle()
+        }
+    }
+    private fun control(tag: String): UiObject2 {
+        dismissLauncherAnr()
+        return device.wait(Until.findObject(By.res(tag)), 10000) ?: run {
+            dismissLauncherAnr()
+            device.wait(Until.findObject(By.res(tag)), 5000) ?: throw AssertionError("Missing $tag")
+        }
+    }
     private fun capture(name: String) {
         val dir = File(context.getExternalFilesDir(null), "menu-evidence").apply { mkdirs() }
         val lang = context.resources.configuration.locales[0].language
@@ -134,7 +148,10 @@ class MenuOptionsTest {
         device.executeShellCommand("appops set --uid ${context.packageName} MANAGE_EXTERNAL_STORAGE allow")
         val root = File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS), "CLMenuFixture").apply { mkdirs() }
         val files = (1..3).map { File(root, "menu-$it.txt").apply { writeText("menu fixture $it") } }
-        fun text(value: String) = device.wait(Until.findObject(By.text(value)), 15000) ?: throw AssertionError("Missing $value")
+        fun text(value: String): UiObject2 {
+            dismissLauncherAnr()
+            return device.wait(Until.findObject(By.text(value)), 15000) ?: throw AssertionError("Missing $value")
+        }
         val intent = android.content.Intent(context, MainActivity::class.java).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK).putExtra("browse_path", root.absolutePath)
         ActivityScenario.launch<MainActivity>(intent).use { scenario ->
             device.waitForIdle(); Thread.sleep(750)

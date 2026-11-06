@@ -30,16 +30,22 @@ import java.util.concurrent.TimeUnit
 class StoragePyramidColorTest {
 
     private fun scrollToText(device: UiDevice, text: String): Boolean {
-        // Slow short drags, not quick swipes: a fast swipe flings the LazyColumn and
-        // can carry the target row past the viewport between checks, scrolling the
-        // page to its bottom without ever matching (run 41491727508). A 300 px drag
-        // cannot move a ~60 px legend row across the ~1200 px viewport in one step.
-        repeat(40) {
-            if (device.hasObject(By.textContains(text))) return true
-            device.swipe(300, 1000, 300, 700, 100)
-            Thread.sleep(300)
+        val selector = By.textContains(text)
+        fun scan(up: Boolean): Boolean {
+            repeat(80) {
+                if (device.hasObject(selector)) return true
+                // Short, non-flinging drags inside the content area work even when
+                // the large pyramid item hides the lazy scroll accessibility node.
+                val x = device.displayWidth / 2
+                val y = device.displayHeight / 2
+                val delta = device.displayHeight / 16
+                device.swipe(x, y, x, y + if (up) delta else -delta, 80)
+                device.waitForIdle()
+            }
+            return device.hasObject(selector)
         }
-        return device.hasObject(By.textContains(text))
+        return device.hasObject(selector) || scan(false) || scan(true)
+
     }
 
 
@@ -115,6 +121,7 @@ class StoragePyramidColorTest {
         } catch (t: Throwable) {
             // Evidence for CI diagnosis: capture the actual screen on ANY failure path.
             device.takeScreenshot(File("/sdcard/Download/sfe-pyramid-colors-FAILED.png"))
+            device.dumpWindowHierarchy(File(context.getExternalFilesDir(null), "pyramid-failure.xml"))
             throw t
         } finally {
             fixture?.delete()

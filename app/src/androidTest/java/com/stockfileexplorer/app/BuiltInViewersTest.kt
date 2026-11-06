@@ -51,7 +51,8 @@ class BuiltInViewersTest {
     // A recomposing list can invalidate a node between find and click: re-find and click again.
     private fun clickStable(text: String) {
         repeat(5) {
-            try { if (device.wait(Until.hasObject(By.text(text)), 8000)) { device.findObject(By.text(text)).click(); return } }
+            try { val node = device.wait(Until.findObject(By.text(text)), 8000)
+                if (node != null) { node.click(); return } }
             catch (_: androidx.test.uiautomator.StaleObjectException) { Thread.sleep(300) }
         }
         throw AssertionError("Could not click '$text'")
@@ -160,10 +161,8 @@ class BuiltInViewersTest {
         open("sample-picture.jpg");waitText("Rotate");screenshot("recent-picture-route");device.pressBack()
         // Category route through the Library tab grid.
         context.startActivity(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
-        waitText("Library")
-        device.findObject(By.text("Library")).click()
-        waitText("Images")
-        device.findObject(By.text("Images")).click()
+        clickStable("Library")
+        clickStable("Images")
         open("sample-picture.jpg");waitText("Rotate");screenshot("library-picture-route");device.pressBack()
     }
     @Test fun wholeFilenameIncludingExtensionRename() {

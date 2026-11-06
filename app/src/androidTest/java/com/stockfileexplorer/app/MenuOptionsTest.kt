@@ -114,6 +114,31 @@ class MenuOptionsTest {
                 assertFalse(device.hasObject(By.res("context_action_CONTAINING_FOLDER")))
             }
             FileActionPreferences.setOrder(context, order)
+            // Label taps must toggle the same checkbox preference and survive recreation.
+            scenario.onActivity { activity -> activity.setContent { com.stockfileexplorer.app.theme.AppTheme(ThemeMode.LIGHT) {
+                Box(Modifier.semantics { testTagsAsResourceId = true }) { MenuCustomizationDialog {} }
+            } } }
+            val copyLabel = control("customize_COPY").findObject(By.text(context.getString(R.string.copy)))
+            assertNotNull(copyLabel)
+            copyLabel.click()
+            device.waitForIdle()
+            assertFalse("Label tap hides Copy", FileMenuAction.COPY in FileActionPreferences.visibleActions(context))
+            capture("label-copy-hidden")
+            scenario.recreate()
+            assertFalse("Hidden Copy persists after activity recreation", FileMenuAction.COPY in FileActionPreferences.visibleActions(context))
+            scenario.onActivity { activity -> activity.setContent { com.stockfileexplorer.app.theme.AppTheme(ThemeMode.LIGHT) {
+                Box(Modifier.semantics { testTagsAsResourceId = true }) { MenuCustomizationDialog {} }
+            } } }
+            control("customize_COPY").findObject(By.text(context.getString(R.string.copy))).click()
+            device.waitForIdle()
+            assertTrue("Label tap restores Copy", FileMenuAction.COPY in FileActionPreferences.visibleActions(context))
+            control("visible_COPY").click()
+            device.waitForIdle()
+            assertFalse("Checkbox tap toggles exactly once", FileMenuAction.COPY in FileActionPreferences.visibleActions(context))
+            control("visible_COPY").click()
+            device.waitForIdle()
+            assertTrue(FileMenuAction.COPY in FileActionPreferences.visibleActions(context))
+            capture("label-checkbox-restored")
             // Real long-press drag plus arrow fallback in customization.
             scenario.onActivity { activity -> activity.setContent { com.stockfileexplorer.app.theme.AppTheme(ThemeMode.LIGHT) {
                 Box(Modifier.semantics { testTagsAsResourceId = true }) { MenuCustomizationDialog {} }

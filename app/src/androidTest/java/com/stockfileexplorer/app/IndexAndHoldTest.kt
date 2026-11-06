@@ -29,13 +29,21 @@ class IndexAndHoldTest {
     private val root = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "SfePerf")
     private val german get() = context.resources.configuration.locales[0].language == "de"
     private fun label(en: String, de: String) = if (german) de else en
-    // New actions make the bounded context menu scroll. Find bottom actions
-    // through its real scroll container, rather than requiring all rows on screen.
+    // Search both directions inside the menu's actual lazy scroll region.
+    // The action may be above the viewport after checking a lower action.
     private fun revealMenuAction(value: String) {
         if (device.hasObject(By.text(value))) return
-        if (value in setOf("Open", "Öffnen", "Select", "Auswählen", "Customize menu", "Menü anpassen")) {
-            androidx.test.uiautomator.UiScrollable(androidx.test.uiautomator.UiSelector().scrollable(true))
-                .scrollIntoView(androidx.test.uiautomator.UiSelector().text(value))
+        if (!ContextMenuLayout.entries.any { device.hasObject(By.res("context_${it.name}")) }) return
+        fun region() = device.findObject(By.scrollable(true))
+        repeat(10) {
+            if (device.hasObject(By.text(value))) return
+            if (region()?.scroll(androidx.test.uiautomator.Direction.UP, 0.8f) != true) return@repeat
+            device.waitForIdle()
+        }
+        repeat(15) {
+            if (device.hasObject(By.text(value))) return
+            if (region()?.scroll(androidx.test.uiautomator.Direction.DOWN, 0.8f) != true) return@repeat
+            device.waitForIdle()
         }
     }
     private fun waitText(value: String): UiObject2 {

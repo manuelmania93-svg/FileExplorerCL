@@ -170,7 +170,11 @@ fun MenuCustomizationDialog(onDismiss: () -> Unit) {
                 Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
                     order.forEach { action ->
                         key(action) {
-                            Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag("customize_${action.name}"), verticalAlignment = Alignment.CenterVertically) {
+                            Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag("customize_${action.name}")
+                                .clickable {
+                                    visible = if (action in visible) visible - action else visible + action
+                                    FileActionPreferences.setVisibleActions(context, visible)
+                                }, verticalAlignment = Alignment.CenterVertically) {
                                 Text("≡", style = MaterialTheme.typography.titleLarge,
                                     modifier = Modifier.size(32.dp, 48.dp).wrapContentSize().testTag("drag_${action.name}")
                                         .pointerInput(action) {

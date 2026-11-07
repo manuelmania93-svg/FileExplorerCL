@@ -291,4 +291,6 @@
     <string name="move_down">Move down</string>
     <string name="reorder_action">Reorder action</string>
     <string name="path_copied">Path copied</string>
+    <string name="library_select_files">Select files</string>
+    <string name="library_large_files">Large files</string>
 </resources>

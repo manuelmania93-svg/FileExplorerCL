@@ -35,7 +35,7 @@ import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Unit, searchMode: Boolean = false) {
+fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Unit, searchMode: Boolean = false, selectionMode: Boolean = false, largestFirst: Boolean = false) {
     var containingFolder by rememberSaveable { mutableStateOf<String?>(null) }
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     var query by rememberSaveable { mutableStateOf("") }
@@ -44,9 +44,9 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
     val scope = rememberCoroutineScope()
     val status by FileIndex.state.collectAsState()
     var limit by remember(category) { mutableIntStateOf(200) }
-    val savedSort = remember(category) { FileActionPreferences.categorySort(context, category?.name ?: "search")?.split(":") }
-    var sort by rememberSaveable(category) { mutableStateOf(FileIndex.Sort.entries.firstOrNull { it.name == savedSort?.getOrNull(0) } ?: FileIndex.Sort.DATE) }
-    var ascending by rememberSaveable(category) { mutableStateOf(savedSort?.getOrNull(1)?.toBooleanStrictOrNull() ?: false) }
+    val savedSort = remember(category) { FileActionPreferences.categorySort(context, if (largestFirst) "library-large" else if (selectionMode) "library-select" else category?.name ?: "search")?.split(":") }
+    var sort by rememberSaveable(category) { mutableStateOf(if (largestFirst) FileIndex.Sort.SIZE else FileIndex.Sort.entries.firstOrNull { it.name == savedSort?.getOrNull(0) } ?: FileIndex.Sort.DATE) }
+    var ascending by rememberSaveable(category) { mutableStateOf(if (largestFirst) false else savedSort?.getOrNull(1)?.toBooleanStrictOrNull() ?: false) }
     var sortMenu by remember { mutableStateOf(false) }
     var totalBytes by remember(category) { mutableStateOf<Long?>(null) }
     var page by remember(category) { mutableStateOf(FileIndex.Page(emptyList(), false)) }
@@ -139,7 +139,7 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
                                     onClick = {
                                         if (mode == sort) ascending = !ascending
                                         else { sort = mode; ascending = mode == FileIndex.Sort.NAME }
-                                        FileActionPreferences.saveCategorySort(context, category?.name ?: "search", sort.name, ascending)
+                                        FileActionPreferences.saveCategorySort(context, if (largestFirst) "library-large" else if (selectionMode) "library-select" else category?.name ?: "search", sort.name, ascending)
                                         limit = 200
                                         sortMenu = false
                                     })
@@ -185,13 +185,13 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
             items(page.items.size, key = { page.items[it].file.absolutePath }) { n ->
                 val item = page.items[n]
                 Row(Modifier.fillMaxWidth().combinedClickable(
-                    onClick = { if (selection.isNotEmpty()) toggle(item.file.absolutePath) else openFile(context, item.file, noApp, page.items.map { it.file }) },
+                    onClick = { if (selectionMode || selection.isNotEmpty()) toggle(item.file.absolutePath) else openFile(context, item.file, noApp, page.items.map { it.file }) },
                     onLongClick = {
                         toggle(item.file.absolutePath)
                         quickActionsOpen = selection.isNotEmpty()
                     }
                 ).padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (selection.isNotEmpty()) Checkbox(item.file.absolutePath in selection, { toggle(item.file.absolutePath) })
+                    if (selectionMode || selection.isNotEmpty()) Checkbox(item.file.absolutePath in selection, { toggle(item.file.absolutePath) })
                     Box {
                         FileIcon(item, 40)
                         if (item.file.absolutePath in favoritePaths) {

@@ -33,6 +33,7 @@ class StoragePyramidTest {
         assertEquals(geometry.apexGapFraction, layers.first().topWidthFraction, 0.0001f)
         assertTrue(layers.zipWithNext().all { (upper, lower) -> upper.bottomWidthFraction <= lower.bottomWidthFraction })
         assertEquals(1f, layers.last().bottomWidthFraction, 0.0001f)
+        assertEquals(false, geometry.overAttributed)
     }
 
     @Test fun fullyAccountedStorageHasNoApexGap() {
@@ -40,14 +41,33 @@ class StoragePyramidTest {
         assertEquals(0f, geometry.apexGapFraction, 0.0001f)
         assertEquals(1f, geometry.layers.sumOf { it.heightFraction.toDouble() }.toFloat(), 0.0001f)
         assertEquals(0f, geometry.layers.first().topWidthFraction, 0.0001f)
+        assertEquals(false, geometry.overAttributed)
     }
 
-    @Test fun overAttributedStorageNeverDrawsPastTheBase() {
-        // Overlapping attribution (estimated apps plus index double counting) must
-        // not widen the pyramid beyond the full-width base.
-        val geometry = storagePyramidGeometry(listOf(6L, 6L), totalBytes = 10L)
+    @Test fun overAttributedStorageIsFlaggedNotClipped() {
+        // 6 + 8 accounted on a 10 GB device: the measurements are inconsistent
+        // (apps estimate overlaps indexed files, or a scan raced a delete). The
+        // geometry must flag this instead of silently clipping a slice: no apex
+        // gap, every slice keeps its relative size of the accounted sum, and the
+        // largest slice (typically the measured free space) is not reduced.
+        val geometry = storagePyramidGeometry(listOf(6L, 8L), totalBytes = 10L)
+        assertEquals(true, geometry.overAttributed)
         assertEquals(0f, geometry.apexGapFraction, 0.0001f)
+        val areas = geometry.layers.map { layer ->
+            ((layer.topWidthFraction + layer.bottomWidthFraction) / 2f) * layer.heightFraction
+        }
+        // Sorted ascending: 6 then 8; areas are shares of the 14 GB accounted sum.
+        assertEquals(6.0 / 14.0 * 0.5, areas[0].toDouble(), 0.0001)
+        assertEquals(8.0 / 14.0 * 0.5, areas[1].toDouble(), 0.0001)
         assertEquals(1f, geometry.layers.last().bottomWidthFraction, 0.0001f)
+    }
+
+    @Test fun exactlyAccountedStorageIsNotFlagged() {
+        // Slices summing exactly to the total (no free-space timing race) fill the
+        // pyramid with no gap and no inconsistency flag.
+        val geometry = storagePyramidGeometry(listOf(3L, 7L), totalBytes = 10L)
+        assertEquals(false, geometry.overAttributed)
+        assertEquals(0f, geometry.apexGapFraction, 0.0001f)
     }
 
     @Test fun emptyInputsDrawNothing() {

@@ -407,6 +407,11 @@ private fun StoragePyramid(report: StorageAnalyzer.Report) {
     }
     val slices = (categorySlices + listOfNotNull(freeSlice, installedAppsSlice, hiddenSlice)).sortedBy { it.bytes }
     if (slices.isEmpty()) return
+    val geometry = storagePyramidGeometry(slices.map { it.bytes }, totalBytes)
+    // Percentages are shares of the device total; when the measurements are
+    // inconsistent (attribution exceeds the total), they are shares of the
+    // accounted sum and the note says so explicitly.
+    val legendDenominator = if (geometry.overAttributed) slices.sumOf { it.bytes } else totalBytes
 
     Card {
         Column(Modifier.fillMaxWidth().padding(16.dp)) {
@@ -414,7 +419,8 @@ private fun StoragePyramid(report: StorageAnalyzer.Report) {
             Spacer(Modifier.height(4.dp))
             Text(
                 stringResource(
-                    if (report.installedAppsOverlapEstimated) R.string.storage_pyramid_note_estimated
+                    if (geometry.overAttributed) R.string.storage_pyramid_note_inconsistent
+                    else if (report.installedAppsOverlapEstimated) R.string.storage_pyramid_note_estimated
                     else if (report.installedAppsBytes != null) R.string.storage_pyramid_note_installed
                     else R.string.storage_pyramid_note_indexed,
                 ),
@@ -422,7 +428,6 @@ private fun StoragePyramid(report: StorageAnalyzer.Report) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(12.dp))
-            val geometry = storagePyramidGeometry(slices.map { it.bytes }, totalBytes)
             Canvas(Modifier.fillMaxWidth().height(150.dp)) {
                 var top = geometry.apexGapFraction * size.height
                 geometry.layers.forEachIndexed { index, layer ->
@@ -444,11 +449,11 @@ private fun StoragePyramid(report: StorageAnalyzer.Report) {
                 }
             }
             Spacer(Modifier.height(10.dp))
-            freeSlice?.let { PyramidLegendLine(it, totalBytes) }
-            installedAppsSlice?.let { PyramidLegendLine(it, totalBytes) }
-            hiddenSlice?.let { PyramidLegendLine(it, totalBytes) }
+            freeSlice?.let { PyramidLegendLine(it, legendDenominator) }
+            installedAppsSlice?.let { PyramidLegendLine(it, legendDenominator) }
+            hiddenSlice?.let { PyramidLegendLine(it, legendDenominator) }
             categorySlices.forEach { slice ->
-                PyramidLegendLine(slice, totalBytes)
+                PyramidLegendLine(slice, legendDenominator)
             }
         }
     }

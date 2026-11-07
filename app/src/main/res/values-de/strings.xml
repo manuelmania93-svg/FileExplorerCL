@@ -142,6 +142,7 @@
     <string name="cat_installed_apps_estimated">Installierte Apps (geschätzt)</string>
     <string name="analysis_trash_in_categories">Dateien im System-Papierkorb zählen zu ihren Medien-Kategorien.</string>
     <string name="cat_hidden_dirs">Versteckte Ordner</string>
+    <string name="storage_pyramid_note_inconsistent">Die gemessenen Anteile ergeben zusammen mehr als den Gesamtspeicher; die Schätzung der installierten Apps überschneidet sich vermutlich mit indexierten Dateien. Die Grafik zeigt nur relative Größen.</string>
     <string name="storage_pyramid_note_estimated">Die Ebenenflächen zeigen Anteile am Gesamtspeicher. Die Ebene der installierten Apps ist geschätzt und kann sich mit den Dateikategorien überschneiden; die leere Spitze ist Speicher, den die App nicht zuordnen kann.</string>
     <string name="installed_apps_permission_hint">Um installierte Apps inklusive ihrer Daten in der Pyramide anzuzeigen, braucht File Explorer den speziellen „App-Nutzungszugriff“. Er wird nur zum Auslesen der Speichergrößen pro App verwendet.</string>
     <string name="installed_apps_permission_grant">Nutzungszugriff erlauben</string>

@@ -142,6 +142,7 @@
     <string name="cat_installed_apps_estimated">Installed apps (estimated)</string>
     <string name="analysis_trash_in_categories">Files in the system trash are counted within their media categories.</string>
     <string name="cat_hidden_dirs">Hidden folders</string>
+    <string name="storage_pyramid_note_inconsistent">The measured shares add up to more than the device total, so the estimate for installed apps likely overlaps indexed files. The chart shows relative sizes only.</string>
     <string name="storage_pyramid_note_estimated">Layer areas are shares of total device storage. The installed-apps layer is estimated and can overlap the file categories; the empty tip is storage the app cannot attribute.</string>
     <string name="installed_apps_permission_hint">To show installed apps including their data in the pyramid, File Explorer needs the special \"Usage access\" permission. It is used only to read per-app storage sizes.</string>
     <string name="installed_apps_permission_grant">Grant usage access</string>

@@ -55,6 +55,8 @@ class BuiltInViewersTest {
                 if (node != null) { node.click(); return } }
             catch (_: androidx.test.uiautomator.StaleObjectException) { Thread.sleep(300) }
         }
+        screenshot("click-failure-" + text.filter { it.isLetterOrDigit() })
+        device.dumpWindowHierarchy(File("/sdcard/Download/sfe-viewers-click-failure.xml"))
         throw AssertionError("Could not click '$text'")
     }
     private fun screenshot(name: String) {
@@ -159,8 +161,12 @@ class BuiltInViewersTest {
         device.wait(Until.findObject(By.res("home_recent_tile")), 15000)?.click()
             ?: throw AssertionError("Missing Local recent-files tile")
         open("sample-picture.jpg");waitText("Rotate");screenshot("recent-picture-route");device.pressBack()
-        // Category route through the Library tab grid.
+        // startActivity is asynchronous: the previous Recent screen also has a Library
+        // bottom tab. Wait for the NEW Local screen before clicking it, otherwise the
+        // tap can hit the old Activity immediately before CLEAR_TASK replaces it.
         context.startActivity(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
+        device.wait(Until.findObject(By.res("home_recent_tile")), 15000)
+            ?: throw AssertionError("New Local screen missing before Library route")
         clickStable("Library")
         clickStable("Images")
         open("sample-picture.jpg");waitText("Rotate");screenshot("library-picture-route");device.pressBack()

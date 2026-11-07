@@ -222,8 +222,8 @@ class HomeTilesTest {
                     val target = buttons.firstOrNull { rowCenterY >= it.top && rowCenterY <= it.bottom }
                         ?: buttons.minByOrNull { kotlin.math.abs(it.centerY() - rowCenterY) }
                             ?.takeIf { kotlin.math.abs(it.centerY() - rowCenterY) < 120 }
-                    assertNotNull("Unhide button aligned with fixture row (attempt " + attempt + ")", target)
-                    device.click(target.centerX(), target.centerY())
+                    val t = target ?: throw AssertionError("Unhide button aligned with fixture row (attempt " + attempt + ")")
+                    device.click(t.centerX(), t.centerY())
                     unhideClicked = true
                     break
                 } catch (e: androidx.test.uiautomator.StaleObjectException) {

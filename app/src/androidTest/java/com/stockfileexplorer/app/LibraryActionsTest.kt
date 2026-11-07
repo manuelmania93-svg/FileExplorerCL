@@ -41,7 +41,8 @@ class LibraryActionsTest {
         val duplicateTile = text(context.getString(R.string.duplicate_files)).visibleBounds
         assertTrue("Duplicates beside Large files at end", kotlin.math.abs(duplicateTile.centerY() - largeTile.centerY()) < 20 && duplicateTile.centerX() > largeTile.centerX())
         val hiddenTile = text(context.getString(R.string.hidden_files)).visibleBounds
-        assertTrue("Hidden files after Duplicates at end", kotlin.math.abs(hiddenTile.centerY() - duplicateTile.centerY()) < 20 && hiddenTile.centerX() > duplicateTile.centerX())
+        // Label line counts differ per tile, so compare the labels' top edge, not their centers.
+        assertTrue("Hidden files after Duplicates at end", kotlin.math.abs(hiddenTile.top - duplicateTile.top) < 20 && hiddenTile.centerX() > duplicateTile.centerX())
         shot("library")
         text(context.getString(R.string.library_large_files)).click()
         val top = text(large.name).visibleBounds

@@ -53,12 +53,12 @@ class HomeTilesTest {
         device.pressBack()
         node("home_settings_tile")
         shot("returned-home")
-        node("home_folders_tile").click()
+        clickFresh("home_folders_tile")
         assertNotNull("Saved folders section", device.wait(Until.findObject(By.text(context.getString(R.string.saved_folders_header))), 15000))
         assertNotNull("Recent folders section", device.wait(Until.findObject(By.text(context.getString(R.string.recent_folders_header))), 15000))
         shot("folders")
         device.pressBack()
-        node("home_hidden_tile").click()
+        clickFresh("home_hidden_tile")
         assertNotNull("Hidden items screen", device.wait(Until.findObject(By.text(context.getString(R.string.hidden_items_title))), 15000))
         shot("hidden-items")
         device.pressBack()
@@ -110,6 +110,22 @@ class HomeTilesTest {
         button.click()
         device.wait(Until.findObject(By.res("context_customize")), 10_000)
             ?: run { shot("menu-not-open-$name"); throw AssertionError("context menu did not open for $name") }
+    }
+
+    /** Click a node that may be replaced between find and click (dashboard recomposes
+     *  live during scans): re-find per attempt instead of holding a stale handle. */
+    private fun clickFresh(tag: String, timeoutMs: Long = 15_000) {
+        val deadline = SystemClock.uptimeMillis() + timeoutMs
+        while (true) {
+            try {
+                val obj = device.wait(Until.findObject(By.res(tag)), 3_000)
+                if (obj != null) { obj.click(); return }
+            } catch (e: androidx.test.uiautomator.StaleObjectException) {
+                Thread.sleep(300)
+            }
+            if (SystemClock.uptimeMillis() >= deadline) throw AssertionError("click target never stable: $tag")
+            Thread.sleep(200)
+        }
     }
 
     private fun indexHas(path: String): Boolean = runBlocking {
@@ -182,7 +198,7 @@ class HomeTilesTest {
             shot("browser-after-hide")
             // Fresh activity (CLEAR_TASK): saved + recent lists persist via SharedPreferences.
             launch()
-            device.wait(Until.findObject(By.res("home_folders_tile")), 15_000).click()
+            clickFresh("home_folders_tile")
             device.wait(Until.findObject(By.text(context.getString(R.string.saved_folders_header))), 15_000)
             assertNotNull("saved folder persisted", device.wait(Until.findObject(By.text("sfe-fix-dir")), 15_000))
             assertNotNull("recent visit persisted", device.wait(Until.findObject(By.text("Download")), 15_000))
@@ -195,7 +211,7 @@ class HomeTilesTest {
             device.wait(Until.findObject(By.text(context.getString(R.string.saved_folders_header))), 15_000)
             device.pressBack()
             // Hidden items manager lists the hidden fixture; unhide its own row.
-            device.wait(Until.findObject(By.res("home_hidden_tile")), 15_000).click()
+            clickFresh("home_hidden_tile")
             val row = device.wait(Until.findObject(By.textContains("sfe-hide-me")), 30_000)
             assertNotNull("hidden fixture listed in manager", row)
             shot("hidden-items-populated")

@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit
  * Visual proof for the pyramid colour fix: a MediaStore-indexed .bin fixture
  * lands in the Sonstige category, so the German screenshot must show the
  * dark-blue Sonstige slice and legend dot next to the unchanged grey
- * "Übriger belegter Speicher" slice. Opens the analysis screen directly via
+ * free-space slice. Opens the analysis screen directly via
  * the storage_analysis intent extra (same route as StorageAnalysisInstrumentedTest);
  * the dashboard card only carries the name as a content description, not text.
  * Runs in the CI section where the per-app locale is already de-AT.
@@ -113,8 +113,8 @@ class StoragePyramidColorTest {
             // The screen is a LazyColumn: legend rows below the fold are not in the
             // accessibility tree until scrolled into view (the previous version waited
             // 120s for the off-screen residual row and timed out). Scroll progressively
-            // downward in legend order: residual first, then the category rows.
-            assertTrue("residual grey legend row missing", scrollToText(device, "Übriger belegter Speicher"))
+            // downward in legend order: free space first, then the category rows.
+            assertTrue("free-space legend row missing", scrollToText(device, "Freier Speicher"))
             assertTrue("Sonstige legend row missing", scrollToText(device, "Sonstige"))
             Thread.sleep(2_000)
             device.takeScreenshot(File("/sdcard/Download/sfe-pyramid-colors.png"))

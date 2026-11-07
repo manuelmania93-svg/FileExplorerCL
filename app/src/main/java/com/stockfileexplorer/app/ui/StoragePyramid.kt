@@ -8,31 +8,55 @@ internal data class StoragePyramidLayer(
     val heightFraction: Float,
 )
 
-/**
- * Returns stacked trapezoids whose visible areas preserve each slice's byte share.
- * Slices are ordered from smallest at the apex to largest at the base.
- */
-internal fun storagePyramidGeometry(sliceBytes: List<Long>): List<StoragePyramidLayer> {
-    val slices = sliceBytes.filter { it > 0 }.sorted()
-    val total = slices.sum().toDouble()
-    if (total <= 0.0) return emptyList()
+internal data class StoragePyramidGeometry(
+    val layers: List<StoragePyramidLayer>,
+    /** Fraction of the full height above the first layer: storage the app cannot attribute. */
+    val apexGapFraction: Float,
+    /**
+     * True when the attributed slices (index + apps estimate + hidden + free) exceed
+     * [totalBytes]. The measurements are inconsistent in that case (typically the
+     * estimated installed-apps bytes overlap indexed files, or a scan raced a delete),
+     * so the chart falls back to relative slice sizes of the accounted sum and the UI
+     * must say so instead of claiming shares of the device total.
+     */
+    val overAttributed: Boolean,
+)
 
-    var cumulative = 0.0
-    var topWidth = 0.0
-    val rawLayers = slices.map { bytes ->
-        val share = bytes.toDouble() / total
-        cumulative += share
+/**
+ * Returns stacked trapezoids whose visible areas equal each slice's share of
+ * [totalBytes] (the device total, not the slice sum). The full pyramid represents
+ * the whole device: width grows as sqrt(share) so areas stay proportional, and any
+ * unattributed remainder is simply not drawn, leaving a truncated pale apex instead
+ * of a forced 100% fill. Slices are ordered from smallest at the top to largest at
+ * the base; the base always spans the full width.
+ *
+ * When the slices add up to more than [totalBytes] the inputs are inconsistent;
+ * nothing is clipped (every slice, including the measured free space, keeps its
+ * relative size) - the chart normalizes to the accounted sum and flags
+ * [StoragePyramidGeometry.overAttributed] so the UI can show an explicit
+ * inconsistency note instead of silently pretending exact shares.
+ */
+internal fun storagePyramidGeometry(sliceBytes: List<Long>, totalBytes: Long): StoragePyramidGeometry {
+    val slices = sliceBytes.filter { it > 0 }.sorted()
+    val accounted = slices.sum()
+    if (totalBytes <= 0L || slices.isEmpty()) return StoragePyramidGeometry(emptyList(), 0f, overAttributed = false)
+
+    val overAttributed = accounted > totalBytes
+    // Consistent case: slices occupy shares [gap, 1] of the total and the apex above
+    // them stays empty. Inconsistent case: normalize to the accounted sum so no slice
+    // is clipped, and report the inconsistency instead of faking total shares.
+    val denominator = if (overAttributed) accounted.toDouble() else totalBytes.toDouble()
+    var cumulative = if (overAttributed) 0.0 else 1.0 - accounted.toDouble() / totalBytes.toDouble()
+    val apexGap = sqrt(cumulative)
+    val layers = slices.map { bytes ->
+        val topWidth = sqrt(cumulative)
+        cumulative += bytes.toDouble() / denominator
         val bottomWidth = sqrt(cumulative)
-        val height = share / ((topWidth + bottomWidth) / 2.0)
-        Triple(topWidth, bottomWidth, height).also { topWidth = bottomWidth }
-    }
-    val totalHeight = rawLayers.sumOf { it.third }
-    val baseWidth = rawLayers.last().second
-    return rawLayers.map { (top, bottom, height) ->
         StoragePyramidLayer(
-            topWidthFraction = (top / baseWidth).toFloat(),
-            bottomWidthFraction = (bottom / baseWidth).toFloat(),
-            heightFraction = (height / totalHeight).toFloat(),
+            topWidthFraction = topWidth.toFloat(),
+            bottomWidthFraction = bottomWidth.toFloat(),
+            heightFraction = (bottomWidth - topWidth).toFloat(),
         )
     }
+    return StoragePyramidGeometry(layers, apexGap.toFloat(), overAttributed)
 }

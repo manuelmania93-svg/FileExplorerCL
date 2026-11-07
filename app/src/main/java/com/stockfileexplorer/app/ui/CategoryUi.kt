@@ -64,6 +64,7 @@ fun CategoryCircle(
     icon: ImageVector,
     tint: Color,
     label: String,
+    iconTint: Color = Color.White,
     onClick: () -> Unit
 ) {
     Column(
@@ -77,7 +78,7 @@ fun CategoryCircle(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = Color.White,
+                tint = iconTint,
                 modifier = Modifier.size(30.dp)
             )
         }
@@ -86,7 +87,7 @@ fun CategoryCircle(
             text = label,
             style = MaterialTheme.typography.bodySmall,
             textAlign = TextAlign.Center,
-            maxLines = 2,
+            maxLines = 3,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(horizontal = 2.dp)
         )

@@ -40,6 +40,8 @@ class LibraryActionsTest {
         val largeTile = text(context.getString(R.string.library_large_files)).visibleBounds
         val duplicateTile = text(context.getString(R.string.duplicate_files)).visibleBounds
         assertTrue("Duplicates beside Large files at end", kotlin.math.abs(duplicateTile.centerY() - largeTile.centerY()) < 20 && duplicateTile.centerX() > largeTile.centerX())
+        val hiddenTile = text(context.getString(R.string.hidden_files)).visibleBounds
+        assertTrue("Hidden files after Duplicates at end", kotlin.math.abs(hiddenTile.centerY() - duplicateTile.centerY()) < 20 && hiddenTile.centerX() > duplicateTile.centerX())
         shot("library")
         text(context.getString(R.string.library_large_files)).click()
         val top = text(large.name).visibleBounds
@@ -58,6 +60,12 @@ class LibraryActionsTest {
         assertFalse("Same size different content excluded", device.hasObject(By.text(different.absolutePath)))
         assertTrue("No automatic deletion", small.exists() && duplicate.exists() && different.exists())
         shot("duplicates")
+        device.pressBack()
+        text(context.getString(R.string.library_large_files))
+        val hiddenFixture = File(root, ".hidden-fixture.txt").apply { writeText("hidden") }
+        text(context.getString(R.string.hidden_files)).click()
+        text(hiddenFixture.absolutePath)
+        shot("hidden")
         device.pressBack()
         text(context.getString(R.string.library_large_files))
         root.deleteRecursively()

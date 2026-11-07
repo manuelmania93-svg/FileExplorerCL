@@ -293,5 +293,9 @@
     <string name="path_copied">Path copied</string>
     <string name="library_select_files">Select files</string>
     <string name="library_large_files">Large files</string>
+    <string name="hidden_files">Hidden files &amp; folders</string>
+    <string name="hidden_files_note">Files and folders whose names start with a dot, found on shared storage. A hidden folder is one entry with its total size. Tap a file path to open it.</string>
+    <string name="no_hidden_files">No hidden files found</string>
+    <string name="hidden_files_limited">Not complete: only the first %1$d hidden items are shown.</string>
     <string name="duplicate_review_note">Exact-content matches from the file index. Shows up to 20 groups. Tap a path to open a file. Nothing is selected or deleted automatically.</string>
 </resources>

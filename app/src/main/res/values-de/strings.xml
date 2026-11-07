@@ -293,5 +293,9 @@
     <string name="path_copied">Pfad kopiert</string>
     <string name="library_select_files">Dateien auswählen</string>
     <string name="library_large_files">Große Dateien</string>
+    <string name="hidden_files">Versteckte Dateien &amp; Ordner</string>
+    <string name="hidden_files_note">Dateien und Ordner, deren Namen mit einem Punkt beginnen, im gemeinsamen Speicher. Ein versteckter Ordner ist ein Eintrag mit seiner Gesamtgröße. Dateipfad antippen, um ihn zu öffnen.</string>
+    <string name="no_hidden_files">Keine versteckten Dateien gefunden</string>
+    <string name="hidden_files_limited">Unvollständig: nur die ersten %1$d versteckten Elemente werden angezeigt.</string>
     <string name="duplicate_review_note">Inhaltsgleiche Dateien aus dem Dateiindex. Bis zu 20 Gruppen. Pfad antippen, um eine Datei zu öffnen. Nichts wird automatisch ausgewählt oder gelöscht.</string>
 </resources>

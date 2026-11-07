@@ -16,6 +16,8 @@ internal class ReadOnlyExport(root: File, private val showHidden: Boolean = fals
         return candidate
     }
 
+    fun relative(file: File): String = file.canonicalFile.relativeTo(root).path
+
     fun list(relative: String): List<File> {
         val directory = resolve(relative)
         require(directory.isDirectory)

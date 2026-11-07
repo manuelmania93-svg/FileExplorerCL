@@ -70,7 +70,9 @@ fun DashboardScreen(
     onOpenStorageAnalysis: () -> Unit,
     onOpenPapierkorb: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
-    onOpenRecent: () -> Unit = {}
+    onOpenRecent: () -> Unit = {},
+    onOpenFolders: () -> Unit = {},
+    onOpenHiddenItems: () -> Unit = {}
 ) {
     val root = remember { Environment.getExternalStorageDirectory() }
     val usage by com.stockfileexplorer.app.data.VolumeStats.usage.collectAsState()
@@ -187,6 +189,8 @@ fun DashboardScreen(
         item { ShortcutCard(Icons.Filled.Delete, Color(0xFF607D8B), stringResource(R.string.papierkorb), onOpenPapierkorb) }
         item { ShortcutCard(Icons.Filled.Settings, Color(0xFF795548), stringResource(R.string.settings_title), onOpenSettings, Modifier.testTag("home_settings_tile")) }
         item { ShortcutCard(SfeIcons.Schedule, Color(0xFF3F51B5), stringResource(R.string.cat_recent), onOpenRecent, Modifier.testTag("home_recent_tile")) }
+        item { ShortcutCard(SfeIcons.Link, Color(0xFF00695C), stringResource(R.string.home_folders), onOpenFolders, Modifier.testTag("home_folders_tile")) }
+        item { ShortcutCard(SfeIcons.Hidden, Color(0xFF78909C), stringResource(R.string.home_hidden_items), onOpenHiddenItems, Modifier.testTag("home_hidden_tile")) }
     }
 }
 

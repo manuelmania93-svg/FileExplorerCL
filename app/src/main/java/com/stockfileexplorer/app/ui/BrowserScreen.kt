@@ -191,6 +191,11 @@ fun BrowserScreen(
     val rootPath = remember { Environment.getExternalStorageDirectory().absolutePath }
 
     var currentPath by remember { mutableStateOf(startPath) }
+    LaunchedEffect(currentPath) {
+        if (currentPath != android.os.Environment.getExternalStorageDirectory().absolutePath) {
+            com.stockfileexplorer.app.FileActionPreferences.recordFolderVisit(context, currentPath)
+        }
+    }
     var rawItems by remember { mutableStateOf<List<FileItem>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     val sortContext = androidx.compose.ui.platform.LocalContext.current
@@ -205,6 +210,7 @@ fun BrowserScreen(
     var menuOpen by remember { mutableStateOf(false) }
     var showNewFolder by remember { mutableStateOf(false) }
     var renameTarget by remember { mutableStateOf<FileItem?>(null) }
+    var hideTarget by remember { mutableStateOf<FileItem?>(null) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var menuTarget by remember { mutableStateOf<FileItem?>(null) }
     var folderStats by remember { mutableStateOf<Map<String, FileIndex.DirectoryStats>>(emptyMap()) }
@@ -526,6 +532,7 @@ fun BrowserScreen(
             name = item.name,
             isDirectory = item.isDirectory,
             isFavorite = item.file.absolutePath in favoritePaths,
+            isHidden = item.name.startsWith("."),
             onDismiss = { menuTarget = null },
             callbacks = FileActionCallbacks(
                 onCopyPath = { com.stockfileexplorer.app.copyPaths(context, listOf(item.file.absolutePath)) },
@@ -548,6 +555,7 @@ fun BrowserScreen(
                     transferMove = true
                 },
                 onRename = { renameTarget = item },
+                onHide = { hideTarget = item },
                 onProperties = { propertiesTarget = item },
                 onFavorite = {
                     val nowFavorite = FileActionPreferences.toggleFavorite(context, item.file.absolutePath)
@@ -661,6 +669,35 @@ fun BrowserScreen(
                 }
             },
             onDismiss = { showNewFolder = false }
+        )
+    }
+
+    hideTarget?.let { target ->
+        val hiding = !target.name.startsWith(".")
+        ConfirmDialog(
+            title = stringResource(if (hiding) R.string.hide_confirm_title else R.string.unhide_confirm_title, target.name),
+            body = stringResource(if (hiding) R.string.hide_confirm_body else R.string.unhide_confirm_body, target.name),
+            confirmLabel = stringResource(if (hiding) R.string.menu_hide else R.string.menu_unhide),
+            onConfirm = {
+                val item = target
+                hideTarget = null
+                selection = emptySet()
+                scope.launch {
+                    val newName = if (hiding) ".${item.name}" else item.name.removePrefix(".")
+                    val ok = withContext(Dispatchers.IO) {
+                        com.stockfileexplorer.app.data.Rename.move(item.file, newName)
+                    }
+                    if (!ok) {
+                        Toast.makeText(context, context.getString(if (hiding) R.string.hide_failed else R.string.unhide_failed, item.name), Toast.LENGTH_SHORT).show()
+                    } else {
+                        // A freshly hidden item is outside the index scope; an unhidden one is picked up by the refresh.
+                        if (hiding) com.stockfileexplorer.app.data.FileIndex.removed(listOf(item.file))
+                        com.stockfileexplorer.app.data.FileIndex.invalidate()
+                    }
+                    refreshTick++
+                }
+            },
+            onDismiss = { hideTarget = null }
         )
     }
 

@@ -41,7 +41,11 @@ fun SavedLocationsScreen(shortcuts: Boolean, onBack: () -> Unit) {
         TopAppBar(title = { Text(stringResource(if (shortcuts) R.string.saved_locations else R.string.saved_favorite_files)) },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, null) } })
         if (paths.isEmpty()) Text(stringResource(R.string.saved_empty), Modifier.padding(16.dp))
+        val recentFolders = if (shortcuts) FileActionPreferences.recentFolderPaths(context).filter { it !in paths } else emptyList()
         LazyColumn {
+            if (shortcuts) {
+                item { Text(stringResource(R.string.saved_folders_header), Modifier.padding(start = 16.dp, top = 8.dp), style = MaterialTheme.typography.titleSmall) }
+            }
             items(paths, key = { it }) { path ->
                 val file = File(path)
                 val available = if (shortcuts) file.isDirectory else file.isFile
@@ -64,6 +68,26 @@ fun SavedLocationsScreen(shortcuts: Boolean, onBack: () -> Unit) {
                     }) { Icon(Icons.Filled.Close, stringResource(R.string.remove_saved)) }
                 }
                 HorizontalDivider()
+            }
+            if (shortcuts) {
+                item { Text(stringResource(R.string.recent_folders_header), Modifier.padding(start = 16.dp, top = 16.dp), style = MaterialTheme.typography.titleSmall) }
+                if (recentFolders.isEmpty()) {
+                    item { Text(stringResource(R.string.no_recent_folders), Modifier.padding(start = 16.dp, top = 4.dp), style = MaterialTheme.typography.bodySmall) }
+                }
+                items(recentFolders, key = { "recent:$it" }) { path ->
+                    val file = File(path)
+                    Row(Modifier.fillMaxWidth().clickable {
+                        if (!file.isDirectory) Toast.makeText(context, R.string.saved_missing, Toast.LENGTH_SHORT).show() else folder = path
+                    }.padding(start = 16.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(SfeIcons.Schedule, null, tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(file.name.ifBlank { path }, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(path, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
+                            if (!file.isDirectory) Text(stringResource(R.string.saved_missing), style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
             }
         }
     }

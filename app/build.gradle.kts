@@ -17,11 +17,11 @@ android {
         // above the last published versionCode keeps updates flowing instead of stalling
         // below the installed base.
         val stampedVersionCode = providers.gradleProperty("sfeVersionCode").orNull?.toIntOrNull() ?: 0
-        versionCode = maxOf(stampedVersionCode, 247)
+        versionCode = maxOf(stampedVersionCode, 253)
         // Semantic version. Every PR intended to produce a release bumps this (minor for
         // features, patch for fixes); the publish job skips cleanly when the tag exists,
         // so merges without a bump intentionally publish nothing.
-        versionName = "0.4.0"
+        versionName = "0.5.0"
         testInstrumentationRunner = providers.gradleProperty("sfeTestRunner").orNull ?: "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
     }

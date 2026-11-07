@@ -70,7 +70,9 @@ fun DashboardScreen(
     onOpenStorageAnalysis: () -> Unit,
     onOpenPapierkorb: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
-    onOpenRecent: () -> Unit = {}
+    onOpenRecent: () -> Unit = {},
+    onOpenFolders: () -> Unit = {},
+    onOpenHiddenItems: () -> Unit = {}
 ) {
     val root = remember { Environment.getExternalStorageDirectory() }
     val usage by com.stockfileexplorer.app.data.VolumeStats.usage.collectAsState()

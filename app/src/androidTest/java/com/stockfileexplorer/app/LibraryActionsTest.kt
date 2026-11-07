@@ -37,9 +37,9 @@ class LibraryActionsTest {
         context.startActivity(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
         text(context.getString(R.string.tab_library)).click()
         assertFalse("Selection shortcut removed", device.hasObject(By.text(context.getString(R.string.library_select_files))))
-        val archive = text(context.getString(R.string.cat_archives)).visibleBounds
         val largeTile = text(context.getString(R.string.library_large_files)).visibleBounds
-        assertTrue("Large files beside Archive on final row", kotlin.math.abs(archive.centerY() - largeTile.centerY()) < 20 && largeTile.centerX() > archive.centerX())
+        val duplicateTile = text(context.getString(R.string.duplicate_files)).visibleBounds
+        assertTrue("Duplicates beside Large files at end", kotlin.math.abs(duplicateTile.centerY() - largeTile.centerY()) < 20 && duplicateTile.centerX() > largeTile.centerX())
         shot("library")
         text(context.getString(R.string.library_large_files)).click()
         val top = text(large.name).visibleBounds
@@ -47,6 +47,17 @@ class LibraryActionsTest {
         assertTrue("Largest first across categories", top.centerY() < bottom.centerY())
         assertTrue("Sources untouched", small.readText() == "small" && large.length() == 10000L)
         shot("largest-first")
+        device.pressBack()
+        text(context.getString(R.string.library_large_files))
+        val duplicate = File(root, "same-content.txt").apply { writeText("small") }
+        val different = File(root, "different.txt").apply { writeText("other") }
+        runBlocking { FileIndex.verifyFixture(context, root, clear = true) }
+        text(context.getString(R.string.duplicate_files)).click()
+        text(small.absolutePath)
+        text(duplicate.absolutePath)
+        assertFalse("Same size different content excluded", device.hasObject(By.text(different.absolutePath)))
+        assertTrue("No automatic deletion", small.exists() && duplicate.exists() && different.exists())
+        shot("duplicates")
         device.pressBack()
         text(context.getString(R.string.library_large_files))
         root.deleteRecursively()

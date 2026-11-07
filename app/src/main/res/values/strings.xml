@@ -293,4 +293,5 @@
     <string name="path_copied">Path copied</string>
     <string name="library_select_files">Select files</string>
     <string name="library_large_files">Large files</string>
+    <string name="duplicate_review_note">Exact-content matches from the file index. Shows up to 20 groups. Tap a path to open a file. Nothing is selected or deleted automatically.</string>
 </resources>

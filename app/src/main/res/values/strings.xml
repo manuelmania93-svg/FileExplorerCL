@@ -297,5 +297,20 @@
     <string name="hidden_files_note">Files and folders whose names start with a dot, found on shared storage. A hidden folder is one entry with its total size. Tap a file path to open it.</string>
     <string name="no_hidden_files">No hidden files found</string>
     <string name="hidden_files_limited">Not complete: only the first %1$d hidden items are shown.</string>
+    <string name="home_folders">Folders</string>
+    <string name="home_hidden_items">Hidden items</string>
+    <string name="menu_hide">Hide</string>
+    <string name="menu_unhide">Unhide</string>
+    <string name="hide_confirm_title">Hide %1$s?</string>
+    <string name="hide_confirm_body">The name gets a leading dot (.%1$s). The item disappears from the Library, the index and most other apps. This is not password protection: it stays visible wherever hidden files are shown. You can bring it back under Hidden items.</string>
+    <string name="unhide_confirm_title">Unhide %1$s?</string>
+    <string name="unhide_confirm_body">The leading dot is removed and the item becomes visible in the Library and other apps again.</string>
+    <string name="hide_failed">Could not hide %1$s</string>
+    <string name="unhide_failed">Could not unhide %1$s</string>
+    <string name="hidden_items_title">Hidden items</string>
+    <string name="hidden_items_note">Items hidden by this app and other dot-named files and folders on shared storage. Unhide removes the leading dot. Nothing here is password-protected.</string>
+    <string name="recent_folders_header">Recently visited</string>
+    <string name="saved_folders_header">Saved folders</string>
+    <string name="no_recent_folders">No recently visited folders yet</string>
     <string name="duplicate_review_note">Exact-content matches from the file index. Shows up to 20 groups. Tap a path to open a file. Nothing is selected or deleted automatically.</string>
 </resources>

@@ -297,5 +297,20 @@
     <string name="hidden_files_note">Dateien und Ordner, deren Namen mit einem Punkt beginnen, im gemeinsamen Speicher. Ein versteckter Ordner ist ein Eintrag mit seiner Gesamtgröße. Dateipfad antippen, um ihn zu öffnen.</string>
     <string name="no_hidden_files">Keine versteckten Dateien gefunden</string>
     <string name="hidden_files_limited">Unvollständig: nur die ersten %1$d versteckten Elemente werden angezeigt.</string>
+    <string name="home_folders">Ordner</string>
+    <string name="home_hidden_items">Versteckte Elemente</string>
+    <string name="menu_hide">Verstecken</string>
+    <string name="menu_unhide">Sichtbar machen</string>
+    <string name="hide_confirm_title">%1$s verstecken?</string>
+    <string name="hide_confirm_body">Der Name bekommt einen führenden Punkt (.%1$s). Das Element verschwindet aus der Bibliothek, dem Index und den meisten anderen Apps. Das ist kein Passwortschutz: Es bleibt sichtbar, wo versteckte Dateien angezeigt werden. Unter Versteckte Elemente holst du es zurück.</string>
+    <string name="unhide_confirm_title">%1$s sichtbar machen?</string>
+    <string name="unhide_confirm_body">Der führende Punkt wird entfernt und das Element erscheint wieder in der Bibliothek und anderen Apps.</string>
+    <string name="hide_failed">%1$s konnte nicht versteckt werden</string>
+    <string name="unhide_failed">%1$s konnte nicht sichtbar gemacht werden</string>
+    <string name="hidden_items_title">Versteckte Elemente</string>
+    <string name="hidden_items_note">Von dieser App versteckte Elemente und andere Dateien und Ordner mit führendem Punkt im gemeinsamen Speicher. Sichtbar machen entfernt den führenden Punkt. Nichts hier ist passwortgeschützt.</string>
+    <string name="recent_folders_header">Zuletzt besucht</string>
+    <string name="saved_folders_header">Gespeicherte Ordner</string>
+    <string name="no_recent_folders">Noch keine zuletzt besuchten Ordner</string>
     <string name="duplicate_review_note">Inhaltsgleiche Dateien aus dem Dateiindex. Bis zu 20 Gruppen. Pfad antippen, um eine Datei zu öffnen. Nichts wird automatisch ausgewählt oder gelöscht.</string>
 </resources>

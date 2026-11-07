@@ -56,6 +56,7 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
     var quickActionsOpen by remember(category) { mutableStateOf(false) }
     var menu by remember { mutableStateOf<FileItem?>(null) }
     var rename by remember { mutableStateOf<FileItem?>(null) }
+    var hideTarget by remember { mutableStateOf<FileItem?>(null) }
     var deletes by remember { mutableStateOf<List<java.io.File>>(emptyList()) }
     var properties by remember { mutableStateOf<FileItem?>(null) }
     var transferSources by remember { mutableStateOf<List<FileItem>>(emptyList()) }
@@ -262,6 +263,7 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
             name = item.name,
             isDirectory = false,
             isFavorite = item.file.absolutePath in favoritePaths,
+            isHidden = item.name.startsWith("."),
             onDismiss = { menu = null },
             callbacks = FileActionCallbacks(
                 onCopyPath = { com.stockfileexplorer.app.copyPaths(context, listOf(item.file.absolutePath)) },
@@ -277,6 +279,7 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
                     transferMove = true
                 },
                 onRename = { rename = item },
+                onHide = { hideTarget = item },
                 onProperties = { properties = item },
                 onFavorite = {
                     val nowFavorite = FileActionPreferences.toggleFavorite(context, item.file.absolutePath)
@@ -358,6 +361,23 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
         MenuCustomizationDialog(onDismiss = { showMenuCustomization = false })
     }
     conflictPrompt?.let { ConflictDialog(it) }
+    hideTarget?.let { target ->
+        val hiding = !target.name.startsWith(".")
+        ConfirmDialog(title = stringResource(if (hiding) R.string.hide_confirm_title else R.string.unhide_confirm_title, target.name),
+            body = stringResource(if (hiding) R.string.hide_confirm_body else R.string.unhide_confirm_body, target.name),
+            confirmLabel = stringResource(if (hiding) R.string.menu_hide else R.string.menu_unhide),
+            onConfirm = {
+                val item = target
+                hideTarget = null
+                scope.launch {
+                    val newName = if (hiding) ".${item.name}" else item.name.removePrefix(".")
+                    val ok = withContext(Dispatchers.IO) { Rename.move(item.file, newName) }
+                    if (!ok) Toast.makeText(context, context.getString(if (hiding) R.string.hide_failed else R.string.unhide_failed, item.name), Toast.LENGTH_SHORT).show()
+                    if (ok && hiding) FileIndex.removed(listOf(item.file))
+                    FileIndex.invalidate()
+                }
+            }, onDismiss = { hideTarget = null })
+    }
     rename?.let { item ->
         TextInputDialog(title = stringResource(R.string.rename), initialValue = item.name,
             helperText = stringResource(R.string.rename_whole_name), validate = { Rename.validName(it) },

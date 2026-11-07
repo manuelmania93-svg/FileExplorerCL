@@ -11,6 +11,7 @@ enum class FileMenuAction(val labelRes: Int, val filesOnly: Boolean = false) {
     COPY_PATH(R.string.copy_path),
     MOVE(R.string.move_to),
     RENAME(R.string.rename),
+    HIDE(R.string.menu_hide),
     PROPERTIES(R.string.properties),
     FAVORITE(R.string.favorite),
     SHARE(R.string.share, filesOnly = true),
@@ -28,6 +29,12 @@ object FileActionPreferences {
         val stored = preferences(context).getStringSet(VISIBLE_ACTIONS, null)
         if (stored == null) return FileMenuAction.entries.toSet()
         val actions = stored.mapNotNull { name -> FileMenuAction.entries.firstOrNull { it.name == name } }.toSet()
+        if (!preferences(context).getBoolean("hide-action-added", false)) {
+            val updated = actions + FileMenuAction.HIDE
+            preferences(context).edit().putStringSet(VISIBLE_ACTIONS, updated.mapTo(mutableSetOf()) { it.name })
+                .putBoolean("hide-action-added", true).apply()
+            return updated
+        }
         if (!preferences(context).getBoolean("location-actions-added", false)) {
             val updated = actions + FileMenuAction.CONTAINING_FOLDER + FileMenuAction.SAVE_LOCATION
             preferences(context).edit().putStringSet(VISIBLE_ACTIONS, updated.mapTo(mutableSetOf()) { it.name })
@@ -69,6 +76,15 @@ object FileActionPreferences {
     }
 
     fun shortcutPaths(context: Context): Set<String> = preferences(context).getStringSet("folder-shortcuts", emptySet()).orEmpty()
+
+    /** Ordered most-recent-first; newline-joined because order matters (StringSet is unordered). */
+    fun recentFolderPaths(context: Context): List<String> =
+        preferences(context).getString("recent-folders", null)?.split("\n")?.filter { it.isNotBlank() } ?: emptyList()
+
+    fun recordFolderVisit(context: Context, path: String) {
+        val updated = (listOf(path) + recentFolderPaths(context)).distinct().take(20)
+        preferences(context).edit().putString("recent-folders", updated.joinToString("\n")).apply()
+    }
     fun saveShortcut(context: Context, path: String) {
         preferences(context).edit().putStringSet("folder-shortcuts", shortcutPaths(context) + path).apply()
     }

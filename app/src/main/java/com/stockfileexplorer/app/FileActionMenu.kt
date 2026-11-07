@@ -36,6 +36,7 @@ data class FileActionCallbacks(
     val onCopy: () -> Unit,
     val onMove: () -> Unit,
     val onRename: () -> Unit,
+    val onHide: (() -> Unit)? = null,
     val onProperties: () -> Unit,
     val onFavorite: () -> Unit,
     val onShare: () -> Unit,
@@ -47,7 +48,7 @@ data class FileActionCallbacks(
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
 @Composable
-fun FileActionMenu(name: String, isDirectory: Boolean, isFavorite: Boolean,
+fun FileActionMenu(name: String, isDirectory: Boolean, isFavorite: Boolean, isHidden: Boolean,
                    onDismiss: () -> Unit, callbacks: FileActionCallbacks) {
     val context = LocalContext.current
     val visible = FileActionPreferences.visibleActions(context)
@@ -55,6 +56,7 @@ fun FileActionMenu(name: String, isDirectory: Boolean, isFavorite: Boolean,
     val actions = FileActionPreferences.orderedActions(context).filter {
         it in visible && !(it.filesOnly && isDirectory) &&
             !(it == FileMenuAction.SAVE_LOCATION && callbacks.onSaveLocation == null) &&
+            !(it == FileMenuAction.HIDE && callbacks.onHide == null) &&
             !(it == FileMenuAction.CONTAINING_FOLDER && callbacks.onContainingFolder == null)
     }
     fun invoke(action: FileMenuAction) {
@@ -67,6 +69,7 @@ fun FileActionMenu(name: String, isDirectory: Boolean, isFavorite: Boolean,
             FileMenuAction.COPY -> callbacks.onCopy()
             FileMenuAction.MOVE -> callbacks.onMove()
             FileMenuAction.RENAME -> callbacks.onRename()
+            FileMenuAction.HIDE -> callbacks.onHide?.invoke()
             FileMenuAction.PROPERTIES -> callbacks.onProperties()
             FileMenuAction.FAVORITE -> callbacks.onFavorite()
             FileMenuAction.SHARE -> callbacks.onShare()
@@ -89,7 +92,7 @@ fun FileActionMenu(name: String, isDirectory: Boolean, isFavorite: Boolean,
                                     .testTag("context_action_${action.name}").padding(8.dp),
                                     horizontalAlignment = Alignment.CenterHorizontally) {
                                     Icon(menuIcon(action), null, tint = if (action == FileMenuAction.DELETE) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Text(actionLabel(action, isFavorite), style = MaterialTheme.typography.labelMedium,
+                                    Text(actionLabel(action, isFavorite, isHidden), style = MaterialTheme.typography.labelMedium,
                                         textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.padding(top = 6.dp))
                                 }
                             }
@@ -98,7 +101,7 @@ fun FileActionMenu(name: String, isDirectory: Boolean, isFavorite: Boolean,
                     }
                 } else {
                     items(actions, key = { it.name }) { action ->
-                        MenuAction(menuIcon(action), actionLabel(action, isFavorite), "context_action_${action.name}", action == FileMenuAction.DELETE) { invoke(action) }
+                        MenuAction(menuIcon(action), actionLabel(action, isFavorite, isHidden), "context_action_${action.name}", action == FileMenuAction.DELETE) { invoke(action) }
                     }
                 }
             }
@@ -120,8 +123,9 @@ fun FileActionMenu(name: String, isDirectory: Boolean, isFavorite: Boolean,
 }
 
 @Composable
-private fun actionLabel(action: FileMenuAction, favorite: Boolean): String =
-    stringResource(if (action == FileMenuAction.FAVORITE && favorite) R.string.remove_favorite else action.labelRes)
+private fun actionLabel(action: FileMenuAction, favorite: Boolean, hidden: Boolean): String =
+    stringResource(if (action == FileMenuAction.FAVORITE && favorite) R.string.remove_favorite
+        else if (action == FileMenuAction.HIDE && hidden) R.string.menu_unhide else action.labelRes)
 
 private fun menuIcon(action: FileMenuAction): ImageVector = when(action) {
     FileMenuAction.SAVE_LOCATION, FileMenuAction.COPY_PATH -> SfeIcons.Link
@@ -130,6 +134,7 @@ private fun menuIcon(action: FileMenuAction): ImageVector = when(action) {
     FileMenuAction.COPY -> SfeIcons.InsertDriveFile
     FileMenuAction.MOVE -> Icons.Filled.ArrowForward
     FileMenuAction.RENAME -> Icons.Filled.Edit
+    FileMenuAction.HIDE -> SfeIcons.Hidden
     FileMenuAction.PROPERTIES -> Icons.Filled.Info
     FileMenuAction.FAVORITE -> SfeIcons.Star
     FileMenuAction.SHARE -> Icons.Filled.Share

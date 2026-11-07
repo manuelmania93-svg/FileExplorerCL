@@ -27,6 +27,8 @@ class HomeTilesTest {
         device.waitForIdle()
     }
     @Test fun tilesKeepTopIconsAndOpenExistingScreens() {
+        device.executeShellCommand("appops set --uid ${context.packageName} MANAGE_EXTERNAL_STORAGE allow")
+        assertTrue("All-files fixture grant active", android.os.Environment.isExternalStorageManager())
         launch()
         for (tag in listOf("home_favorites", "home_shortcuts", "home_search", "home_settings")) node(tag)
         val settings = node("home_settings_tile").visibleBounds

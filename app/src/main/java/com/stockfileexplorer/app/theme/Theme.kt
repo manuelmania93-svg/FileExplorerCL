@@ -19,6 +19,7 @@ import com.stockfileexplorer.app.ThemeMode
 
 val Amber = Color(0xFFFFC107)
 val AmberDark = Color(0xFF8F6B00)
+val DarkGrey = Color(0xFF424242)
 
 // Inter 4.1 (SIL OFL 1.1, see assets/licenses/Inter-OFL.txt), instanced to four weights.
 private val Inter = FontFamily(

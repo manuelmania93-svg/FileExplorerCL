@@ -23,7 +23,7 @@ import com.stockfileexplorer.app.data.FileCategory
 import com.stockfileexplorer.app.theme.AmberDark
 
 /**
- * Library tab: one consistent tile grid - Bilder, Audio, Videos, Dokumente, Neue Dateien,
+ * Library tab: category grid with Large files beside Archive at the end -
  * APK (APK files on storage, not installed apps) and Archive.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -43,7 +43,6 @@ fun LibraryScreen(
     }
 
     when (action) {
-        "select" -> { IndexedFilesScreen(null, stringResource(R.string.library_select_files), { action = null }, selectionMode = true); return }
         "large" -> { IndexedFilesScreen(null, stringResource(R.string.library_large_files), { action = null }, largestFirst = true); return }
     }
 
@@ -58,14 +57,15 @@ fun LibraryScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                item { CategoryCircle(SfeIcons.CheckBox, AmberDark, stringResource(R.string.library_select_files)) { action = "select" } }
-                item { CategoryCircle(SfeIcons.Analytics, AmberDark, stringResource(R.string.library_large_files)) { action = "large" } }
                 item { CategoryCircle(categoryIcon(FileCategory.IMAGES), categoryColor(FileCategory.IMAGES), categoryLabel(FileCategory.IMAGES)) { selected = FileCategory.IMAGES } }
                 item { CategoryCircle(categoryIcon(FileCategory.AUDIO), categoryColor(FileCategory.AUDIO), categoryLabel(FileCategory.AUDIO)) { selected = FileCategory.AUDIO } }
                 item { CategoryCircle(categoryIcon(FileCategory.VIDEOS), categoryColor(FileCategory.VIDEOS), categoryLabel(FileCategory.VIDEOS)) { selected = FileCategory.VIDEOS } }
                 item { CategoryCircle(categoryIcon(FileCategory.DOCUMENTS), categoryColor(FileCategory.DOCUMENTS), categoryLabel(FileCategory.DOCUMENTS)) { selected = FileCategory.DOCUMENTS } }
                 item { CategoryCircle(categoryIcon(FileCategory.APPS), categoryColor(FileCategory.APPS), stringResource(R.string.cat_apk)) { selected = FileCategory.APPS } }
+                // Keep Archive and Large files together on the final row.
+                item { Spacer(Modifier) }
                 item { CategoryCircle(categoryIcon(FileCategory.ARCHIVES), categoryColor(FileCategory.ARCHIVES), categoryLabel(FileCategory.ARCHIVES)) { selected = FileCategory.ARCHIVES } }
+                item { CategoryCircle(SfeIcons.Analytics, AmberDark, stringResource(R.string.library_large_files)) { action = "large" } }
             }
         }
     } else {

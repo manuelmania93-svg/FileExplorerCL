@@ -25,7 +25,7 @@ class LibraryActionsTest {
         device.takeScreenshot(File(dir, "$lang-$name.png"))
         device.dumpWindowHierarchy(File(dir, "$lang-$name.xml"))
     }
-    @Test fun selectionAndLargeFilesUseSharedIndex() {
+    @Test fun largeFilesAtEndWithoutSelectionShortcut() {
         device.executeShellCommand("appops set --uid ${context.packageName} MANAGE_EXTERNAL_STORAGE allow")
         val root = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "CLLibraryFixture").apply { mkdirs() }
         root.deleteRecursively()
@@ -36,32 +36,11 @@ class LibraryActionsTest {
         runBlocking { FileIndex.verifyFixture(context, root, clear = true) }
         context.startActivity(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
         text(context.getString(R.string.tab_library)).click()
-        text(context.getString(R.string.library_select_files))
-        text(context.getString(R.string.library_large_files))
+        assertFalse("Selection shortcut removed", device.hasObject(By.text(context.getString(R.string.library_select_files))))
+        val archive = text(context.getString(R.string.cat_archives)).visibleBounds
+        val largeTile = text(context.getString(R.string.library_large_files)).visibleBounds
+        assertTrue("Large files beside Archive on final row", kotlin.math.abs(archive.centerY() - largeTile.centerY()) < 20 && largeTile.centerX() > archive.centerX())
         shot("library")
-        text(context.getString(R.string.library_select_files)).click()
-        // Normal taps select files across two categories without opening either viewer.
-        text(small.name).click()
-        text(large.name).click()
-        text(context.getString(R.string.selected_count, 2))
-        shot("two-categories-selected")
-        text(context.getString(R.string.copy)).click()
-        text(context.getString(R.string.choose_copy_destination))
-        shot("shared-copy-destination")
-        text("Download").click()
-        text(root.name).click()
-        text(destination.name).click()
-        text(context.getString(R.string.copy_here)).click()
-        val until = android.os.SystemClock.uptimeMillis() + 15000
-        while ((!File(destination, small.name).exists() || !File(destination, large.name).exists()) && android.os.SystemClock.uptimeMillis() < until) Thread.sleep(100)
-        assertEquals("small", File(destination, small.name).readText())
-        assertArrayEquals(large.readBytes(), File(destination, large.name).readBytes())
-        assertTrue("Both sources preserved", small.readText() == "small" && large.length() == 10000L)
-        shot("copied-both-categories")
-        // Remove only destination fixture copies before proving order of original rows.
-        destination.deleteRecursively()
-        device.pressBack()
-        device.pressBack()
         text(context.getString(R.string.library_large_files)).click()
         val top = text(large.name).visibleBounds
         val bottom = text(small.name).visibleBounds
@@ -69,7 +48,7 @@ class LibraryActionsTest {
         assertTrue("Sources untouched", small.readText() == "small" && large.length() == 10000L)
         shot("largest-first")
         device.pressBack()
-        text(context.getString(R.string.library_select_files))
+        text(context.getString(R.string.library_large_files))
         root.deleteRecursively()
     }
 }

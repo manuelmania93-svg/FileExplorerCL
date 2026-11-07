@@ -80,7 +80,20 @@ class HomeTilesTest {
             device.swipe(w / 2, (h * 0.7f).toInt(), w / 2, (h * 0.35f).toInt(), 25)
             device.waitForIdle()
         }
+        shot("menu-missing-$tag")
         throw AssertionError("menu action $tag not found")
+    }
+
+    /** Opens a row's context menu via its MoreVert button (long-press toggles selection). */
+    private fun openRowMenu(name: String) {
+        device.wait(Until.findObject(By.text(name)), 15_000)
+            ?: throw AssertionError("row $name not on screen")
+        val desc = context.getString(R.string.file_actions_for, name)
+        val button = device.wait(Until.findObject(By.desc(desc)), 15_000)
+            ?: run { shot("menu-button-missing-$name"); throw AssertionError("MoreVert for $name") }
+        button.click()
+        device.wait(Until.findObject(By.res("context_customize")), 10_000)
+            ?: run { shot("menu-not-open-$name"); throw AssertionError("context menu did not open for $name") }
     }
 
     private fun indexHas(path: String): Boolean = runBlocking {
@@ -125,12 +138,11 @@ class HomeTilesTest {
             // The fixture is indexed before the hide so the index drop is decisive.
             waitIndex(hideMe.absolutePath, present = true, timeoutMs = 60_000)
             // Save location on the folder.
-            device.findObject(By.text("sfe-fix-dir")).longClick()
-            device.wait(Until.findObject(By.res("context_action_SAVE_LOCATION")), 10_000)
+            openRowMenu("sfe-fix-dir")
             clickMenuAction("context_action_SAVE_LOCATION")
             device.waitForIdle()
             // Hide the file: confirm dialog, then the rename and index drop happen.
-            device.findObject(By.text("sfe-hide-me.txt")).longClick()
+            openRowMenu("sfe-hide-me.txt")
             clickMenuAction("context_action_HIDE")
             device.wait(Until.findObject(By.res("dialog_confirm")), 10_000).click()
             Thread.sleep(1_500)
@@ -138,14 +150,14 @@ class HomeTilesTest {
             assertTrue("hidden dot file exists", hideMeHidden.exists())
             waitIndex(hideMe.absolutePath, present = false, timeoutMs = 30_000)
             // Cancel leaves the file untouched.
-            device.findObject(By.text("sfe-cancel.txt")).longClick()
+            openRowMenu("sfe-cancel.txt")
             clickMenuAction("context_action_HIDE")
             device.wait(Until.findObject(By.text(context.getString(R.string.cancel))), 10_000).click()
             device.waitForIdle()
             assertTrue("cancel is non-mutating", cancel.exists())
             assertFalse("cancel creates no dot file", cancelHidden.exists())
             // Collision: an existing .sfe-collide.txt blocks the rename, both items survive.
-            device.findObject(By.text("sfe-collide.txt")).longClick()
+            openRowMenu("sfe-collide.txt")
             clickMenuAction("context_action_HIDE")
             device.wait(Until.findObject(By.res("dialog_confirm")), 10_000).click()
             Thread.sleep(1_500)

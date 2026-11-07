@@ -183,27 +183,29 @@ class HomeTilesTest {
             val row = device.wait(Until.findObject(By.textContains("sfe-hide-me")), 30_000)
             assertNotNull("hidden fixture listed in manager", row)
             shot("hidden-items-populated")
-            val unhideLabel = context.getString(R.string.menu_unhide)
             // Re-query the row per attempt: the manager list rebuilds on state updates,
             // so a captured handle can go stale (StaleObjectException) between shots.
             // Walk up at most to the item row (Text -> inner Row -> Column -> item Row);
             // never the LazyColumn, which also holds the collision fixture's button.
+            // The manager list's accessibility nodes are replaced aggressively on this
+            // screen: every captured UiObject2 handle goes stale within microseconds
+            // (observed on CI across all retry attempts in both locales), so handle
+            // walking cannot work here. Read the fixture row's bounds fresh and tap the
+            // row's trailing edge by coordinates, where its Unhide TextButton sits.
             var unhideClicked = false
-            for (attempt in 1..4) {
+            for (attempt in 1..6) {
                 try {
                     val freshRow = device.wait(Until.findObject(By.textContains("sfe-hide-me")), 15_000)
-                    var rowScope: UiObject2? = freshRow
-                    repeat(3) {
-                        rowScope = rowScope?.parent
-                        val button = rowScope?.findObject(By.text(unhideLabel))
-                        if (button != null) { button.click(); unhideClicked = true; return@repeat }
-                    }
-                    if (unhideClicked) break
+                    assertNotNull("hidden fixture listed in manager (attempt " + attempt + ")", freshRow)
+                    val bounds = freshRow.visibleBounds
+                    device.click(device.displayWidth - 40, bounds.centerY())
+                    unhideClicked = true
+                    break
                 } catch (e: androidx.test.uiautomator.StaleObjectException) {
-                    Thread.sleep(1_000)
+                    Thread.sleep(500)
                 }
             }
-            assertTrue("Unhide button in fixture row", unhideClicked)
+            assertTrue("Unhide tapped on fixture row", unhideClicked)
             device.wait(Until.findObject(By.res("dialog_confirm")), 10_000).click()
             Thread.sleep(2_000)
             assertTrue("unhide restores the file", hideMe.exists())

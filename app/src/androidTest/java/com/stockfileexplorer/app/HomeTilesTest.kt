@@ -63,8 +63,24 @@ class HomeTilesTest {
         shot("hidden-items")
         device.pressBack()
         node("home_folders_tile")
-        device.findObject(By.text(context.getString(R.string.tab_library))).click()
+        // Open the Library tab and PROVE it opened before judging its contents: the
+        // home dashboard itself carries the cat_recent tile label, so a missed nav
+        // click turns this guard into a false alarm (de round of run 42419118290).
+        var onLibrary = false
+        for (attempt in 1..3) {
+            try {
+                device.findObject(By.text(context.getString(R.string.tab_library)))?.click()
+            } catch (e: androidx.test.uiautomator.StaleObjectException) {
+                Thread.sleep(500)
+            }
+            if (device.wait(Until.hasObject(By.text(context.getString(R.string.cat_apk))), 10_000)) {
+                onLibrary = true
+                break
+            }
+        }
+        assertTrue("Library tab opened", onLibrary)
         device.waitForIdle()
+        shot("library-check")
         assertFalse("Recent moved out of Library", device.hasObject(By.text(context.getString(R.string.cat_recent))))
         assertNotNull(device.wait(Until.findObject(By.text(context.getString(R.string.cat_apk))), 15000))
         shot("library-without-recent")
@@ -190,15 +206,24 @@ class HomeTilesTest {
             // The manager list's accessibility nodes are replaced aggressively on this
             // screen: every captured UiObject2 handle goes stale within microseconds
             // (observed on CI across all retry attempts in both locales), so handle
-            // walking cannot work here. Read the fixture row's bounds fresh and tap the
-            // row's trailing edge by coordinates, where its Unhide TextButton sits.
+            // walking cannot work here. Read the fixture row's bounds fresh, then tap
+            // the CENTER of the Unhide button on that row by coordinates. Tapping a
+            // fixed offset from the display edge misses: the row's TextButton has a
+            // ~42dp trailing margin, so displayWidth-40 landed 2px past the button's
+            // right edge (run 42419118290: tap registered, no dialog, both locales).
+            val unhideLabel = context.getString(R.string.menu_unhide)
             var unhideClicked = false
             for (attempt in 1..6) {
                 try {
                     val freshRow = device.wait(Until.findObject(By.textContains("sfe-hide-me")), 15_000)
                     assertNotNull("hidden fixture listed in manager (attempt " + attempt + ")", freshRow)
-                    val bounds = freshRow.visibleBounds
-                    device.click(device.displayWidth - 40, bounds.centerY())
+                    val rowCenterY = freshRow.visibleBounds.centerY()
+                    val buttons = device.findObjects(By.text(unhideLabel)).map { it.visibleBounds }
+                    val target = buttons.firstOrNull { rowCenterY >= it.top && rowCenterY <= it.bottom }
+                        ?: buttons.minByOrNull { kotlin.math.abs(it.centerY() - rowCenterY) }
+                            ?.takeIf { kotlin.math.abs(it.centerY() - rowCenterY) < 120 }
+                    assertNotNull("Unhide button aligned with fixture row (attempt " + attempt + ")", target)
+                    device.click(target.centerX(), target.centerY())
                     unhideClicked = true
                     break
                 } catch (e: androidx.test.uiautomator.StaleObjectException) {
@@ -206,11 +231,14 @@ class HomeTilesTest {
                 }
             }
             assertTrue("Unhide tapped on fixture row", unhideClicked)
+            assertNotNull(
+                "unhide confirm dialog appeared",
+                device.wait(Until.findObject(By.res("dialog_confirm")), 10_000),
+            )
             // The dialog must name OUR fixture, not the collision/cancel fixtures - this
             // is what proves the coordinate tap hit the intended row. The dialog title is
             // just the file name, while the list row shows the full path, so an exact-text
             // match binds to the dialog's window.
-            device.wait(Until.findObject(By.res("dialog_confirm")), 10_000)
             val expectedTitle = context.getString(R.string.unhide_confirm_title, hideMeHidden.name)
             assertNotNull(
                 "confirm dialog names the fixture (" + expectedTitle + ")",

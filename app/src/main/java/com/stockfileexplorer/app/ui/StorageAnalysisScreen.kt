@@ -373,22 +373,9 @@ private data class PyramidSlice(
     val color: Color,
 )
 
-/** Grey remainder of the pyramid: used space neither indexed, attributed to installed apps, nor accounted as trashed/hidden. */
-internal fun pyramidResidualBytes(
-    usedBytes: Long,
-    indexedBytes: Long,
-    installedAppsBytes: Long?,
-    hiddenDirBytes: Long = 0L,
-): Long =
-    (usedBytes - indexedBytes - (installedAppsBytes ?: 0L) - hiddenDirBytes).coerceAtLeast(0L)
-
 @Composable
 private fun StoragePyramid(report: StorageAnalyzer.Report) {
-    val usedBytes = (report.totalBytes - report.freeBytes).coerceAtLeast(0L)
-    val indexedBytes = report.categories.values.sum()
-    val remainingBytes = pyramidResidualBytes(
-        usedBytes, indexedBytes, report.installedAppsBytes, report.hiddenDirBytes,
-    )
+    val totalBytes = report.totalBytes
     val categorySlices = report.categories.entries
         .filter { it.value > 0 }
         .map { (category, bytes) -> PyramidSlice(categoryLabel(category), bytes, categoryColor(category)) }
@@ -403,8 +390,11 @@ private fun StoragePyramid(report: StorageAnalyzer.Report) {
             it, Color(0xFFC62828),
         )
     }
-    val remainingSlice = if (remainingBytes > 0) {
-        PyramidSlice(stringResource(R.string.other_used_storage), remainingBytes, Color(0xFF78909C))
+    // Free space is the actual StatFs reading, drawn as a quiet light-grey layer;
+    // it replaces the former grey "other used" residual, which was a derived
+    // remainder that pretended the used total was fully accounted for.
+    val freeSlice = if (report.freeBytes > 0) {
+        PyramidSlice(stringResource(R.string.free_space_label), report.freeBytes, Color(0xFFBDBDBD))
     } else {
         null
     }
@@ -415,7 +405,7 @@ private fun StoragePyramid(report: StorageAnalyzer.Report) {
     } else {
         null
     }
-    val slices = (categorySlices + listOfNotNull(remainingSlice, installedAppsSlice, hiddenSlice)).sortedBy { it.bytes }
+    val slices = (categorySlices + listOfNotNull(freeSlice, installedAppsSlice, hiddenSlice)).sortedBy { it.bytes }
     if (slices.isEmpty()) return
 
     Card {
@@ -426,17 +416,16 @@ private fun StoragePyramid(report: StorageAnalyzer.Report) {
                 stringResource(
                     if (report.installedAppsOverlapEstimated) R.string.storage_pyramid_note_estimated
                     else if (report.installedAppsBytes != null) R.string.storage_pyramid_note_installed
-                    else if (remainingBytes > 0) R.string.storage_pyramid_note
                     else R.string.storage_pyramid_note_indexed,
                 ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(12.dp))
-            val geometry = storagePyramidGeometry(slices.map { it.bytes })
+            val geometry = storagePyramidGeometry(slices.map { it.bytes }, totalBytes)
             Canvas(Modifier.fillMaxWidth().height(150.dp)) {
-                var top = 0f
-                geometry.forEachIndexed { index, layer ->
+                var top = geometry.apexGapFraction * size.height
+                geometry.layers.forEachIndexed { index, layer ->
                     val bottom = top + layer.heightFraction * size.height
                     val topWidth = layer.topWidthFraction * size.width
                     val bottomWidth = layer.bottomWidthFraction * size.width
@@ -455,18 +444,18 @@ private fun StoragePyramid(report: StorageAnalyzer.Report) {
                 }
             }
             Spacer(Modifier.height(10.dp))
-            remainingSlice?.let { PyramidLegendLine(it, usedBytes) }
-            installedAppsSlice?.let { PyramidLegendLine(it, usedBytes) }
-            hiddenSlice?.let { PyramidLegendLine(it, usedBytes) }
+            freeSlice?.let { PyramidLegendLine(it, totalBytes) }
+            installedAppsSlice?.let { PyramidLegendLine(it, totalBytes) }
+            hiddenSlice?.let { PyramidLegendLine(it, totalBytes) }
             categorySlices.forEach { slice ->
-                PyramidLegendLine(slice, usedBytes)
+                PyramidLegendLine(slice, totalBytes)
             }
         }
     }
 }
 
 @Composable
-private fun PyramidLegendLine(slice: PyramidSlice, usedBytes: Long, modifier: Modifier = Modifier) {
+private fun PyramidLegendLine(slice: PyramidSlice, totalBytes: Long, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier.fillMaxWidth().padding(vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -476,16 +465,16 @@ private fun PyramidLegendLine(slice: PyramidSlice, usedBytes: Long, modifier: Mo
         Text(slice.label, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
         Spacer(Modifier.size(8.dp))
         Text(
-            "${FileLogic.formatSize(slice.bytes)} • ${formatUsedPercentage(slice.bytes, usedBytes)}",
+            "${FileLogic.formatSize(slice.bytes)} • ${formatTotalPercentage(slice.bytes, totalBytes)}",
             style = MaterialTheme.typography.bodySmall,
             maxLines = 1,
         )
     }
 }
 
-private fun formatUsedPercentage(bytes: Long, usedBytes: Long): String {
-    if (usedBytes <= 0) return "0.0%"
-    val percentage = bytes.toDouble() * 100.0 / usedBytes.toDouble()
+private fun formatTotalPercentage(bytes: Long, totalBytes: Long): String {
+    if (totalBytes <= 0) return "0.0%"
+    val percentage = bytes.toDouble() * 100.0 / totalBytes.toDouble()
     return if (percentage > 0.0 && percentage < 0.1) "<0.1%"
     else String.format(Locale.getDefault(), "%.1f%%", percentage)
 }

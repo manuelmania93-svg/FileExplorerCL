@@ -8,31 +8,38 @@ internal data class StoragePyramidLayer(
     val heightFraction: Float,
 )
 
-/**
- * Returns stacked trapezoids whose visible areas preserve each slice's byte share.
- * Slices are ordered from smallest at the apex to largest at the base.
- */
-internal fun storagePyramidGeometry(sliceBytes: List<Long>): List<StoragePyramidLayer> {
-    val slices = sliceBytes.filter { it > 0 }.sorted()
-    val total = slices.sum().toDouble()
-    if (total <= 0.0) return emptyList()
+internal data class StoragePyramidGeometry(
+    val layers: List<StoragePyramidLayer>,
+    /** Fraction of the full height above the first layer: storage the app cannot attribute. */
+    val apexGapFraction: Float,
+)
 
-    var cumulative = 0.0
-    var topWidth = 0.0
-    val rawLayers = slices.map { bytes ->
-        val share = bytes.toDouble() / total
-        cumulative += share
-        val bottomWidth = sqrt(cumulative)
-        val height = share / ((topWidth + bottomWidth) / 2.0)
-        Triple(topWidth, bottomWidth, height).also { topWidth = bottomWidth }
-    }
-    val totalHeight = rawLayers.sumOf { it.third }
-    val baseWidth = rawLayers.last().second
-    return rawLayers.map { (top, bottom, height) ->
+/**
+ * Returns stacked trapezoids whose visible areas equal each slice's share of
+ * [totalBytes] (the device total, not the slice sum). The full pyramid represents
+ * the whole device: width grows as sqrt(share) so areas stay proportional, and any
+ * unattributed remainder is simply not drawn, leaving a truncated pale apex instead
+ * of a forced 100% fill. Slices are ordered from smallest at the top to largest at
+ * the base; the base always spans the full width.
+ */
+internal fun storagePyramidGeometry(sliceBytes: List<Long>, totalBytes: Long): StoragePyramidGeometry {
+    val slices = sliceBytes.filter { it > 0 }.sorted()
+    val total = totalBytes.toDouble()
+    if (total <= 0.0 || slices.isEmpty()) return StoragePyramidGeometry(emptyList(), 0f)
+
+    var cumulative = (1.0 - slices.sum().toDouble() / total).coerceAtLeast(0.0)
+    val apexGap = sqrt(cumulative)
+    val layers = slices.map { bytes ->
+        // Clamp at the base: overlapping attribution (estimated apps + index
+        // double counting) must never draw past the full-width base.
+        val topWidth = sqrt(cumulative).coerceAtMost(1.0)
+        cumulative += bytes.toDouble() / total
+        val bottomWidth = sqrt(cumulative).coerceAtMost(1.0)
         StoragePyramidLayer(
-            topWidthFraction = (top / baseWidth).toFloat(),
-            bottomWidthFraction = (bottom / baseWidth).toFloat(),
-            heightFraction = (height / totalHeight).toFloat(),
+            topWidthFraction = topWidth.toFloat(),
+            bottomWidthFraction = bottomWidth.toFloat(),
+            heightFraction = (bottomWidth - topWidth).toFloat(),
         )
     }
+    return StoragePyramidGeometry(layers, apexGap.toFloat())
 }

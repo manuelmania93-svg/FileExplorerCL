@@ -206,10 +206,26 @@ class HomeTilesTest {
                 }
             }
             assertTrue("Unhide tapped on fixture row", unhideClicked)
-            device.wait(Until.findObject(By.res("dialog_confirm")), 10_000).click()
+            // The dialog must name OUR fixture, not the collision/cancel fixtures - this
+            // is what proves the coordinate tap hit the intended row. The dialog title is
+            // just the file name, while the list row shows the full path, so an exact-text
+            // match binds to the dialog's window.
+            device.wait(Until.findObject(By.res("dialog_confirm")), 10_000)
+            val expectedTitle = context.getString(R.string.unhide_confirm_title, hideMeHidden.name)
+            assertNotNull(
+                "confirm dialog names the fixture (" + expectedTitle + ")",
+                device.wait(Until.findObject(By.text(expectedTitle)), 5_000),
+            )
+            shot("hidden-items-unhide-confirm")
+            device.findObject(By.res("dialog_confirm")).click()
             Thread.sleep(2_000)
             assertTrue("unhide restores the file", hideMe.exists())
             assertFalse("unhide removes the dot file", hideMeHidden.exists())
+            // Collision and cancel fixtures must survive the action untouched.
+            assertTrue("collision fixture survives", collide.exists())
+            assertTrue("collision dot file survives", collideHidden.exists())
+            assertTrue("cancel fixture survives", cancel.exists())
+            assertFalse("cancel fixture was never hidden", cancelHidden.exists())
             waitIndex(hideMe.absolutePath, present = true, timeoutMs = 60_000)
             shot("hidden-items-after-unhide")
         } finally {

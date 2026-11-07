@@ -1,5 +1,7 @@
 #!/bin/bash
 set -e
+# Use the emulator-only runner that records/dismisses only the exact Pixel Launcher ANR.
+export ORG_GRADLE_PROJECT_sfeTestRunner=com.stockfileexplorer.app.ReleaseTestRunner
 # Functional suites do not abort the script: every later suite, the upgrade checks and the screenshot gate still run.
 # Any failed suite makes the final status red (see the end of this file).
 FAILED_SUITES=""
@@ -115,6 +117,14 @@ if [ "${2:-false}" = "true" ]; then
   # Targeted validation: only the storage pyramid tests (minutes instead of the full suite).
   run_pyramid_tests
   if_package_present "locale reset (pyramid only)" adb shell cmd locale set-app-locales com.stockfileexplorer.app --locales ""
+  exit 0
+fi
+if [ "${3:-false}" = "true" ]; then
+  ./gradlew installDebug
+  adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
+  ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.BuiltInViewersTest
+  bash .github/scripts/verify-upgrade-published.sh
+  capture
   exit 0
 fi
 ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.SavedLocationsTest || { capture; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }

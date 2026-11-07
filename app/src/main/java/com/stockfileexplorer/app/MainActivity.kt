@@ -141,6 +141,7 @@ fun MainScaffold(
     val analysisHolder = remember { com.stockfileexplorer.app.ui.AnalysisHolder() }
     var savedView by remember { mutableStateOf<String?>(null) }
     var showSearch by remember { mutableStateOf(false) }
+    var showRecent by remember { mutableStateOf(false) }
     var showApps by remember { mutableStateOf(false) }
     var showPapierkorb by remember { mutableStateOf(initialPapierkorb) }
     var showStorageAnalysis by remember { mutableStateOf(initialStorageAnalysis) }
@@ -225,10 +226,11 @@ fun MainScaffold(
 
     // Intercept Back only while the screen it closes is visible - all of these live on the
     // Local tab. Closing hidden state read as "Back does nothing, then the app exits".
-    BackHandler(enabled = tab == TAB_LOCAL && (savedView != null || showSearch || browsePath != null || analysisCategory != null || showApps || showStorageAnalysis || showPapierkorb || showSettings)) {
+    BackHandler(enabled = tab == TAB_LOCAL && (savedView != null || showRecent || showSearch || browsePath != null || analysisCategory != null || showApps || showStorageAnalysis || showPapierkorb || showSettings)) {
         // An open folder or category closes first, so Back from a destination opened out of
         // the analysis returns to the analysis.
         if (savedView != null) savedView = null
+        else if (showRecent) showRecent = false
         else if (showSearch) showSearch = false
         else if (browsePath != null) browsePath = null
         else if (analysisCategory != null) analysisCategory = null
@@ -283,6 +285,10 @@ fun MainScaffold(
                 } else if (savedView != null) {
                     Column(Modifier.fillMaxSize().padding(padding)) {
                         com.stockfileexplorer.app.ui.SavedLocationsScreen(shortcuts = savedView == "shortcuts", onBack = { savedView = null })
+                    }
+                } else if (showRecent) {
+                    Column(Modifier.fillMaxSize().padding(padding)) {
+                        com.stockfileexplorer.app.ui.RecentFilesScreen(onBack = { showRecent = false })
                     }
                 } else if (showSearch) {
                     Column(Modifier.fillMaxSize().padding(padding)) {
@@ -361,7 +367,9 @@ fun MainScaffold(
                             onOpenDownloads = { browsePath = downloadsPath },
                             onOpenApps = { showApps = true },
                             onOpenStorageAnalysis = { showStorageAnalysis = true },
-                            onOpenPapierkorb = { showPapierkorb = true }
+                            onOpenPapierkorb = { showPapierkorb = true },
+                            onOpenSettings = { showSettings = true },
+                            onOpenRecent = { showRecent = true }
                         )
                       }
                     }

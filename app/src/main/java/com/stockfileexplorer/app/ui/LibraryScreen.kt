@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -66,7 +65,7 @@ fun LibraryScreen(
                 item { CategoryCircle(categoryIcon(FileCategory.APPS), categoryColor(FileCategory.APPS), stringResource(R.string.cat_apk)) { selected = FileCategory.APPS } }
                 item { CategoryCircle(categoryIcon(FileCategory.ARCHIVES), categoryColor(FileCategory.ARCHIVES), categoryLabel(FileCategory.ARCHIVES)) { selected = FileCategory.ARCHIVES } }
                 item { CategoryCircle(SfeIcons.Analytics, AmberDark, stringResource(R.string.library_large_files)) { action = "large" } }
-                item { CategoryCircle(androidx.compose.material.icons.Icons.Filled.ContentCopy, AmberDark, stringResource(R.string.duplicate_files)) { action = "duplicates" } }
+                item { CategoryCircle(SfeIcons.Duplicate, AmberDark, stringResource(R.string.duplicate_files)) { action = "duplicates" } }
             }
         }
     } else {

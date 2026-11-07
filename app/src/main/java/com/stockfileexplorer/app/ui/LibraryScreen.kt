@@ -21,6 +21,8 @@ import androidx.compose.ui.unit.dp
 import com.stockfileexplorer.app.R
 import com.stockfileexplorer.app.data.FileCategory
 import com.stockfileexplorer.app.theme.AmberDark
+import com.stockfileexplorer.app.theme.DarkGrey
+import com.stockfileexplorer.app.theme.LightGrey
 
 /**
  * Library tab: category grid with Large files beside Archive at the end -
@@ -44,6 +46,7 @@ fun LibraryScreen(
 
     when (action) {
         "duplicates" -> { DuplicateFilesScreen { action = null }; return }
+        "hidden" -> { HiddenFilesScreen { action = null }; return }
         "large" -> { IndexedFilesScreen(null, stringResource(R.string.library_large_files), { action = null }, largestFirst = true); return }
     }
 
@@ -65,7 +68,8 @@ fun LibraryScreen(
                 item { CategoryCircle(categoryIcon(FileCategory.APPS), categoryColor(FileCategory.APPS), stringResource(R.string.cat_apk)) { selected = FileCategory.APPS } }
                 item { CategoryCircle(categoryIcon(FileCategory.ARCHIVES), categoryColor(FileCategory.ARCHIVES), categoryLabel(FileCategory.ARCHIVES)) { selected = FileCategory.ARCHIVES } }
                 item { CategoryCircle(SfeIcons.Analytics, AmberDark, stringResource(R.string.library_large_files)) { action = "large" } }
-                item { CategoryCircle(SfeIcons.Duplicate, AmberDark, stringResource(R.string.duplicate_files)) { action = "duplicates" } }
+                item { CategoryCircle(SfeIcons.Duplicate, DarkGrey, stringResource(R.string.duplicate_files)) { action = "duplicates" } }
+                item { CategoryCircle(SfeIcons.Hidden, LightGrey, stringResource(R.string.hidden_files), iconTint = DarkGrey) { action = "hidden" } }
             }
         }
     } else {

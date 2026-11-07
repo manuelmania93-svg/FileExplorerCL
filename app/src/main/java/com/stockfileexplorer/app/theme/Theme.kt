@@ -19,6 +19,9 @@ import com.stockfileexplorer.app.ThemeMode
 
 val Amber = Color(0xFFFFC107)
 val AmberDark = Color(0xFF8F6B00)
+val DarkGrey = Color(0xFF424242)
+// Light grey tile background; pairs with a dark icon because white on light grey is unreadable.
+val LightGrey = Color(0xFFBDBDBD)
 
 // Inter 4.1 (SIL OFL 1.1, see assets/licenses/Inter-OFL.txt), instanced to four weights.
 private val Inter = FontFamily(

@@ -26,7 +26,7 @@ import java.util.concurrent.TimeUnit
 /**
  * Granted-state proof: CI grants android:get_usage_stats before this class runs.
  * The pyramid must then show the "Installierte Apps (inkl. Daten)" slice and
- * legend row, keep the (now smaller) grey residual, and switch the note text.
+ * legend row, and switch the note text.
  * Opens the analysis screen directly via the storage_analysis intent extra.
  * Runs in the CI section where the per-app locale is already de-AT.
  */
@@ -158,20 +158,20 @@ class StoragePyramidUsageAccessTest {
                 device.wait(Until.hasObject(By.textContains("Installierte Apps werden inklusive ihrer Daten gemessen")), 30_000),
             )
             // The granted state also switches the pyramid note. The
-            // standard note and the scope card both mention "private App-Daten", so only
-            // "Die graue Ebene enthält Systemdaten" discriminates the installed-apps note.
+            // Only the installed-apps note mentions "etwa Systemdaten", so it
+            // discriminates the granted state from the indexed-only note.
             assertTrue(
                 "updated note missing",
-                device.wait(Until.hasObject(By.textContains("Die graue Ebene enthält Systemdaten und nicht indexierten Speicher")), 30_000),
+                device.wait(Until.hasObject(By.textContains("etwa Systemdaten")), 30_000),
             )
             // Chart evidence while the pyramid itself is on screen.
             Thread.sleep(2_000)
             device.takeScreenshot(File("/sdcard/Download/sfe-pyramid-granted-chart.png"))
 
             // LazyColumn: legend rows only enter the accessibility tree when scrolled
-            // into view. Scroll progressively downward in legend order: residual,
+            // into view. Scroll progressively downward in legend order: free space,
             // installed apps, then the category rows.
-            assertTrue("residual grey legend row missing", scrollToText(device, "Übriger belegter Speicher"))
+            assertTrue("free-space legend row missing", scrollToText(device, "Freier Speicher"))
             assertTrue("installed-apps legend row missing", scrollToText(device, "Installierte Apps (inkl. Daten)"))
             assertTrue("Sonstige legend row missing", scrollToText(device, "Sonstige"))
             Thread.sleep(2_000)

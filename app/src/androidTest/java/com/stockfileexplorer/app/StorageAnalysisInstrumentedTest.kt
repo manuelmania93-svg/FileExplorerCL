@@ -95,7 +95,7 @@ class StorageAnalysisInstrumentedTest {
             dataReport.duplicates.any { g -> g.paths.any { it.endsWith("duplicate-a.txt") } && g.paths.any { it.endsWith("duplicate-b.txt") } })
         // Dot-dir accounting: .recycle_bin/trash.tmp (23 bytes) is neither indexed
         // (MediaScanner and the index walk skip dot-dirs) nor app-attributed, so the
-        // hidden-dir bucket must contain it and the residual must shrink accordingly.
+        // hidden-dir bucket must contain it (it is neither indexed nor app-attributed).
         android.util.Log.i("SfeAnalysisData", "hidden=${dataReport.hiddenDirBytes} unindexedIncomplete=${dataReport.unindexedIncomplete}")
         assertTrue("hidden-dir fixture counted; hidden=${dataReport.hiddenDirBytes}", dataReport.hiddenDirBytes >= 23L)
 
@@ -115,7 +115,7 @@ class StorageAnalysisInstrumentedTest {
         // The usage-access hint card above the pyramid (shown when the permission is
         // missing) can push the legend below the fold, so scroll to the row instead of
         // waiting for it in the initial viewport.
-        revealText(label("Other used storage", "Übriger belegter Speicher"))
+        revealText(label("Free space", "Freier Speicher"))
         revealText(label("Hidden folders", "Versteckte Ordner"))
         screenshot("sfe-storage-analysis-pyramid-${if (german) "de" else "en"}")
         // Bounded search, not a blind fixed swipe: a single swipeUp flings this

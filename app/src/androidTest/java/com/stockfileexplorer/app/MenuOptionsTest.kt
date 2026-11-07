@@ -71,7 +71,7 @@ class MenuOptionsTest {
                 invoked.set("")
                 scenario.onActivity { activity -> activity.setContent { com.stockfileexplorer.app.theme.AppTheme(ThemeMode.LIGHT) {
                     Box(Modifier.semantics { testTagsAsResourceId = true }) {
-                        FileActionMenu("Long filename - document for checking German menu labels and line wrapping.txt", false, false, {}, callbacks())
+                        FileActionMenu("Long filename - document for checking German menu labels and line wrapping.txt", false, false, false, {}, callbacks())
                     }
                 } } }
                 Thread.sleep(1000)
@@ -96,7 +96,7 @@ class MenuOptionsTest {
                     invoked.set("")
                     scenario.onActivity { activity -> activity.setContent { com.stockfileexplorer.app.theme.AppTheme(ThemeMode.LIGHT) {
                         androidx.compose.runtime.key("${layout.name}-${action.name}") {
-                            Box(Modifier.semantics { testTagsAsResourceId = true }) { FileActionMenu("callback ${layout.name} ${action.name}", false, false, {}, callbacks()) }
+                            Box(Modifier.semantics { testTagsAsResourceId = true }) { FileActionMenu("callback ${layout.name} ${action.name}", false, false, false, {}, callbacks()) }
                         }
                     } } }
                     assertNotNull(device.wait(Until.findObject(By.text("callback ${layout.name} ${action.name}")), 10000))
@@ -106,7 +106,7 @@ class MenuOptionsTest {
                     assertEquals("$layout callback", action.name, invoked.get())
                 }
                 scenario.onActivity { activity -> activity.setContent { com.stockfileexplorer.app.theme.AppTheme(ThemeMode.LIGHT) {
-                    Box(Modifier.semantics { testTagsAsResourceId = true }) { FileActionMenu("Directory fixture", true, false, {}, callbacks()) }
+                    Box(Modifier.semantics { testTagsAsResourceId = true }) { FileActionMenu("Directory fixture", true, false, false, {}, callbacks()) }
                 } } }
                 control("context_${layout.name}")
                 assertFalse(device.hasObject(By.res("context_action_SHARE")))

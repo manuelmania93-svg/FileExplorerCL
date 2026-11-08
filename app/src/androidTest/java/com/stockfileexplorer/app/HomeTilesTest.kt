@@ -34,15 +34,29 @@ class HomeTilesTest {
         assertTrue("All-files fixture grant active", android.os.Environment.isExternalStorageManager())
         launch()
         for (tag in listOf("home_favorites", "home_shortcuts", "home_search", "home_settings")) node(tag)
-        val settings = node("home_settings_tile").visibleBounds
-        val recent = node("home_recent_tile").visibleBounds
-        val papierkorb = node("home_papierkorb_tile").visibleBounds
-        assertTrue("Settings tile left of Papierkorb", settings.centerX() < papierkorb.centerX())
-        assertTrue("Settings + Papierkorb share row", kotlin.math.abs(settings.centerY() - papierkorb.centerY()) < 8)
-        assertTrue("Neue Dateien swapped above Papierkorb", recent.bottom <= settings.top)
+        shot("home")
+        // The dashboard recomposes live (index/status updates), so node handles read at
+        // different instants can come from different layout passes: compare FRESH bounds
+        // per attempt and put the actual values in the failure message.
+        var layoutDetail = ""
+        var layoutOk = false
+        for (attempt in 1..10) {
+            device.waitForIdle()
+            val settings = node("home_settings_tile").visibleBounds
+            val recent = node("home_recent_tile").visibleBounds
+            val papierkorb = node("home_papierkorb_tile").visibleBounds
+            val sameRow = kotlin.math.abs(settings.top - papierkorb.top) <= 2
+            val leftRight = settings.right <= papierkorb.left
+            val swapped = recent.bottom <= settings.top
+            layoutDetail = "attempt " + attempt + ": settings.top=" + settings.top +
+                " papierkorb.top=" + papierkorb.top + " settings.right=" + settings.right +
+                " papierkorb.left=" + papierkorb.left + " recent.bottom=" + recent.bottom
+            if (sameRow && leftRight && swapped) { layoutOk = true; break }
+            Thread.sleep(400)
+        }
+        assertTrue("Settings|Papierkorb same row, Recent above: " + layoutDetail, layoutOk)
         assertFalse("Hidden tile removed from Home", device.hasObject(By.res("home_hidden_tile")))
         assertFalse("Folders tile removed from Home", device.hasObject(By.res("home_folders_tile")))
-        shot("home")
         node("home_settings_tile").click()
         node("settings_back")
         shot("settings")

@@ -299,6 +299,7 @@
     <string name="hidden_files_limited">Not complete: only the first %1$d hidden items are shown.</string>
     <string name="home_folders">Folders</string>
     <string name="home_hidden_items">Hidden items</string>
+    <string name="library_folder_shortcut">Folder shortcut</string>
     <string name="menu_hide">Hide</string>
     <string name="menu_unhide">Unhide</string>
     <string name="hide_confirm_title">Hide %1$s?</string>
@@ -308,7 +309,7 @@
     <string name="hide_failed">Could not hide %1$s</string>
     <string name="unhide_failed">Could not unhide %1$s</string>
     <string name="hidden_items_title">Hidden items</string>
-    <string name="hidden_items_note">Items hidden by this app and other dot-named files and folders on shared storage. Unhide removes the leading dot. Nothing here is password-protected.</string>
+    <string name="hidden_items_note">Items hidden by this app and other dot-named files and folders on shared storage. Unhide removes the leading dot. Tap a file path to open it. Nothing here is password-protected.</string>
     <string name="recent_folders_header">Recently visited</string>
     <string name="saved_folders_header">Saved folders</string>
     <string name="no_recent_folders">No recently visited folders yet</string>

@@ -16,6 +16,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.stockfileexplorer.app.R
@@ -46,7 +47,10 @@ fun LibraryScreen(
 
     when (action) {
         "duplicates" -> { DuplicateFilesScreen { action = null }; return }
-        "hidden" -> { HiddenFilesScreen { action = null }; return }
+        "folders" -> { SavedLocationsScreen(shortcuts = true, onBack = { action = null }); return }
+        // The hidden tile opens the manager (listing + Unhide). The Home tile that used to
+        // open it was removed per user request; this keeps unhide reachable.
+        "hidden" -> { HiddenItemsScreen { action = null }; return }
         "large" -> { IndexedFilesScreen(null, stringResource(R.string.library_large_files), { action = null }, largestFirst = true); return }
     }
 
@@ -70,6 +74,7 @@ fun LibraryScreen(
                 item { CategoryCircle(SfeIcons.Analytics, AmberDark, stringResource(R.string.library_large_files)) { action = "large" } }
                 item { CategoryCircle(SfeIcons.Duplicate, DarkGrey, stringResource(R.string.duplicate_files)) { action = "duplicates" } }
                 item { CategoryCircle(SfeIcons.Hidden, LightGrey, stringResource(R.string.hidden_files), iconTint = DarkGrey) { action = "hidden" } }
+                item { CategoryCircle(SfeIcons.Link, Color(0xFF00695C), stringResource(R.string.library_folder_shortcut)) { action = "folders" } }
             }
         }
     } else {

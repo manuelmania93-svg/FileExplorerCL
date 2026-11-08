@@ -59,7 +59,9 @@ import kotlinx.coroutines.withContext
 
 /**
  * Local tab: one compact storage card (opens the storage analysis) and a consistent
- * 2-column shortcut grid: Hauptspeicher, Downloads, Apps, Papierkorb.
+ * 2-column shortcut grid: Hauptspeicher, Downloads, Apps, Neue Dateien, Einstellungen,
+ * Papierkorb. Folder shortcuts live in Library ("Ordner Verknüpfung"); the hidden-items
+ * manager opens from Library's hidden tile.
  * The media categories live in the Library tab.
  */
 @Composable
@@ -70,9 +72,7 @@ fun DashboardScreen(
     onOpenStorageAnalysis: () -> Unit,
     onOpenPapierkorb: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
-    onOpenRecent: () -> Unit = {},
-    onOpenFolders: () -> Unit = {},
-    onOpenHiddenItems: () -> Unit = {}
+    onOpenRecent: () -> Unit = {}
 ) {
     val root = remember { Environment.getExternalStorageDirectory() }
     val usage by com.stockfileexplorer.app.data.VolumeStats.usage.collectAsState()
@@ -186,11 +186,9 @@ fun DashboardScreen(
         item { ShortcutCard(SfeIcons.Folder, Color(0xFFFF9800), stringResource(R.string.main_storage), onOpenStorage) }
         item { ShortcutCard(SfeIcons.Download, Color(0xFF009688), stringResource(R.string.downloads), onOpenDownloads) }
         item { ShortcutCard(SfeIcons.Android, Color(0xFF4CAF50), stringResource(R.string.installed_apps_title), onOpenApps) }
-        item { ShortcutCard(Icons.Filled.Delete, Color(0xFF607D8B), stringResource(R.string.papierkorb), onOpenPapierkorb) }
-        item { ShortcutCard(Icons.Filled.Settings, Color(0xFF795548), stringResource(R.string.settings_title), onOpenSettings, Modifier.testTag("home_settings_tile")) }
         item { ShortcutCard(SfeIcons.Schedule, Color(0xFF3F51B5), stringResource(R.string.cat_recent), onOpenRecent, Modifier.testTag("home_recent_tile")) }
-        item { ShortcutCard(SfeIcons.Link, Color(0xFF00695C), stringResource(R.string.home_folders), onOpenFolders, Modifier.testTag("home_folders_tile")) }
-        item { ShortcutCard(SfeIcons.Hidden, Color(0xFF78909C), stringResource(R.string.home_hidden_items), onOpenHiddenItems, Modifier.testTag("home_hidden_tile")) }
+        item { ShortcutCard(Icons.Filled.Settings, Color(0xFF795548), stringResource(R.string.settings_title), onOpenSettings, Modifier.testTag("home_settings_tile")) }
+        item { ShortcutCard(Icons.Filled.Delete, Color(0xFF607D8B), stringResource(R.string.papierkorb), onOpenPapierkorb, Modifier.testTag("home_papierkorb_tile")) }
     }
 }
 

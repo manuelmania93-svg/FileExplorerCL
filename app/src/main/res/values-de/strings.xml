@@ -181,7 +181,7 @@
     <string name="delete_permanently">Endgültig löschen</string>
     <string name="delete_permanently_title">%1$s endgültig löschen?</string>
     <string name="delete_permanently_body">Das kann nicht rückgängig gemacht werden.</string>
-    <string name="main_storage">Hauptspeicher</string>
+    <string name="main_storage">Haupt&#173;speicher</string>
     <string name="moved_to_papierkorb">In den Papierkorb verschoben</string>
     <string name="deleted_permanently_ok">Endgültig gelöscht</string>
     <string name="analysis_checking">Wird noch geprüft…</string>
@@ -246,7 +246,7 @@
     <string name="viewer_extract_here_short">In diesen Ordner entpacken</string>
 
     <!-- Settings screen -->
-    <string name="settings_title">Einstellungen</string>
+    <string name="settings_title">Ein&#173;stel&#173;lun&#173;gen</string>
     <string name="settings_design">Design</string>
     <string name="settings_theme_light">Hell (Gelb)</string>
     <string name="settings_theme_dark">Dunkel</string>
@@ -299,6 +299,7 @@
     <string name="hidden_files_limited">Unvollständig: nur die ersten %1$d versteckten Elemente werden angezeigt.</string>
     <string name="home_folders">Ordner</string>
     <string name="home_hidden_items">Versteckte Elemente</string>
+    <string name="library_folder_shortcut">Ordner Verknüpfung</string>
     <string name="menu_hide">Verstecken</string>
     <string name="menu_unhide">Sichtbar machen</string>
     <string name="hide_confirm_title">%1$s verstecken?</string>
@@ -308,7 +309,7 @@
     <string name="hide_failed">%1$s konnte nicht versteckt werden</string>
     <string name="unhide_failed">%1$s konnte nicht sichtbar gemacht werden</string>
     <string name="hidden_items_title">Versteckte Elemente</string>
-    <string name="hidden_items_note">Von dieser App versteckte Elemente und andere Dateien und Ordner mit führendem Punkt im gemeinsamen Speicher. Sichtbar machen entfernt den führenden Punkt. Nichts hier ist passwortgeschützt.</string>
+    <string name="hidden_items_note">Von dieser App versteckte Elemente und andere Dateien und Ordner mit führendem Punkt im gemeinsamen Speicher. Sichtbar machen entfernt den führenden Punkt. Dateipfad antippen, um ihn zu öffnen. Nichts hier ist passwortgeschützt.</string>
     <string name="recent_folders_header">Zuletzt besucht</string>
     <string name="saved_folders_header">Gespeicherte Ordner</string>
     <string name="no_recent_folders">Noch keine zuletzt besuchten Ordner</string>

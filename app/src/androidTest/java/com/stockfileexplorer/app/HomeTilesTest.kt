@@ -201,7 +201,9 @@ class HomeTilesTest {
         try {
             launch()
             // Visit Download/sfe-fix-dir so it lands in Recently visited.
-            device.wait(Until.findObject(By.text(context.getString(R.string.main_storage))), 15_000).click()
+            // Tag, not text: the de label carries soft hyphens (U+00AD) that the layout
+            // engine consumes, so exact text matching silently misses (run 42431019751).
+            device.wait(Until.findObject(By.res("home_storage_tile")), 15_000).click()
             device.wait(Until.findObject(By.text("Download")), 15_000).click()
             device.wait(Until.findObject(By.text("sfe-fix-dir")), 15_000).click()
             device.wait(Until.findObject(By.text("inside.txt")), 15_000)

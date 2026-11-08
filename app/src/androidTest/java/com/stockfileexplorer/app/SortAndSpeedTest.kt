@@ -23,6 +23,13 @@ class SortAndSpeedTest {
     private val root = File(downloads, "SfeSort")
     private val german get() = context.resources.configuration.locales[0].language == "de"
     private fun label(en: String, de: String) = if (german) de else en
+    // de dashboard label carries a soft hyphen (Haupt\u00ADspeicher); tolerate it.
+    private val mainStorageDe = java.util.regex.Pattern.compile("Haupt\\u00AD?speicher")
+    private fun waitMainStorage(ms: Long = 20000): androidx.test.uiautomator.UiObject2 {
+        if (!german) return waitText("Main storage", ms)
+        return device.wait(Until.findObject(By.text(mainStorageDe)), ms)
+            ?: throw AssertionError("Missing UI text: Hauptspeicher")
+    }
     private fun tag() = if (german) "de" else "en"
     private fun screenshot(name: String) { device.takeScreenshot(File(downloads, "sfe-sort-${tag()}-$name.png")) }
     private fun waitText(value: String, ms: Long = 20000) = device.wait(Until.findObject(By.text(value)), ms)
@@ -219,7 +226,7 @@ class SortAndSpeedTest {
         val gone = File(root, "papierkorb-gone.txt").apply { writeText("remove me") }
         FileIndex.verifyFixture(context, root, clear = true)
         launch()
-        waitText(label("Main storage", "Hauptspeicher"))
+        waitMainStorage()
         var bin = device.wait(Until.findObject(By.text("Papierkorb")), 3000)
         var swipes = 0
         if (bin == null) bin = scrollToText("Papierkorb")

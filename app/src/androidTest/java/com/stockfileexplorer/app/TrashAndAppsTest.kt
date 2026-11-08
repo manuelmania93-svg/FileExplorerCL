@@ -27,6 +27,13 @@ class TrashAndAppsTest {
     private val pkg = context.packageName
     private val german get() = context.resources.configuration.locales[0].language == "de"
     private fun label(en: String, de: String) = if (german) de else en
+    // de dashboard label carries a soft hyphen (Haupt\u00ADspeicher); tolerate it.
+    private val mainStorageDe = java.util.regex.Pattern.compile("Haupt\\u00AD?speicher")
+    private fun waitMainStorage(timeout: Long = 15000): androidx.test.uiautomator.UiObject2 {
+        if (!german) return waitText("Main storage", timeout)
+        return device.wait(Until.findObject(By.text(mainStorageDe)), timeout)
+            ?: throw AssertionError("Missing UI text: Hauptspeicher")
+    }
     private val appName = "File Explorer CL"
     private val capture = InstrumentationRegistry.getArguments().getString("capture", "trash")
 
@@ -143,7 +150,7 @@ class TrashAndAppsTest {
 
         // Back returns to the dashboard.
         device.pressBack()
-        waitText(label("Main storage", "Hauptspeicher"))
+        waitMainStorage()
         if (!device.wait(Until.hasObject(By.pkg(pkg).depth(0)), 5000)) {
             fail("App left the foreground after Back from Apps")
         }

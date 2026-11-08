@@ -72,6 +72,10 @@ class GermanLayoutTest {
 
     // Fast swipes first (a slow drag that starts on a row can register as a long press and select it,
     // which happened once Download held many more evidence screenshots), slow drags only as a fallback.
+    // The de dashboard label carries a soft hyphen (Haupt\u00ADspeicher) so narrow
+    // tiles break it as "Haupt-speicher"; an exact text match must tolerate it.
+    private val mainStorageDe = java.util.regex.Pattern.compile("Haupt\\u00AD?speicher")
+
     private fun findFixture(device: UiDevice, text: String): Boolean =
         device.wait(Until.hasObject(By.textContains(text)), 8000) || scrollToText(device, text) || slowScrollToText(device, text)
 
@@ -151,7 +155,7 @@ class GermanLayoutTest {
         // Folder browser in German: action menu opens from the overflow button.
         // (The "Interner Speicher" card now opens the storage analysis; the folder
         // browser opens via the "Hauptspeicher" shortcut.)
-        clickWithRetry("Hauptspeicher shortcut") { device.findObject(By.text("Hauptspeicher")) }
+        clickWithRetry("Hauptspeicher shortcut") { device.findObject(By.text(mainStorageDe)) }
         val rootRowFound = device.wait(Until.hasObject(By.text("Download")), 8000) || scrollToText(device, "Download")
         if (!rootRowFound) {
             device.takeScreenshot(File("/sdcard/Download/sfe-german-root-download-missing.png"))
@@ -202,7 +206,7 @@ class GermanLayoutTest {
             "Dashboard again after font-scale recreation",
             device.wait(Until.hasObject(By.text("Interner Speicher")), 10000)
         )
-        clickWithRetry("Hauptspeicher shortcut") { device.findObject(By.text("Hauptspeicher")) }
+        clickWithRetry("Hauptspeicher shortcut") { device.findObject(By.text(mainStorageDe)) }
         val rootRowFoundAgain = device.wait(Until.hasObject(By.text("Download")), 8000) || scrollToText(device, "Download")
         if (!rootRowFoundAgain) {
             device.takeScreenshot(File("/sdcard/Download/sfe-german-root-download-missing.png"))

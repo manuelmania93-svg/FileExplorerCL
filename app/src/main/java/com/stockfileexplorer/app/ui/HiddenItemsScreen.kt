@@ -2,6 +2,7 @@ package com.stockfileexplorer.app.ui
 
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -33,6 +34,7 @@ fun HiddenItemsScreen(onBack: () -> Unit) {
     var result by remember { mutableStateOf<HiddenFiles.Result?>(null) }
     var refreshTick by remember { mutableIntStateOf(0) }
     var unhideTarget by remember { mutableStateOf<HiddenFiles.Entry?>(null) }
+    val noApp = stringResource(R.string.no_app_to_open)
     LaunchedEffect(refreshTick) { result = withContext(Dispatchers.IO) { HiddenFiles.scan() } }
     BackHandler { onBack() }
     Column(Modifier.fillMaxSize()) {
@@ -50,7 +52,9 @@ fun HiddenItemsScreen(onBack: () -> Unit) {
         }
         LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(result?.entries.orEmpty(), key = { it.path }) { entry ->
-                Row(Modifier.fillMaxWidth()) {
+                // Files open externally on tap (same behavior as the old read-only
+                // listing); folders stay size-review only. Unhide is the row's button.
+                Row(Modifier.fillMaxWidth().clickable(enabled = !entry.isDir) { openFile(context, File(entry.path), noApp) }) {
                     Column(Modifier.weight(1f)) {
                         Row {
                             if (entry.isDir) {

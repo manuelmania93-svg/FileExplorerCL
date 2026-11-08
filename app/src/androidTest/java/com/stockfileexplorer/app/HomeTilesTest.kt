@@ -34,11 +34,29 @@ class HomeTilesTest {
         assertTrue("All-files fixture grant active", android.os.Environment.isExternalStorageManager())
         launch()
         for (tag in listOf("home_favorites", "home_shortcuts", "home_search", "home_settings")) node(tag)
-        val settings = node("home_settings_tile").visibleBounds
-        val recent = node("home_recent_tile").visibleBounds
-        assertTrue("Settings tile left of recent", settings.centerX() < recent.centerX())
-        assertTrue("Tiles share row", kotlin.math.abs(settings.centerY() - recent.centerY()) < 8)
         shot("home")
+        // The dashboard recomposes live (index/status updates), so node handles read at
+        // different instants can come from different layout passes: compare FRESH bounds
+        // per attempt and put the actual values in the failure message.
+        var layoutDetail = ""
+        var layoutOk = false
+        for (attempt in 1..10) {
+            device.waitForIdle()
+            val settings = node("home_settings_tile").visibleBounds
+            val recent = node("home_recent_tile").visibleBounds
+            val papierkorb = node("home_papierkorb_tile").visibleBounds
+            val sameRow = kotlin.math.abs(settings.top - papierkorb.top) <= 2
+            val leftRight = settings.right <= papierkorb.left
+            val swapped = recent.bottom <= settings.top
+            layoutDetail = "attempt " + attempt + ": settings.top=" + settings.top +
+                " papierkorb.top=" + papierkorb.top + " settings.right=" + settings.right +
+                " papierkorb.left=" + papierkorb.left + " recent.bottom=" + recent.bottom
+            if (sameRow && leftRight && swapped) { layoutOk = true; break }
+            Thread.sleep(400)
+        }
+        assertTrue("Settings|Papierkorb same row, Recent above: " + layoutDetail, layoutOk)
+        assertFalse("Hidden tile removed from Home", device.hasObject(By.res("home_hidden_tile")))
+        assertFalse("Folders tile removed from Home", device.hasObject(By.res("home_folders_tile")))
         node("home_settings_tile").click()
         node("settings_back")
         shot("settings")
@@ -53,16 +71,6 @@ class HomeTilesTest {
         device.pressBack()
         node("home_settings_tile")
         shot("returned-home")
-        clickFresh("home_folders_tile")
-        assertNotNull("Saved folders section", device.wait(Until.findObject(By.text(context.getString(R.string.saved_folders_header))), 15000))
-        assertNotNull("Recent folders section", device.wait(Until.findObject(By.text(context.getString(R.string.recent_folders_header))), 15000))
-        shot("folders")
-        device.pressBack()
-        clickFresh("home_hidden_tile")
-        assertNotNull("Hidden items screen", device.wait(Until.findObject(By.text(context.getString(R.string.hidden_items_title))), 15000))
-        shot("hidden-items")
-        device.pressBack()
-        node("home_folders_tile")
         // Open the Library tab and PROVE it opened before judging its contents: the
         // home dashboard itself carries the cat_recent tile label, so a missed nav
         // click turns this guard into a false alarm (de round of run 42419118290).
@@ -84,6 +92,38 @@ class HomeTilesTest {
         assertFalse("Recent moved out of Library", device.hasObject(By.text(context.getString(R.string.cat_recent))))
         assertNotNull(device.wait(Until.findObject(By.text(context.getString(R.string.cat_apk))), 15000))
         shot("library-without-recent")
+        // The folder shortcut moved to Library as "Ordner Verknüpfung" / "Folder shortcut".
+        val shortcut = device.wait(Until.findObject(By.text(context.getString(R.string.library_folder_shortcut))), 15_000)
+        assertNotNull("Folder shortcut circle in Library", shortcut)
+        shortcut!!.click()
+        assertNotNull("Saved folders section", device.wait(Until.findObject(By.text(context.getString(R.string.saved_folders_header))), 15000))
+        assertNotNull("Recent folders section", device.wait(Until.findObject(By.text(context.getString(R.string.recent_folders_header))), 15000))
+        shot("library-folder-shortcut")
+        device.pressBack()
+        assertNotNull("back in Library grid", device.wait(Until.findObject(By.text(context.getString(R.string.cat_apk))), 15_000))
+        // The hidden tile now opens the manager, keeping Unhide reachable without the Home tile.
+        val hiddenCircle = device.wait(Until.findObject(By.text(context.getString(R.string.hidden_files))), 15_000)
+        assertNotNull("Hidden circle in Library", hiddenCircle)
+        hiddenCircle!!.click()
+        assertNotNull("Hidden items manager from Library", device.wait(Until.findObject(By.text(context.getString(R.string.hidden_items_title))), 15000))
+        shot("library-hidden-manager")
+        device.pressBack()
+        assertNotNull("back in Library grid again", device.wait(Until.findObject(By.text(context.getString(R.string.cat_apk))), 15_000))
+    }
+
+    /** Home -> Library tab -> "Ordner Verknüpfung" circle -> Saved/Recent folders screen. */
+    private fun openFoldersFromLibrary() {
+        var opened = false
+        for (attempt in 1..3) {
+            try {
+                device.findObject(By.text(context.getString(R.string.tab_library)))?.click()
+            } catch (e: androidx.test.uiautomator.StaleObjectException) {
+                Thread.sleep(500)
+            }
+            val shortcut = device.wait(Until.findObject(By.text(context.getString(R.string.library_folder_shortcut))), 10_000)
+            if (shortcut != null) { shortcut.click(); opened = true; break }
+        }
+        assertTrue("Folder shortcut opened from Library", opened)
     }
 
     /** Clicks a context-menu action, scrolling the menu's LazyColumn until the tag shows. */
@@ -161,7 +201,9 @@ class HomeTilesTest {
         try {
             launch()
             // Visit Download/sfe-fix-dir so it lands in Recently visited.
-            device.wait(Until.findObject(By.text(context.getString(R.string.main_storage))), 15_000).click()
+            // Tag, not text: the de label carries soft hyphens (U+00AD) that the layout
+            // engine consumes, so exact text matching silently misses (run 42431019751).
+            device.wait(Until.findObject(By.res("home_storage_tile")), 15_000).click()
             device.wait(Until.findObject(By.text("Download")), 15_000).click()
             device.wait(Until.findObject(By.text("sfe-fix-dir")), 15_000).click()
             device.wait(Until.findObject(By.text("inside.txt")), 15_000)
@@ -197,8 +239,9 @@ class HomeTilesTest {
             assertTrue("collision keeps the existing hidden file", collideHidden.exists())
             shot("browser-after-hide")
             // Fresh activity (CLEAR_TASK): saved + recent lists persist via SharedPreferences.
+            // The folder shortcut lives in Library now.
             launch()
-            clickFresh("home_folders_tile")
+            openFoldersFromLibrary()
             device.wait(Until.findObject(By.text(context.getString(R.string.saved_folders_header))), 15_000)
             assertNotNull("saved folder persisted", device.wait(Until.findObject(By.text("sfe-fix-dir")), 15_000))
             assertNotNull("recent visit persisted", device.wait(Until.findObject(By.text("Download")), 15_000))
@@ -210,8 +253,10 @@ class HomeTilesTest {
             device.pressBack()
             device.wait(Until.findObject(By.text(context.getString(R.string.saved_folders_header))), 15_000)
             device.pressBack()
-            // Hidden items manager lists the hidden fixture; unhide its own row.
-            clickFresh("home_hidden_tile")
+            // Back in the Library grid: the hidden tile opens the items manager.
+            assertNotNull("back in Library grid", device.wait(Until.findObject(By.text(context.getString(R.string.cat_apk))), 15_000))
+            device.wait(Until.findObject(By.text(context.getString(R.string.hidden_files))), 15_000).click()
+            assertNotNull("Hidden items manager from Library", device.wait(Until.findObject(By.text(context.getString(R.string.hidden_items_title))), 15_000))
             val row = device.wait(Until.findObject(By.textContains("sfe-hide-me")), 30_000)
             assertNotNull("hidden fixture listed in manager", row)
             shot("hidden-items-populated")

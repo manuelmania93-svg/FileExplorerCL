@@ -3,6 +3,11 @@ package com.stockfileexplorer.app
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import com.stockfileexplorer.app.data.AppUpdate
 import com.stockfileexplorer.app.data.UpdateState
 import com.stockfileexplorer.app.theme.AppTheme
@@ -16,7 +21,9 @@ class UpdateNotesVisualActivity : ComponentActivity() {
             ?: error("invalid fixture")
         setContent {
             AppTheme {
-                SettingsScreen(ThemeMode.LIGHT, {}, {}, UpdateState.Available(info), "0.7.1", 272, {}, {}, {})
+                Box(Modifier.fillMaxSize().semantics { testTagsAsResourceId = true }) {
+                    SettingsScreen(ThemeMode.LIGHT, {}, {}, UpdateState.Available(info), "0.7.1", 272, {}, {}, {})
+                }
             }
         }
     }

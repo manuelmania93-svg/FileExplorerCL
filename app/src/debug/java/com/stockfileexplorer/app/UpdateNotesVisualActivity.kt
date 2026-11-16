@@ -14,6 +14,7 @@ import com.stockfileexplorer.app.theme.AppTheme
 import com.stockfileexplorer.app.ui.SettingsScreen
 
 /** Owned update-notes UI fixture. No release lookup, download or install action. */
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 class UpdateNotesVisualActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

@@ -71,15 +71,23 @@ fi
 echo "previous manifest versionCode=$PREV new=$VC"
 [ "$VC" -gt "$PREV" ] || { echo "PUBLISH ABORTED: versionCode $VC not newer than published $PREV"; exit 1; }
 
+# One checked-in, version-specific list feeds both the in-app update details and
+# the release page. Fail before creating a draft if the notes were forgotten.
+NOTES_SOURCE="$(dirname "${BASH_SOURCE[0]}")/../../release-notes/$VN.md"
+[ -s "$NOTES_SOURCE" ] || { echo "PUBLISH ABORTED: missing release notes for $VN"; exit 1; }
+NOTES=$(cat "$NOTES_SOURCE")
+[ -n "${NOTES//[[:space:]]/}" ] || { echo "PUBLISH ABORTED: empty release notes"; exit 1; }
+printf '%s\n' "$NOTES" > release-notes.txt
+
 # Publish: draft, upload both assets, publish atomically.
 cp "$APK" "$ASSET"
 SHA=$(sha256sum "$ASSET" | awk '{print $1}')
 mutate gh release create "$TAG" --draft --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-  --title "$TAG" --notes "Automatic release $TAG (versionCode $VC) after the full gate on $GITHUB_SHA."
+  --title "$TAG" --notes-file release-notes.txt
 mutate gh release upload "$TAG" "$ASSET" --repo "$GITHUB_REPOSITORY"
 APK_URL="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$ASSET"
-jq -n --argjson vc "$VC" --arg vn "$VN" --arg url "$APK_URL" --arg sha "$SHA" \
-  '{versionCode: $vc, versionName: $vn, apkUrl: $url, sha256: $sha}' > sfe-update.json
+jq -n --argjson vc "$VC" --arg vn "$VN" --arg url "$APK_URL" --arg sha "$SHA" --arg notes "$NOTES" \
+  '{versionCode: $vc, versionName: $vn, apkUrl: $url, sha256: $sha, notes: $notes}' > sfe-update.json
 mutate gh release upload "$TAG" sfe-update.json --repo "$GITHUB_REPOSITORY"
 mutate gh release edit "$TAG" --draft=false --repo "$GITHUB_REPOSITORY"
 echo "PUBLISHED $TAG (versionCode $VC) with $ASSET + sfe-update.json"

@@ -319,4 +319,5 @@
     <string name="thumbnail_small">Small</string>
     <string name="thumbnail_medium">Medium</string>
     <string name="thumbnail_large">Large</string>
+    <string name="update_changes">What\'s changed</string>
 </resources>

@@ -166,8 +166,11 @@ fun SettingsScreen(
                 }
                 is UpdateState.Available -> {
                     UpdateStatusText(stringResource(R.string.update_available, state.info.versionName))
-                    state.info.notes?.let {
-                        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    state.info.notes?.takeIf { it.isNotBlank() }?.let {
+                        Text(stringResource(R.string.update_changes), style = MaterialTheme.typography.titleSmall,
+                            modifier = Modifier.padding(top = 8.dp).testTag("update_changes_title"))
+                        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.testTag("update_changes"))
                     }
                     UpdateActionRow(stringResource(R.string.update_download), "update_download", onDownloadUpdate)
                 }

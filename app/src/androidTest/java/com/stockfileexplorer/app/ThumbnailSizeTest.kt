@@ -43,6 +43,14 @@ class ThumbnailSizeTest {
         shot("settings-${size.name}")
         node("settings_back").click()
     }
+    @Test fun savedLargeSurvivesNewProcess() {
+        assertEquals(ThumbnailSize.LARGE, AppSettings.thumbnailSize(context))
+        launch()
+        node("home_settings").click()
+        assertEquals(ThumbnailSize.LARGE, AppSettings.thumbnailSize(context))
+        shot("large-after-process-restart")
+        AppSettings.setThumbnailSize(context, ThumbnailSize.SMALL)
+    }
     @Test fun sizesPersistAndGrowRecentRows() {
         device.executeShellCommand("appops set --uid ${context.packageName} MANAGE_EXTERNAL_STORAGE allow")
         assertTrue(Environment.isExternalStorageManager())
@@ -82,7 +90,6 @@ class ThumbnailSizeTest {
             node("home_recent_tile").click();assertEquals(rows.last(),node("file_row_${image.name}").visibleBounds.height())
             shot("recent-large-recreated")
         } finally {
-            AppSettings.setThumbnailSize(context,ThumbnailSize.SMALL)
             root.deleteRecursively();FileIndex.invalidate()
         }
     }

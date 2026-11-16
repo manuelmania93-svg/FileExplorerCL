@@ -8,7 +8,10 @@ status=0
 for lang in en de; do
   adb shell cmd locale set-app-locales com.stockfileexplorer.app --locales "$lang"
   adb shell am force-stop com.stockfileexplorer.app
-  adb shell am instrument -w -e class com.stockfileexplorer.app.ThumbnailSizeTest com.stockfileexplorer.app.test/androidx.test.runner.AndroidJUnitRunner | tee "thumbnail-evidence/$lang-results.txt"
+  adb shell am instrument -w -e class com.stockfileexplorer.app.ThumbnailSizeTest#sizesPersistAndGrowRecentRows com.stockfileexplorer.app.test/androidx.test.runner.AndroidJUnitRunner | tee "thumbnail-evidence/$lang-results.txt"
+  adb shell am force-stop com.stockfileexplorer.app
+  adb shell am instrument -w -e class com.stockfileexplorer.app.ThumbnailSizeTest#savedLargeSurvivesNewProcess com.stockfileexplorer.app.test/androidx.test.runner.AndroidJUnitRunner | tee "thumbnail-evidence/$lang-persistence-results.txt"
+  if ! grep -q 'OK (' "thumbnail-evidence/$lang-persistence-results.txt" || grep -q 'FAILURES\|INSTRUMENTATION_FAILED' "thumbnail-evidence/$lang-persistence-results.txt"; then status=1; fi
   adb pull /sdcard/Android/data/com.stockfileexplorer.app/files/thumbnail-evidence/. thumbnail-evidence/ || true
   if ! grep -q 'OK (' "thumbnail-evidence/$lang-results.txt" || grep -q 'FAILURES\|INSTRUMENTATION_FAILED' "thumbnail-evidence/$lang-results.txt"; then status=1; fi
 done

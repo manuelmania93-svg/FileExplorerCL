@@ -314,4 +314,9 @@
     <string name="saved_folders_header">Saved folders</string>
     <string name="no_recent_folders">No recently visited folders yet</string>
     <string name="duplicate_review_note">Exact-content matches from the file index. Shows up to 20 groups. Tap a path to open a file. Nothing is selected or deleted automatically.</string>
+
+    <string name="settings_thumbnails">Thumbnail size</string>
+    <string name="thumbnail_small">Small</string>
+    <string name="thumbnail_medium">Medium</string>
+    <string name="thumbnail_large">Large</string>
 </resources>

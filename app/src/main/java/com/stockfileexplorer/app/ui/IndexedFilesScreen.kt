@@ -40,6 +40,7 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     var query by rememberSaveable { mutableStateOf("") }
     val searchFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+    val thumbnailSize = rememberThumbnailSize()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val status by FileIndex.state.collectAsState()
@@ -185,7 +186,7 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
         } else LazyColumn(Modifier.weight(1f), state = listState) {
             items(page.items.size, key = { page.items[it].file.absolutePath }) { n ->
                 val item = page.items[n]
-                Row(Modifier.fillMaxWidth().combinedClickable(
+                Row(Modifier.fillMaxWidth().testTag("file_row_${item.name}").combinedClickable(
                     onClick = { if (selectionMode || selection.isNotEmpty()) toggle(item.file.absolutePath) else openFile(context, item.file, noApp, page.items.map { it.file }) },
                     onLongClick = {
                         toggle(item.file.absolutePath)
@@ -194,7 +195,7 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
                 ).padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (selectionMode || selection.isNotEmpty()) Checkbox(item.file.absolutePath in selection, { toggle(item.file.absolutePath) })
                     Box {
-                        FileIcon(item, 40)
+                        FileIcon(item, thumbnailSize.listDp)
                         if (item.file.absolutePath in favoritePaths) {
                             Icon(
                                 SfeIcons.Star,

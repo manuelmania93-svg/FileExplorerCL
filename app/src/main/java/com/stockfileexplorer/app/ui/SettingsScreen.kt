@@ -62,6 +62,7 @@ fun SettingsScreen(
     var menuStyle by remember { mutableStateOf(AppSettings.selectionMenuStyle(context)) }
     var extractMode by remember { mutableStateOf(AppSettings.extractMode(context)) }
     var conflictMode by remember { mutableStateOf(AppSettings.conflictMode(context)) }
+    var thumbnailSize by remember { mutableStateOf(AppSettings.thumbnailSize(context)) }
     var showMenuCustomization by remember { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize()) {
@@ -83,6 +84,18 @@ fun SettingsScreen(
             }
             RadioRow(stringResource(R.string.settings_theme_system), themeMode == ThemeMode.SYSTEM, "settings_theme_system") {
                 onThemeMode(ThemeMode.SYSTEM)
+            }
+
+            SectionHeader(stringResource(R.string.settings_thumbnails))
+            listOf(
+                com.stockfileexplorer.app.ThumbnailSize.SMALL to R.string.thumbnail_small,
+                com.stockfileexplorer.app.ThumbnailSize.MEDIUM to R.string.thumbnail_medium,
+                com.stockfileexplorer.app.ThumbnailSize.LARGE to R.string.thumbnail_large,
+            ).forEach { (size, label) ->
+                RadioRow(stringResource(label), thumbnailSize == size, "thumbnail_size_${size.name}") {
+                    thumbnailSize = size
+                    AppSettings.setThumbnailSize(context, size)
+                }
             }
 
             SectionHeader(stringResource(R.string.settings_menus))

@@ -314,4 +314,9 @@
     <string name="saved_folders_header">Gespeicherte Ordner</string>
     <string name="no_recent_folders">Noch keine zuletzt besuchten Ordner</string>
     <string name="duplicate_review_note">Inhaltsgleiche Dateien aus dem Dateiindex. Bis zu 20 Gruppen. Pfad antippen, um eine Datei zu öffnen. Nichts wird automatisch ausgewählt oder gelöscht.</string>
+
+    <string name="settings_thumbnails">Vorschaubildgröße</string>
+    <string name="thumbnail_small">Klein</string>
+    <string name="thumbnail_medium">Mittel</string>
+    <string name="thumbnail_large">Groß</string>
 </resources>

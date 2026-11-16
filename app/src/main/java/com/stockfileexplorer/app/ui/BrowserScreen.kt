@@ -188,6 +188,7 @@ fun BrowserScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val thumbnailSize = rememberThumbnailSize()
     val rootPath = remember { Environment.getExternalStorageDirectory().absolutePath }
 
     var currentPath by remember { mutableStateOf(startPath) }
@@ -459,6 +460,7 @@ fun BrowserScreen(
                 items(items.size, key = { items[it].file.absolutePath }) { index ->
                     val item = items[index]
                     FileListRow(
+                        thumbnailDp = thumbnailSize.listDp,
                         item = item,
                         favorite = item.file.absolutePath in favoritePaths,
                         selected = selection.contains(item.file.absolutePath),
@@ -800,6 +802,7 @@ fun Breadcrumb(currentPath: String, rootPath: String, onNavigate: (String) -> Un
 fun FileListRow(
     item: FileItem,
     favorite: Boolean = false,
+    thumbnailDp: Int = 40,
     selected: Boolean,
     selecting: Boolean,
     directoryStats: FileIndex.DirectoryStats?,
@@ -814,6 +817,7 @@ fun FileListRow(
         modifier = Modifier
             .fillMaxWidth()
             .background(background)
+            .testTag("file_row_${item.name}")
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -822,7 +826,7 @@ fun FileListRow(
             Checkbox(checked = selected, onCheckedChange = { onClick() })
             Spacer(Modifier.width(4.dp))
         }
-        FileIcon(item = item, size = 40)
+        FileIcon(item = item, size = thumbnailDp)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {

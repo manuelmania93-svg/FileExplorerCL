@@ -39,8 +39,29 @@ enum class ConflictMode {
     }
 }
 
+enum class ThumbnailSize(val listDp: Int) {
+    SMALL(40), MEDIUM(64), LARGE(88);
+    companion object {
+        fun parse(name: String?): ThumbnailSize = entries.firstOrNull { it.name == name } ?: SMALL
+    }
+}
+
 object AppSettings {
     private const val PREFS = "app-settings"
+    private const val THUMBNAIL_SIZE = "thumbnail-size"
+    fun thumbnailSize(context: Context): ThumbnailSize =
+        ThumbnailSize.parse(preferences(context).getString(THUMBNAIL_SIZE, null))
+    fun setThumbnailSize(context: Context, size: ThumbnailSize) {
+        preferences(context).edit().putString(THUMBNAIL_SIZE, size.name).apply()
+    }
+    fun observeThumbnailSize(context: Context, changed: () -> Unit): () -> Unit {
+        val prefs = preferences(context)
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == THUMBNAIL_SIZE) changed()
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        return { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
     private const val THEME_MODE = "theme-mode"
     private const val MENU_STYLE = "selection-menu-style"
     fun contextMenuLayout(context: Context): ContextMenuLayout = ContextMenuLayout.parse(preferences(context).getString("context-menu-layout", null))

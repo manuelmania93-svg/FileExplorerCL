@@ -26,6 +26,7 @@ class ThumbnailSizeTest {
         node("home_settings")
     }
     private fun shot(name: String) {
+        device.waitForIdle()
         val dir = File(context.getExternalFilesDir(null), "thumbnail-evidence").apply { mkdirs() }
         val lang = context.resources.configuration.locales[0].language
         device.takeScreenshot(File(dir, "$lang-$name.png"))
@@ -40,6 +41,7 @@ class ThumbnailSizeTest {
         }
         node(tag).click()
         assertEquals(size, AppSettings.thumbnailSize(context))
+        assertTrue("Selected radio must be rendered", device.wait(Until.hasObject(By.res(tag).hasDescendant(By.checked(true))), 5000))
         shot("settings-${size.name}")
         node("settings_back").click()
     }
@@ -48,6 +50,7 @@ class ThumbnailSizeTest {
         launch()
         node("home_settings").click()
         assertEquals(ThumbnailSize.LARGE, AppSettings.thumbnailSize(context))
+        assertTrue(device.wait(Until.hasObject(By.res("thumbnail_size_LARGE").hasDescendant(By.checked(true))), 5000))
         shot("large-after-process-restart")
         AppSettings.setThumbnailSize(context, ThumbnailSize.SMALL)
     }

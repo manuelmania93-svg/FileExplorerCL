@@ -802,14 +802,14 @@ fun Breadcrumb(currentPath: String, rootPath: String, onNavigate: (String) -> Un
 fun FileListRow(
     item: FileItem,
     favorite: Boolean = false,
-    thumbnailDp: Int = 40,
     selected: Boolean,
     selecting: Boolean,
     directoryStats: FileIndex.DirectoryStats?,
     statsProvisional: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
-    trailing: (@Composable () -> Unit)? = null
+    trailing: (@Composable () -> Unit)? = null,
+    thumbnailDp: Int = 40
 ) {
     val background = if (selected) MaterialTheme.colorScheme.secondaryContainer
     else Color.Transparent

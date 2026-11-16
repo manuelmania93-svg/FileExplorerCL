@@ -30,6 +30,20 @@ class AppUpdateTest {
     }
 
     @Test
+    fun `notes preserve multiline bullets and punctuation`() {
+        val notes = "- Thumbnail sizes\n- Keeps apostrophes, \"quotes\" and `code`."
+        assertEquals(notes, AppUpdate.parseManifest(JSONObject(validManifest).put("notes", notes).toString())?.notes)
+    }
+
+    @Test
+    fun `older manifests without notes remain valid`() {
+        val json = JSONObject(validManifest).apply { remove("notes") }
+        val info = AppUpdate.parseManifest(json.toString())
+        assertEquals(2042L, info?.versionCode)
+        assertNull(info?.notes)
+    }
+
+    @Test
     fun `manifest without apkUrl is rejected`() {
         val partial = JSONObject(validManifest)
         partial.remove("apkUrl")

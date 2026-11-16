@@ -6,6 +6,13 @@ ROOT="$(cd "$(dirname "$0")" && pwd)"
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 PASS=0; FAIL=0
+# Run a private copy so fixture notes never change the repository.
+mkdir -p "$WORK/release-notes"
+# Publisher resolves ../../release-notes relative to .github/scripts.
+mkdir -p "$WORK/.github/scripts"
+cp "$ROOT/publish-release.sh" "$WORK/.github/scripts/publish-release.sh"
+ROOT="$WORK/.github/scripts"
+printf '%s\n' '- Bigger previews' '- Keeps apostrophes, "quotes", $5 and `code` literal.' > "$WORK/release-notes/0.3.0.md"
 
 CERT_OK="5837c9c96e17ecd864a8664d1422c01361423cbd945950043f8fecdd03429173"
 CERT_BAD="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -37,6 +44,15 @@ run_case() { # $1=name  $2=fixture-setup-fn  $3=expected-exit  $4=expected-mutat
       EXPECTED_CERT_SHA256="$CERT_OK" \
       bash "$ROOT/publish-release.sh" app.apk > out.log 2>&1 )
   local got_exit=$?
+  if [ "$name" = happy ] && [ "$got_exit" = 0 ]; then
+    python3 - "$fix" "$WORK/release-notes/0.3.0.md" <<'PYNOTES' || got_exit=99
+import json,pathlib,sys
+p=pathlib.Path(sys.argv[1]);expected=pathlib.Path(sys.argv[2]).read_text().rstrip('\n')
+assert json.loads((p/'sfe-update.json').read_text())['notes']==expected
+assert (p/'release-notes.txt').read_text().rstrip('\n')==expected
+assert '--notes-file release-notes.txt' in (p/'mutations.log').read_text()
+PYNOTES
+  fi
   local got_mut=0
   [ -f "$fix/mutations.log" ] && got_mut=$(wc -l < "$fix/mutations.log")
   if [ "$got_exit" = "$want_exit" ] && [ "$got_mut" = "$want_mut" ]; then
@@ -105,6 +121,11 @@ p=sys.argv[1];d=json.load(open(p));d['check_runs'].append({'name':'build','statu
 PYCASE
 }
 run_case duplicate-successful-builds setup_duplicate_builds 0 4
+
+CASE_VN=9.9.9
+run_case missing-notes-aborts setup_happy 1 0
+printf '  \n' > "$WORK/release-notes/9.9.9.md"
+run_case blank-notes-aborts setup_happy 1 0
 
 echo "== $PASS passed, $FAIL failed =="
 [ "$FAIL" = "0" ]

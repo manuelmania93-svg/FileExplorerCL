@@ -4,6 +4,7 @@
          blocks at targetSdk 35. The exception names 127.0.0.1 only; the release
          manifest has no networkSecurityConfig and keeps cleartext denied. -->
     <application android:networkSecurityConfig="@xml/sfe_debug_network_security">
+        <activity android:name=".UpdateNotesVisualActivity" android:exported="false" />
         <activity
             android:name=".FolderStatsVisualActivity"
             android:exported="false" />

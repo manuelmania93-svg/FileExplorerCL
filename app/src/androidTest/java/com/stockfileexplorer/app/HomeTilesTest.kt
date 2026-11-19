@@ -42,26 +42,44 @@ class HomeTilesTest {
         var layoutOk = false
         for (attempt in 1..10) {
             device.waitForIdle()
+            val storage = node("home_storage_tile").visibleBounds
+            val downloads = node("home_downloads_tile").visibleBounds
             val settings = node("home_settings_tile").visibleBounds
             val recent = node("home_recent_tile").visibleBounds
             val papierkorb = node("home_papierkorb_tile").visibleBounds
             val sameRow = kotlin.math.abs(settings.top - papierkorb.top) <= 2
             val leftRight = settings.right <= papierkorb.left
-            val swapped = recent.bottom <= settings.top
+            val swapped = kotlin.math.abs(recent.top - storage.top) <= 2 &&
+                storage.right <= recent.left && recent.bottom <= downloads.top &&
+                kotlin.math.abs(recent.left - downloads.left) <= 2 &&
+                downloads.bottom <= papierkorb.top
             layoutDetail = "attempt " + attempt + ": settings.top=" + settings.top +
                 " papierkorb.top=" + papierkorb.top + " settings.right=" + settings.right +
-                " papierkorb.left=" + papierkorb.left + " recent.bottom=" + recent.bottom
+                " papierkorb.left=" + papierkorb.left + " recent=" + recent +
+                " downloads=" + downloads + " storage=" + storage
             if (sameRow && leftRight && swapped) { layoutOk = true; break }
             Thread.sleep(400)
         }
-        assertTrue("Settings|Papierkorb same row, Recent above: " + layoutDetail, layoutOk)
+        assertTrue("Recent top-right, Downloads middle-right, Settings|Papierkorb unchanged: " + layoutDetail, layoutOk)
         assertFalse("Hidden tile removed from Home", device.hasObject(By.res("home_hidden_tile")))
         assertFalse("Folders tile removed from Home", device.hasObject(By.res("home_folders_tile")))
         node("home_settings_tile").click()
         node("settings_back")
         shot("settings")
         device.pressBack()
+        val downloadFixture = File(android.os.Environment.getExternalStoragePublicDirectory(
+            android.os.Environment.DIRECTORY_DOWNLOADS), "cl-swap-download-check.txt")
+        try {
+            downloadFixture.writeText("Download navigation fixture")
+            node("home_downloads_tile").click()
+            assertNotNull("Downloads still opens the Download folder", device.wait(
+                Until.findObject(By.text(downloadFixture.name)), 15000))
+            assertFalse("Download opens a screen, not the dashboard", device.hasObject(By.res("home_recent_tile")))
+            shot("downloads-after-swap")
+            device.pressBack()
+        } finally { downloadFixture.delete() }
         node("home_recent_tile").click()
+        assertFalse("Recent opens its screen, not the dashboard", device.hasObject(By.res("home_downloads_tile")))
         assertNotNull(device.wait(Until.findObject(By.text(context.getString(R.string.cat_recent))), 15000))
         shot("recent")
         device.pressBack()

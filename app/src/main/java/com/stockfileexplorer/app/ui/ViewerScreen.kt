@@ -25,6 +25,7 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -348,16 +349,20 @@ private fun CropImage(bitmap: Bitmap, rotation: Float, modifier: Modifier, onSav
                 .size(toDx(rw), toDx(rh))
                 .border(2.dp, Color.White)
                 .pointerInput(shown) {
-                    androidx.compose.foundation.gestures.detectDragGestures { change, drag ->
-                        change.consume()
-                        val dx = drag.x / imgW
-                        val dy = drag.y / imgH
-                        val w = right - left
-                        val h = bottom - top
-                        left = (left + dx).coerceIn(0f, 1f - w)
-                        top = (top + dy).coerceIn(0f, 1f - h)
-                        right = left + w
-                        bottom = top + h
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false)
+                        do {
+                            val change = awaitPointerEvent().changes.first()
+                            val dx = change.positionChange().x / imgW
+                            val dy = change.positionChange().y / imgH
+                            val w = right - left
+                            val h = bottom - top
+                            left = (left + dx).coerceIn(0f, 1f - w)
+                            top = (top + dy).coerceIn(0f, 1f - h)
+                            right = left + w
+                            bottom = top + h
+                            change.consume()
+                        } while (change.pressed)
                     }
                 })
             val handles = listOf(
@@ -371,9 +376,13 @@ private fun CropImage(bitmap: Bitmap, rotation: Float, modifier: Modifier, onSav
                     .offset { androidx.compose.ui.unit.IntOffset((hx() - 20).toInt(), (hy() - 20).toInt()) }
                     .size(40.dp)
                     .pointerInput(shown) {
-                        androidx.compose.foundation.gestures.detectDragGestures { change, drag ->
-                            change.consume()
-                            dragFn(drag.x / imgW, drag.y / imgH)
+                        awaitEachGesture {
+                            awaitFirstDown(requireUnconsumed = false)
+                            do {
+                                val change = awaitPointerEvent().changes.first()
+                                dragFn(change.positionChange().x / imgW, change.positionChange().y / imgH)
+                                change.consume()
+                            } while (change.pressed)
                         }
                     }
                     .background(Color.White, RoundedCornerShape(50)))

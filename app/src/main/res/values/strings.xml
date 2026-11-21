@@ -61,6 +61,10 @@
     <string name="viewer_image_error">Unsupported or damaged image. JPEG, PNG, WebP and other Android-decodable images are supported. Animated images show a still frame.</string>
     <string name="viewer_rotate">Rotate</string>
     <string name="viewer_pinch">Pinch to zoom</string>
+    <string name="viewer_crop">Crop</string>
+    <string name="viewer_crop_save">Save</string>
+    <string name="viewer_crop_saved">Saved as %1$s</string>
+    <string name="viewer_crop_failed">Crop failed</string>
     <string name="viewer_picture">Picture preview</string>
     <string name="viewer_pdf_error">This PDF is damaged, unsupported or password-protected. Password-protected PDFs are not supported in this build.</string>
     <string name="viewer_previous">Previous</string>

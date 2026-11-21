@@ -171,6 +171,39 @@ class BuiltInViewersTest {
         clickStable("Images")
         open("sample-picture.jpg");waitText("Rotate");screenshot("library-picture-route");device.pressBack()
     }
+    @Test fun cropAndRenameFromViewerMenu() {
+        fixtures();mainAndDownload()
+        open("sample-picture.jpg");waitText("Rotate");assertTrue(device.wait(Until.hasObject(By.desc("Picture preview")),15000))
+
+        // Crop from the viewer's own Mehr menu; the default frame saves without dragging.
+        device.findObject(By.text("More")).click();waitText("Crop")
+        device.findObject(By.text("Crop")).click()
+        waitText("Save");waitText("Cancel")
+        assertTrue("zoom hint still shown", device.findObjects(By.textContains("Pinch to zoom")).isEmpty())
+        screenshot("picture-crop-frame")
+        device.findObject(By.text("Save")).click()
+        waitText("Rotate")
+        val cropped = File(root,"sample-picture-zugeschnitten.jpg")
+        assertTrue("crop did not write a new file", cropped.exists())
+        assertTrue("cropped file is empty", cropped.length() > 0)
+        assertTrue("original was modified", File(root,"sample-picture.jpg").exists())
+        screenshot("picture-crop-saved")
+
+        // Rename from the same Mehr menu.
+        device.findObject(By.text("More")).click();waitText("Rename")
+        device.findObject(By.text("Rename")).click()
+        val input = device.wait(Until.findObject(By.clazz("android.widget.EditText")), 5000)
+        assertNotNull(input)
+        assertEquals("sample-picture.jpg", input.text)
+        input.text = "renamed-picture.jpg"
+        device.wait(Until.hasObject(By.text("Rename")), 5000)
+        val button = device.findObjects(By.text("Rename")).maxBy { it.visibleBounds.centerY() }
+        device.click(button.visibleBounds.centerX(), button.visibleBounds.centerY())
+        waitText("renamed-picture.jpg")
+        assertFalse("old name still present", File(root,"sample-picture.jpg").exists())
+        assertTrue(File(root,"renamed-picture.jpg").exists())
+        screenshot("picture-renamed")
+    }
     @Test fun wholeFilenameIncludingExtensionRename() {
         fixtures();mainAndDownload()
         openInList("rename-me.mp4").longClick()

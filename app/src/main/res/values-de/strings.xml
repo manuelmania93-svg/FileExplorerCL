@@ -61,6 +61,10 @@
     <string name="viewer_image_error">Bildformat nicht unterstützt oder Datei beschädigt. JPEG, PNG, WebP und andere von Android lesbare Bilder werden unterstützt. Animierte Bilder werden als Standbild angezeigt.</string>
     <string name="viewer_rotate">Drehen</string>
     <string name="viewer_pinch">Mit zwei Fingern zoomen</string>
+    <string name="viewer_crop">Zuschneiden</string>
+    <string name="viewer_crop_save">Speichern</string>
+    <string name="viewer_crop_saved">Gespeichert als %1$s</string>
+    <string name="viewer_crop_failed">Zuschneiden fehlgeschlagen</string>
     <string name="viewer_picture">Bildvorschau</string>
     <string name="viewer_pdf_error">Diese PDF ist beschädigt, nicht unterstützt oder passwortgeschützt. Passwortgeschützte PDFs werden in dieser Version nicht unterstützt.</string>
     <string name="viewer_previous">Zurück</string>

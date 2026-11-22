@@ -340,6 +340,9 @@ class StoragePyramidUsageAccessTest {
                 "estimated scope-card note missing",
                 device.wait(Until.hasObject(By.textContains("kann zu niedrig sein")), 30_000),
             )
+            // The detailed pyramid note lives in the pyramid's Details view now.
+            device.findObject(androidx.test.uiautomator.By.res("analysis_pyramid_toggle")).click()
+            device.waitForIdle()
             assertTrue(
                 "estimated pyramid note missing",
                 device.wait(Until.hasObject(By.textContains("Die Ebene der installierten Apps ist geschätzt")), 30_000),

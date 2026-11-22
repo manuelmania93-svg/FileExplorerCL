@@ -115,6 +115,9 @@ class StoragePyramidColorTest {
             // 120s for the off-screen residual row and timed out). Scroll progressively
             // downward in legend order: free space first, then the category rows.
             assertTrue("free-space legend row missing", scrollToText(device, "Freier Speicher"))
+            // Category rows live in the pyramid's Details view now.
+            device.findObject(androidx.test.uiautomator.By.res("analysis_pyramid_toggle")).click()
+            device.waitForIdle()
             assertTrue("Sonstige legend row missing", scrollToText(device, "Sonstige"))
             Thread.sleep(2_000)
             device.takeScreenshot(File("/sdcard/Download/sfe-pyramid-colors.png"))

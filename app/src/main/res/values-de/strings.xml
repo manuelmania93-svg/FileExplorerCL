@@ -151,7 +151,11 @@
     <string name="installed_apps_permission_hint">Um installierte Apps inklusive ihrer Daten in der Pyramide anzuzeigen, braucht File Explorer den speziellen „App-Nutzungszugriff“. Er wird nur zum Auslesen der Speichergrößen pro App verwendet.</string>
     <string name="installed_apps_permission_grant">Nutzungszugriff erlauben</string>
     <string name="storage_pyramid_note_installed">Die Ebenenflächen zeigen Anteile am Gesamtspeicher. Die leere Spitze ist Speicher, den die App nicht zuordnen kann, etwa Systemdaten.</string>
-    <string name="free_space_label">Freier Speicher</string>
+    <string name="free_space_label">Freier Speicher</string>\n    <string name="analysis_files_indexed">Indexierte Dateien</string>
+    <string name="analysis_pyramid_show_details">Details</string>
+    <string name="analysis_pyramid_show_simple">Einfache Ansicht</string>
+    <string name="analysis_pyramid_note_simple">Anteile am Gesamtspeicher. Tippe auf Details für die Kategorien.</string>
+    <string name="analysis_pyramid_note_simple_estimated">Anteile am Gesamtspeicher. Installierte Apps sind geschätzt. Tippe auf Details für die Kategorien.</string>
     <string name="categories">Kategorien</string>
     <string name="largest_folders">Größte Ordner</string>
     <string name="analysis_folder_value">%1$s • %2$d Dateien</string>

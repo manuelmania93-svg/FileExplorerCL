@@ -156,6 +156,10 @@ class BackNavigationTest {
         grantAndFixtures()
         start { putExtra("storage_analysis", true) }
         waitText(label("Storage analysis", "Speicheranalyse"))
+        waitText(label("Storage pyramid", "Speicher-Pyramide"))
+        // The category rows now live in the pyramid's Details view.
+        device.wait(Until.findObject(By.res("analysis_pyramid_toggle")), 30000)!!.click()
+        device.waitForIdle()
 
         // Wait for the report list, then scroll with CONTROLLED drags: UiScrollable
         // swipes fling this short list straight to its top/bottom (evidence: both
@@ -214,7 +218,7 @@ class BackNavigationTest {
         waitText(label("Storage analysis", "Speicheranalyse"))
         assertTrue(
             "analysis report sections kept",
-            UiScrollable(UiSelector().scrollable(true)).scrollTextIntoView(label("Categories", "Kategorien"))
+            UiScrollable(UiSelector().scrollable(true)).scrollTextIntoView(label("Largest folders", "Größte Ordner"))
         )
         assertForeground()
 

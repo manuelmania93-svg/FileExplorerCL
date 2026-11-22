@@ -157,6 +157,9 @@ class StoragePyramidUsageAccessTest {
                 "updated scope card missing",
                 device.wait(Until.hasObject(By.textContains("Installierte Apps werden inklusive ihrer Daten gemessen")), 30_000),
             )
+            // The detailed notes live in the pyramid's Details view now.
+            device.findObject(androidx.test.uiautomator.By.res("analysis_pyramid_toggle")).click()
+            device.waitForIdle()
             // The granted state also switches the pyramid note. The
             // Only the installed-apps note mentions "etwa Systemdaten", so it
             // discriminates the granted state from the indexed-only note.

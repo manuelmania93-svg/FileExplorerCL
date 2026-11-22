@@ -118,9 +118,16 @@ class StorageAnalysisInstrumentedTest {
         revealText(label("Free space", "Freier Speicher"))
         revealText(label("Hidden folders", "Versteckte Ordner"))
         screenshot("sfe-storage-analysis-pyramid-${if (german) "de" else "en"}")
+        // The pyramid defaults to the simple view; the per-category breakdown
+        // (now the single category list) opens via its Details action.
+        device.wait(androidx.test.uiautomator.Until.findObject(
+            androidx.test.uiautomator.By.res("analysis_pyramid_toggle")), 30000)!!.click()
+        device.waitForIdle()
+        assertTrue("details view opens", device.wait(androidx.test.uiautomator.Until.gone(
+            androidx.test.uiautomator.By.textContains(if (german) "Tippe auf Details" else "Tap Details")), 10000))
+        screenshot("sfe-storage-analysis-pyramid-detailed-${if (german) "de" else "en"}")
         // Bounded search, not a blind fixed swipe: a single swipeUp flings this
-        // short list past the Categories header (run 41956160052).
-        revealText(label("Categories", "Kategorien"))
+        // short list past the section headers (run 41956160052).
         revealText(label("Largest folders", "Größte Ordner"))
         screenshot("sfe-storage-analysis-scrolled-${if (german) "de" else "en"}")
         revealText("Download")

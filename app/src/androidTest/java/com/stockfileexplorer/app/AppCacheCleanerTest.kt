@@ -96,7 +96,10 @@ class AppCacheCleanerTest {
     // Android/data of another package is not writable from the app uid (scoped storage), so
     // fixtures are created and verified through the shell identity, like a real other app's files.
     private fun sh(cmd: String): String {
-        val fd = InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(cmd)
+        // UiAutomation executes an argv command, not a shell program. Explicitly
+        // invoke sh so mkdir/pipe/redirection and && run as intended.
+        val shellCommand = "sh -c '" + cmd.replace("'", "'\\''") + "'"
+        val fd = InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(shellCommand)
         return android.os.ParcelFileDescriptor.AutoCloseInputStream(fd).use { it.readBytes().toString(Charsets.UTF_8) }.trim()
     }
 

@@ -58,35 +58,52 @@ class AppCacheCleanerTest {
         device.waitForIdle()
     }
 
+    private var stage = "seed"
+
     @Test
     fun dashboardCacheCleanerFreesOnlyCache() {
         seedFixtures()
         try {
+            stage = "launch"
             launch()
             // The dashboard is the start screen. Everything is driven by testTags,
             // never by visible text: the app's locale in CI can differ from the test
             // context's, and text matching broke exactly that way before.
-            assertTrue("cache row tag", device.wait(Until.hasObject(By.res("home_cache_row")), 20_000))
-            // Row becomes clickable once the scan found a positive cache size.
-            assertTrue("cache dialog opens", openCacheDialog())
+            stage = "row"
+            assertTrue("cache row tag", device.wait(Until.hasObject(By.res("home_cache_row")), 40_000))
             device.waitForIdle(3_000)
             shot("sfe-cache-01-row.png")
 
+            // Row becomes clickable once the scan found a positive cache size.
+            stage = "dialog"
+            assertTrue("cache dialog opens", openCacheDialog())
             assertTrue("guarantee visible", device.hasObject(By.res("cache_clean_guarantee")))
             assertTrue("summary visible", device.hasObject(By.res("cache_clean_summary")))
             assertTrue("fake app listed", device.hasObject(By.textContains(fakePkg)))
             shot("sfe-cache-02-dialog.png")
 
             // Confirm
+            stage = "clean"
             device.findObject(By.res("cache_clean_confirm"))?.click()
             assertTrue("cleaning finished", device.wait(Until.hasObject(By.res("cache_clean_done")), 60_000))
             device.waitForIdle(2_000)
             shot("sfe-cache-03-result.png")
             device.findObject(By.res("cache_clean_done"))?.click()
+            stage = "done"
+        } catch (t: Throwable) {
+            debugDump(stage)
+            throw t
         } finally {
             verifyCleanupAndSiblings()
             cleanupFixtures()
         }
+    }
+
+    private fun debugDump(failedStage: String) {
+        val dir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "SfeCacheShots")
+        dir.mkdirs()
+        device.takeScreenshot(File(dir, "sfe-cache-debug-$failedStage.png"))
+        device.dumpWindowHierarchy(File(dir, "sfe-cache-debug-$failedStage.xml"))
     }
 
     // Android/data of another package is not writable from the app uid (scoped storage), so

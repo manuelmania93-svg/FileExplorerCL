@@ -93,39 +93,42 @@ class AppCacheCleanerTest {
         }
     }
 
+    // Android/data of another package is not writable from the app uid (scoped storage), so
+    // fixtures are created and verified through the shell identity, like a real other app's files.
+    private fun sh(cmd: String): String {
+        val fd = InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(cmd)
+        return android.os.ParcelFileDescriptor.AutoCloseInputStream(fd).use { it.readBytes().toString(Charsets.UTF_8) }.trim()
+    }
+
+    private val keeperHashes = mutableMapOf<String, String>()
+
     private fun seedFixtures() {
-        fun seed(file: File, size: Int, fill: Byte, keep: Boolean) {
-            file.parentFile?.mkdirs()
-            val bytes = ByteArray(size) { fill }
-            file.writeBytes(bytes)
-            if (keep) keepers += Keeper(file, bytes)
+        fun seed(file: File, size: Int, octalFill: String, keep: Boolean) {
+            sh("mkdir -p '${file.parentFile!!.path}' && head -c $size /dev/zero | tr '\\000' '\\$octalFill' > '${file.path}'")
+            if (keep) keeperHashes[file.path] = sh("md5sum '${file.path}'").substringBefore(' ')
         }
-        seed(File(dataApp, "cache/blob.bin"), 4 * 1024 * 1024, 1, keep = false)
-        seed(File(dataApp, ".cache/small.bin"), 1024 * 1024, 2, keep = false)
-        seed(File(dataApp, "files/keep.db"), 700_000, 9, keep = true)
-        seed(File(dataApp, "shared_prefs/prefs.xml"), 1_024, 65, keep = true)
-        seed(File(dataApp, "databases/app.db"), 2 * 1024 * 1024, 7, keep = true)
-        seed(File(mediaApp, "cache/mc.bin"), 2 * 1024 * 1024, 4, keep = false)
-        seed(File(mediaApp, "keep/media.dat"), 100_000, 5, keep = true)
+        seed(File(dataApp, "cache/blob.bin"), 4 * 1024 * 1024, "001", keep = false)
+        seed(File(dataApp, ".cache/small.bin"), 1024 * 1024, "002", keep = false)
+        seed(File(dataApp, "files/keep.db"), 700_000, "011", keep = true)
+        seed(File(dataApp, "shared_prefs/prefs.xml"), 1_024, "101", keep = true)
+        seed(File(dataApp, "databases/app.db"), 2 * 1024 * 1024, "007", keep = true)
+        seed(File(mediaApp, "cache/mc.bin"), 2 * 1024 * 1024, "004", keep = false)
+        seed(File(mediaApp, "keep/media.dat"), 100_000, "005", keep = true)
+        keeperHashes.forEach { (path, hash) -> assertTrue("seed failed for $path", hash.length == 32) }
     }
 
     private fun verifyCleanupAndSiblings() {
-        assertFalse("data cache removed", File(dataApp, "cache").exists())
-        assertFalse("data .cache removed", File(dataApp, ".cache").exists())
-        assertFalse("media cache removed", File(mediaApp, "cache").exists())
-        keepers.forEach { keeper ->
-            assertTrue("${keeper.file} must survive", keeper.file.exists())
-            assertTrue(
-                "${keeper.file} must be byte-identical",
-                keeper.file.readBytes().contentEquals(keeper.bytes)
-            )
+        assertFalse("data cache removed", sh("test -e '${dataApp.path}/cache' && echo yes").contains("yes"))
+        assertFalse("data .cache removed", sh("test -e '${dataApp.path}/.cache' && echo yes").contains("yes"))
+        assertFalse("media cache removed", sh("test -e '${mediaApp.path}/cache' && echo yes").contains("yes"))
+        keeperHashes.forEach { (path, hash) ->
+            assertTrue("$path must survive and be byte-identical", sh("md5sum '$path'").substringBefore(' ') == hash)
         }
     }
 
     private fun cleanupFixtures() {
-        dataApp.deleteRecursively()
-        mediaApp.deleteRecursively()
-        keepers.clear()
+        sh("rm -rf '${dataApp.path}' '${mediaApp.path}'")
+        keeperHashes.clear()
     }
 
     private fun clickRowText(needle: String): Boolean {

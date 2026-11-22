@@ -63,30 +63,26 @@ class AppCacheCleanerTest {
         seedFixtures()
         try {
             launch()
-            // The dashboard is the start screen; wait for the cache row, then for
-            // the scan to finish with a positive size ("App-Cache: X - Bereinigen").
+            // The dashboard is the start screen. Everything is driven by testTags,
+            // never by visible text: the app's locale in CI can differ from the test
+            // context's, and text matching broke exactly that way before.
             assertTrue("cache row tag", device.wait(Until.hasObject(By.res("home_cache_row")), 20_000))
-            // Wait until the scan finished with a positive size ("App-Cache: X • Bereinigen")
-            device.wait(Until.hasObject(By.textContains("Bereinigen")), 60_000)
+            // Row becomes clickable once the scan found a positive cache size.
+            assertTrue("cache dialog opens", openCacheDialog())
             device.waitForIdle(3_000)
             shot("sfe-cache-01-row.png")
 
-            // Open the confirmation dialog
-            assertTrue(clickRowText("Bereinigen"))
-            device.wait(Until.hasObject(By.textContains(context.getString(R.string.cache_clean_dialog_title))), 10_000)
-            assertTrue(
-                "guarantee visible",
-                device.hasObject(By.textContains("bleiben unberührt"))
-            )
-            assertTrue("summary visible", device.hasObject(By.textContains("Cache von")))
+            assertTrue("guarantee visible", device.hasObject(By.res("cache_clean_guarantee")))
+            assertTrue("summary visible", device.hasObject(By.res("cache_clean_summary")))
             assertTrue("fake app listed", device.hasObject(By.textContains(fakePkg)))
             shot("sfe-cache-02-dialog.png")
 
             // Confirm
-            device.findObject(By.text(context.getString(R.string.cache_clean_confirm)))?.click()
-            device.wait(Until.hasObject(By.textContains("freigegeben")), 60_000)
+            device.findObject(By.res("cache_clean_confirm"))?.click()
+            assertTrue("cleaning finished", device.wait(Until.hasObject(By.res("cache_clean_done")), 60_000))
+            device.waitForIdle(2_000)
             shot("sfe-cache-03-result.png")
-            device.findObject(By.text(context.getString(R.string.cache_clean_done)))?.click()
+            device.findObject(By.res("cache_clean_done"))?.click()
         } finally {
             verifyCleanupAndSiblings()
             cleanupFixtures()
@@ -146,6 +142,10 @@ class AppCacheCleanerTest {
         seed(File(mediaApp, "cache/mc.bin"), 2048, keep = false)
         seed(File(mediaApp, "keep/media.dat"), 100, keep = true)
         keeperHashes.forEach { (path, hash) -> assertTrue("seed failed for $path", hash.length == 32) }
+        // Shell-created files are shell-owned; make the fixture tree writable so
+        // deletion exercises the cleaner logic, not DAC ownership quirks.
+        if (dataRootReachable) sh("chmod -R 0777 ${dataApp.path}")
+        sh("chmod -R 0777 ${mediaApp.path}")
     }
 
     private fun existsViaShell(path: String) = sh("ls -d $path").contains(path)
@@ -169,15 +169,14 @@ class AppCacheCleanerTest {
         keeperHashes.clear()
     }
 
-    private fun clickRowText(needle: String): Boolean {
-        repeat(5) {
-            device.findObject(By.textContains(needle))?.let { obj ->
+    private fun openCacheDialog(): Boolean {
+        repeat(15) {
+            device.findObject(By.res("home_cache_row"))?.let { obj ->
                 obj.click()
-                if (device.wait(Until.hasObject(By.textContains(context.getString(R.string.cache_clean_dialog_title))), 3_000)) {
-                    return true
-                }
+                device.waitForIdle()
             }
-            Thread.sleep(500)
+            if (device.wait(Until.hasObject(By.res("cache_clean_confirm")), 4_000)) return true
+            Thread.sleep(2_000)
         }
         return false
     }

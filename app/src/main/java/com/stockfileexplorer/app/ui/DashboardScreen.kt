@@ -244,7 +244,8 @@ fun DashboardScreen(
                                 R.string.cache_clean_dialog_summary,
                                 FileLogic.formatSize(scanNow?.totalBytes ?: 0L),
                                 scanNow?.apps?.size ?: 0,
-                            )
+                            ),
+                            modifier = Modifier.testTag("cache_clean_summary")
                         )
                         scanNow?.apps?.take(3)?.forEach { app ->
                             Text(
@@ -259,6 +260,7 @@ fun DashboardScreen(
                         Text(
                             stringResource(R.string.cache_clean_dialog_guarantee),
                             style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.testTag("cache_clean_guarantee")
                         )
                         if (cacheCleaning) {
                             Spacer(Modifier.height(10.dp))

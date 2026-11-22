@@ -25,6 +25,7 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -82,6 +83,8 @@ fun ViewerScreen(initialFiles: List<File>, startIndex: Int, onBack: () -> Unit) 
     var showInfo by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var moreMenu by remember { mutableStateOf(false) }
+    var cropActive by remember { mutableStateOf(false) }
+    var renameTarget by remember { mutableStateOf<File?>(null) }
     val scope = rememberCoroutineScope()
     val current = files.getOrNull(pager.currentPage)
     // A file opened from another app is a temporary copy in our cache: viewing and sharing only, so no
@@ -106,6 +109,12 @@ fun ViewerScreen(initialFiles: List<File>, startIndex: Int, onBack: () -> Unit) 
             Box(Modifier.weight(1f)) {
                 ViewerAction(Icons.Filled.MoreVert, stringResource(R.string.viewer_more), Modifier.fillMaxWidth()) { moreMenu = true }
                 DropdownMenu(expanded = moreMenu, onDismissRequest = { moreMenu = false }) {
+                    if (!viewOnly && ViewerActivity.kind(current) == "image") DropdownMenuItem(
+                        text = { Text(stringResource(R.string.viewer_crop)) },
+                        onClick = { moreMenu = false; cropActive = true })
+                    if (!viewOnly) DropdownMenuItem(
+                        text = { Text(stringResource(R.string.rename)) },
+                        onClick = { moreMenu = false; renameTarget = current })
                     DropdownMenuItem(text = { Text(stringResource(R.string.open_with)) }, onClick = {
                         moreMenu = false
                         openFileWithChooser(context, current, context.getString(R.string.open_with), context.getString(R.string.no_app_to_open))
@@ -118,7 +127,10 @@ fun ViewerScreen(initialFiles: List<File>, startIndex: Int, onBack: () -> Unit) 
             val file = files.getOrNull(index)
             if (file != null) Column(Modifier.fillMaxSize()) {
                 when (ViewerActivity.kind(file)) {
-                    "image" -> PictureViewer(file, onZoomed = { if (index == pager.currentPage) zoomed = it })
+                    "image" -> PictureViewer(file,
+                        cropActive = cropActive && index == pager.currentPage,
+                        onCropActiveChange = { cropActive = it },
+                        onZoomed = { if (index == pager.currentPage) zoomed = it })
                     "pdf" -> PdfViewer(file)
                     // Only the settled page owns a player, so swiping never leaves two videos playing.
                     "video" -> if (index == pager.settledPage) VideoViewer(file)
@@ -128,7 +140,7 @@ fun ViewerScreen(initialFiles: List<File>, startIndex: Int, onBack: () -> Unit) 
             }
         }
     }
-    LaunchedEffect(pager.currentPage) { zoomed = false }
+    LaunchedEffect(pager.currentPage) { zoomed = false; cropActive = false }
     if (showInfo && current != null) PropertiesDialog(
         name = current.name, path = current.absolutePath, isDirectory = false,
         sizeBytes = current.length(), modified = current.lastModified(), favorite = false,
@@ -152,6 +164,30 @@ fun ViewerScreen(initialFiles: List<File>, startIndex: Int, onBack: () -> Unit) 
             }
         },
         onDismiss = { confirmDelete = false })
+    renameTarget?.let { target ->
+        TextInputDialog(
+            title = stringResource(R.string.rename),
+            initialValue = target.name,
+            helperText = stringResource(R.string.rename_whole_name),
+            validate = { com.stockfileexplorer.app.data.Rename.validName(it) },
+            confirmLabel = stringResource(R.string.rename),
+            onConfirm = { newName ->
+                renameTarget = null
+                scope.launch {
+                    val ok = withContext(Dispatchers.IO) { com.stockfileexplorer.app.data.Rename.move(target, newName) }
+                    if (ok) {
+                        val renamed = File(target.parentFile, newName)
+                        com.stockfileexplorer.app.data.FileIndex.renamed(target, renamed)
+                        com.stockfileexplorer.app.data.FileIndex.invalidate()
+                        val at = files.indexOf(target)
+                        if (at >= 0) files[at] = renamed
+                    } else {
+                        android.widget.Toast.makeText(context, R.string.rename_failed, android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }
+            },
+            onDismiss = { renameTarget = null })
+    }
 }
 
 @Composable
@@ -200,11 +236,13 @@ private fun ZoomImage(bitmap: Bitmap, description: String, rotation: Float = 0f,
 }
 
 @Composable
-private fun PictureViewer(file: File, onZoomed: (Boolean) -> Unit = {}) {
+private fun PictureViewer(file: File, cropActive: Boolean = false, onCropActiveChange: (Boolean) -> Unit = {}, onZoomed: (Boolean) -> Unit = {}) {
     var bitmap by remember(file.path) { mutableStateOf<Bitmap?>(null) }
     var error by remember(file.path) { mutableStateOf<String?>(null) }
     var rotation by remember { mutableFloatStateOf(0f) }
     val decodeError = stringResource(R.string.viewer_image_error)
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     LaunchedEffect(file.path) {
         try {
             bitmap = withContext(Dispatchers.IO) {
@@ -216,12 +254,145 @@ private fun PictureViewer(file: File, onZoomed: (Boolean) -> Unit = {}) {
             }
         } catch (e: Exception) { error = decodeError }
     }
-    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+    if (!cropActive) Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
         TextButton(colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface), onClick = { rotation = (rotation + 90) % 360 }) { Text(stringResource(R.string.viewer_rotate)) }
-        Text(stringResource(R.string.viewer_pinch), modifier = Modifier.padding(12.dp), style = MaterialTheme.typography.labelMedium)
     }
     if (error != null) ViewerError(error!!) else if (bitmap == null) CircularProgressIndicator(Modifier.padding(24.dp))
+    else if (cropActive) CropImage(bitmap!!, rotation, Modifier.fillMaxSize(),
+        onCancel = { onCropActiveChange(false) },
+        onSave = { fx, fy, fw, fh ->
+            scope.launch {
+                val saved = withContext(Dispatchers.IO) { saveCrop(file, rotation, fx, fy, fw, fh) }
+                onCropActiveChange(false)
+                if (saved != null) {
+                    com.stockfileexplorer.app.data.FileIndex.invalidate()
+                    android.widget.Toast.makeText(context, context.getString(R.string.viewer_crop_saved, saved.name), android.widget.Toast.LENGTH_LONG).show()
+                } else {
+                    android.widget.Toast.makeText(context, R.string.viewer_crop_failed, android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+        })
     else ZoomImage(bitmap!!, stringResource(R.string.viewer_picture), rotation, Modifier.fillMaxSize(), onZoomed)
+}
+
+/** Crops the source picture at full resolution (rotation applied) and writes a NEW file
+ *  next to the original; the original is never overwritten. Fractions are of the rotated image. */
+private fun saveCrop(file: File, rotation: Float, fx: Float, fy: Float, fw: Float, fh: Float): File? {
+    return try {
+        val src = ImageDecoder.decodeBitmap(ImageDecoder.createSource(file)) { decoder, _, _ ->
+            decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+        }
+        val normalized = ((rotation % 360f) + 360f) % 360f
+        val rotated = if (normalized != 0f) {
+            val m = android.graphics.Matrix().apply { postRotate(normalized) }
+            Bitmap.createBitmap(src, 0, 0, src.width, src.height, m, true)
+        } else src
+        val left = (fx * rotated.width).toInt().coerceIn(0, rotated.width - 2)
+        val top = (fy * rotated.height).toInt().coerceIn(0, rotated.height - 2)
+        val right = ((fx + fw) * rotated.width).toInt().coerceIn(left + 1, rotated.width)
+        val bottom = ((fy + fh) * rotated.height).toInt().coerceIn(top + 1, rotated.height)
+        val cropped = Bitmap.createBitmap(rotated, left, top, right - left, bottom - top)
+        val jpeg = file.extension.lowercase() == "jpg" || file.extension.lowercase() == "jpeg"
+        val ext = if (jpeg) "jpg" else "png"
+        val parent = file.parentFile ?: return null
+        var out = File(parent, "${file.nameWithoutExtension}-zugeschnitten.$ext")
+        var n = 2
+        while (out.exists()) { out = File(parent, "${file.nameWithoutExtension}-zugeschnitten-$n.$ext"); n++ }
+        java.io.FileOutputStream(out).use {
+            cropped.compress(if (jpeg) Bitmap.CompressFormat.JPEG else Bitmap.CompressFormat.PNG, 92, it)
+        }
+        out
+    } catch (_: Exception) { null }
+}
+
+@Composable
+private fun CropImage(bitmap: Bitmap, rotation: Float, modifier: Modifier, onSave: (Float, Float, Float, Float) -> Unit, onCancel: () -> Unit) {
+    // Crop the picture exactly as displayed: rotation is baked into a display copy first,
+    // so the frame maps one-to-one onto the saved pixels.
+    val shown = remember(bitmap, rotation) {
+        val normalized = ((rotation % 360f) + 360f) % 360f
+        if (normalized == 0f) bitmap else {
+            val m = android.graphics.Matrix().apply { postRotate(normalized) }
+            Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, m, true)
+        }
+    }
+    var left by remember(shown) { mutableFloatStateOf(0.1f) }
+    var top by remember(shown) { mutableFloatStateOf(0.1f) }
+    var right by remember(shown) { mutableFloatStateOf(0.9f) }
+    var bottom by remember(shown) { mutableFloatStateOf(0.9f) }
+    Column(modifier) {
+        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().clipToBounds().background(Color(0xFFF3F1EA))) {
+            val boxW = constraints.maxWidth.toFloat()
+            val boxH = constraints.maxHeight.toFloat()
+            val scale = min(boxW / shown.width, boxH / shown.height)
+            val imgW = shown.width * scale
+            val imgH = shown.height * scale
+            val offX = (boxW - imgW) / 2f
+            val offY = (boxH - imgH) / 2f
+            Image(shown.asImageBitmap(), stringResource(R.string.viewer_picture),
+                modifier = Modifier.fillMaxSize(),
+                contentScale = androidx.compose.ui.layout.ContentScale.Fit)
+            val density = androidx.compose.ui.platform.LocalDensity.current
+            fun toDx(v: Float) = with(density) { v.toDp() }
+            val rx = offX + left * imgW
+            val ry = offY + top * imgH
+            val rw = (right - left) * imgW
+            val rh = (bottom - top) * imgH
+            // Dimmed border outside the frame.
+            Box(Modifier.offset { androidx.compose.ui.unit.IntOffset(0, 0) }.size(toDx(boxW), toDx(ry)).background(Color(0x66000000)))
+            Box(Modifier.offset { androidx.compose.ui.unit.IntOffset(0, (ry + rh).toInt()) }.size(toDx(boxW), toDx((boxH - ry - rh).coerceAtLeast(0f))).background(Color(0x66000000)))
+            Box(Modifier.offset { androidx.compose.ui.unit.IntOffset(0, ry.toInt()) }.size(toDx(rx), toDx(rh)).background(Color(0x66000000)))
+            Box(Modifier.offset { androidx.compose.ui.unit.IntOffset((rx + rw).toInt(), ry.toInt()) }.size(toDx((boxW - rx - rw).coerceAtLeast(0f)), toDx(rh)).background(Color(0x66000000)))
+            // The frame: drag inside to move, drag a corner handle to resize.
+            Box(Modifier
+                .offset { androidx.compose.ui.unit.IntOffset(rx.toInt(), ry.toInt()) }
+                .size(toDx(rw), toDx(rh))
+                .border(2.dp, Color.White)
+                .pointerInput(shown) {
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false)
+                        do {
+                            val change = awaitPointerEvent().changes.first()
+                            val dx = change.positionChange().x / imgW
+                            val dy = change.positionChange().y / imgH
+                            val w = right - left
+                            val h = bottom - top
+                            left = (left + dx).coerceIn(0f, 1f - w)
+                            top = (top + dy).coerceIn(0f, 1f - h)
+                            right = left + w
+                            bottom = top + h
+                            change.consume()
+                        } while (change.pressed)
+                    }
+                })
+            val handles = listOf(
+                Triple({ dx: Float, dy: Float -> left = (left + dx).coerceIn(0f, right - 0.05f); top = (top + dy).coerceIn(0f, bottom - 0.05f) }, { rx }, { ry }),
+                Triple({ dx: Float, dy: Float -> right = (right + dx).coerceIn(left + 0.05f, 1f); top = (top + dy).coerceIn(0f, bottom - 0.05f) }, { rx + rw }, { ry }),
+                Triple({ dx: Float, dy: Float -> left = (left + dx).coerceIn(0f, right - 0.05f); bottom = (bottom + dy).coerceIn(top + 0.05f, 1f) }, { rx }, { ry + rh }),
+                Triple({ dx: Float, dy: Float -> right = (right + dx).coerceIn(left + 0.05f, 1f); bottom = (bottom + dy).coerceIn(top + 0.05f, 1f) }, { rx + rw }, { ry + rh })
+            )
+            handles.forEach { (dragFn, hx, hy) ->
+                Box(Modifier
+                    .offset { androidx.compose.ui.unit.IntOffset((hx() - 20).toInt(), (hy() - 20).toInt()) }
+                    .size(40.dp)
+                    .pointerInput(shown) {
+                        awaitEachGesture {
+                            awaitFirstDown(requireUnconsumed = false)
+                            do {
+                                val change = awaitPointerEvent().changes.first()
+                                dragFn(change.positionChange().x / imgW, change.positionChange().y / imgH)
+                                change.consume()
+                            } while (change.pressed)
+                        }
+                    }
+                    .background(Color.White, RoundedCornerShape(50)))
+            }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+            TextButton(colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface), onClick = onCancel) { Text(stringResource(R.string.cancel)) }
+            TextButton(colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface), onClick = { onSave(left, top, right - left, bottom - top) }) { Text(stringResource(R.string.viewer_crop_save)) }
+        }
+    }
 }
 
 @Composable

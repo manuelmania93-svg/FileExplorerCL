@@ -106,9 +106,16 @@ class StoragePyramidColorTest {
                 "usage-access hint missing",
                 device.wait(Until.hasObject(By.textContains("Nutzungszugriff erlauben")), 30_000),
             )
-            // Chart evidence while the pyramid itself is on screen.
+            // Chart evidence while the simple top-5 pyramid and its overlapping
+            // expand button are on screen.
             Thread.sleep(2_000)
             device.takeScreenshot(File("/sdcard/Download/sfe-pyramid-chart.png"))
+
+            // Expand to the full breakdown via the chart's arrow button BEFORE
+            // scrolling: the button sits on the chart, which leaves the
+            // viewport once the legend is scrolled to.
+            device.findObject(androidx.test.uiautomator.By.res("analysis_pyramid_toggle")).click()
+            device.waitForIdle()
 
             // The screen is a LazyColumn: legend rows below the fold are not in the
             // accessibility tree until scrolled into view (the previous version waited

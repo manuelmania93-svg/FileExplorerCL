@@ -152,6 +152,10 @@
     <string name="installed_apps_permission_grant">Grant usage access</string>
     <string name="storage_pyramid_note_installed">Layer areas are shares of total device storage. The empty tip is storage the app cannot attribute, such as system data.</string>
     <string name="free_space_label">Free space</string>
+    <string name="analysis_pyramid_expand">Show all categories</string>
+    <string name="analysis_pyramid_collapse">Show the top categories</string>
+    <string name="analysis_pyramid_note_simple">The 5 largest categories on this device. Tap the arrow on the chart for the full breakdown.</string>
+    <string name="analysis_pyramid_note_simple_estimated">Installed apps are estimated. The 5 largest categories on this device; tap the arrow on the chart for the full breakdown.</string>
     <string name="categories">Categories</string>
     <string name="largest_folders">Largest folders</string>
     <string name="analysis_folder_value">%1$s • %2$d files</string>

@@ -157,6 +157,14 @@ class StoragePyramidUsageAccessTest {
                 "updated scope card missing",
                 device.wait(Until.hasObject(By.textContains("Installierte Apps werden inklusive ihrer Daten gemessen")), 30_000),
             )
+            // Simple-view evidence: in the granted state no permission card sits
+            // above the pyramid, so the whole top-5 chart with the overlaid
+            // expand button is visible.
+            Thread.sleep(2_000)
+            device.takeScreenshot(File("/sdcard/Download/sfe-pyramid-granted-simple-chart.png"))
+            // The detailed notes live in the pyramid's expanded view now.
+            device.findObject(androidx.test.uiautomator.By.res("analysis_pyramid_toggle")).click()
+            device.waitForIdle()
             // The granted state also switches the pyramid note. The
             // Only the installed-apps note mentions "etwa Systemdaten", so it
             // discriminates the granted state from the indexed-only note.
@@ -337,6 +345,9 @@ class StoragePyramidUsageAccessTest {
                 "estimated scope-card note missing",
                 device.wait(Until.hasObject(By.textContains("kann zu niedrig sein")), 30_000),
             )
+            // The detailed pyramid note lives in the pyramid's Details view now.
+            device.findObject(androidx.test.uiautomator.By.res("analysis_pyramid_toggle")).click()
+            device.waitForIdle()
             assertTrue(
                 "estimated pyramid note missing",
                 device.wait(Until.hasObject(By.textContains("Die Ebene der installierten Apps ist geschätzt")), 30_000),

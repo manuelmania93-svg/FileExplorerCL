@@ -20,9 +20,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -137,6 +140,16 @@ fun StorageAnalysisScreen(
                                 ),
                                 style = MaterialTheme.typography.titleMedium,
                             )
+                            Spacer(Modifier.height(8.dp))
+                            LinearProgressIndicator(
+                                progress = {
+                                    if (value.totalBytes > 0) {
+                                        ((value.totalBytes - value.freeBytes).coerceAtLeast(0L)).toFloat() / value.totalBytes.toFloat()
+                                    } else 0f
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            Spacer(Modifier.height(6.dp))
                             Text(
                                 stringResource(R.string.free_space, FileLogic.formatSize(value.freeBytes)),
                                 style = MaterialTheme.typography.bodySmall,
@@ -256,24 +269,7 @@ fun StorageAnalysisScreen(
                     }
                 }
 
-                item { StoragePyramid(value) }
-
-                item { SectionTitle(stringResource(R.string.categories)) }
-                items(value.categories.entries.sortedByDescending { it.value }) { entry ->
-                    AnalysisLine(categoryLabel(entry.key), FileLogic.formatSize(entry.value),
-                        onClick = if (entry.key == FileCategory.OTHER) null else ({ onOpenCategory(entry.key) }),
-                        tag = "analysis_category:" + entry.key.name)
-                }
-
-                item { SectionTitle(stringResource(R.string.largest_folders)) }
-                items(value.topFolders) { folder ->
-                    AnalysisLine(
-                        folder.name,
-                        stringResource(R.string.analysis_folder_value, FileLogic.formatSize(folder.sizeBytes), folder.fileCount),
-                        subtitle = folder.path,
-                        onClick = { onOpenFolder(folder.path) },
-                    )
-                }
+                item { StoragePyramid(value, onOpenCategory, onOpenFolder) }
 
                 item { SectionTitle(stringResource(R.string.large_files)) }
                 items(value.largeFiles.take(10)) { file -> FileAnalysisLine(file, onOpen = openFileAction, onOpenFolder = onOpenFolder) }
@@ -374,8 +370,14 @@ private data class PyramidSlice(
 )
 
 @Composable
-private fun StoragePyramid(report: StorageAnalyzer.Report) {
+private fun StoragePyramid(report: StorageAnalyzer.Report, onOpenCategory: (FileCategory) -> Unit, onOpenFolder: (String) -> Unit) {
     val totalBytes = report.totalBytes
+    // Simple view (default): the 5 largest categories on this device, computed
+    // per device from what is actually on the phone (videos, pictures, music,
+    // installed apps, ...), plus the free-space layer. An arrow button overlaid
+    // on the chart enlarges the pyramid into the full breakdown, whose legend
+    // lines double as the (single) category list.
+    var detailed by remember { mutableStateOf(false) }
     val categorySlices = report.categories.entries
         .filter { it.value > 0 }
         .map { (category, bytes) -> PyramidSlice(categoryLabel(category), bytes, categoryColor(category)) }
@@ -390,22 +392,26 @@ private fun StoragePyramid(report: StorageAnalyzer.Report) {
             it, Color(0xFFC62828),
         )
     }
-    // Free space is the actual StatFs reading, drawn as a quiet light-grey layer;
-    // it replaces the former grey "other used" residual, which was a derived
-    // remainder that pretended the used total was fully accounted for.
+    // Free space is the actual StatFs reading, drawn as a quiet light-grey layer.
     val freeSlice = if (report.freeBytes > 0) {
         PyramidSlice(stringResource(R.string.free_space_label), report.freeBytes, Color(0xFFBDBDBD))
     } else {
         null
     }
-    // Dark blue-grey for hidden dirs: distinct from the residual grey, the apps red and
-    // every category color.
     val hiddenSlice = if (report.hiddenDirBytes > 0) {
         PyramidSlice(stringResource(R.string.cat_hidden_dirs), report.hiddenDirBytes, Color(0xFF455A64))
     } else {
         null
     }
-    val slices = (categorySlices + listOfNotNull(freeSlice, installedAppsSlice, hiddenSlice)).sortedBy { it.bytes }
+    // Everything that takes up space, largest first; the simple view keeps the
+    // top five of these, the detailed view keeps them all. Free space is not a
+    // category, so it joins as its own layer afterwards in both views.
+    val contentSlices = (categorySlices + listOfNotNull(installedAppsSlice, hiddenSlice))
+        .sortedByDescending { it.bytes }
+    val simpleContentSlices = contentSlices.take(5)
+    val slices = (
+        (if (detailed) contentSlices else simpleContentSlices) + listOfNotNull(freeSlice)
+    ).sortedBy { it.bytes }
     if (slices.isEmpty()) return
     val geometry = storagePyramidGeometry(slices.map { it.bytes }, totalBytes)
     // Percentages are shares of the device total; when the measurements are
@@ -420,49 +426,101 @@ private fun StoragePyramid(report: StorageAnalyzer.Report) {
             Text(
                 stringResource(
                     if (geometry.overAttributed) R.string.storage_pyramid_note_inconsistent
-                    else if (report.installedAppsOverlapEstimated) R.string.storage_pyramid_note_estimated
-                    else if (report.installedAppsBytes != null) R.string.storage_pyramid_note_installed
-                    else R.string.storage_pyramid_note_indexed,
+                    else if (detailed) {
+                        if (report.installedAppsOverlapEstimated) R.string.storage_pyramid_note_estimated
+                        else if (report.installedAppsBytes != null) R.string.storage_pyramid_note_installed
+                        else R.string.storage_pyramid_note_indexed
+                    } else if (report.installedAppsOverlapEstimated) R.string.analysis_pyramid_note_simple_estimated
+                    else R.string.analysis_pyramid_note_simple,
                 ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(12.dp))
-            Canvas(Modifier.fillMaxWidth().height(150.dp)) {
-                var top = geometry.apexGapFraction * size.height
-                geometry.layers.forEachIndexed { index, layer ->
-                    val bottom = top + layer.heightFraction * size.height
-                    val topWidth = layer.topWidthFraction * size.width
-                    val bottomWidth = layer.bottomWidthFraction * size.width
-                    val center = size.width / 2f
-                    drawPath(
-                        path = Path().apply {
-                            moveTo(center - topWidth / 2f, top)
-                            lineTo(center + topWidth / 2f, top)
-                            lineTo(center + bottomWidth / 2f, bottom)
-                            lineTo(center - bottomWidth / 2f, bottom)
-                            close()
-                        },
-                        color = slices[index].color,
+            Box(Modifier.fillMaxWidth()) {
+                Canvas(Modifier.fillMaxWidth().height(if (detailed) 200.dp else 150.dp)) {
+                    var top = geometry.apexGapFraction * size.height
+                    geometry.layers.forEachIndexed { index, layer ->
+                        val bottom = top + layer.heightFraction * size.height
+                        val topWidth = layer.topWidthFraction * size.width
+                        val bottomWidth = layer.bottomWidthFraction * size.width
+                        val center = size.width / 2f
+                        drawPath(
+                            path = Path().apply {
+                                moveTo(center - topWidth / 2f, top)
+                                lineTo(center + topWidth / 2f, top)
+                                lineTo(center + bottomWidth / 2f, bottom)
+                                lineTo(center - bottomWidth / 2f, bottom)
+                                close()
+                            },
+                            color = slices[index].color,
+                        )
+                        top = bottom
+                    }
+                }
+                // Overlapping expand/collapse button: enlarges the pyramid to the
+                // full category breakdown and back. TopEnd sits on the chart's
+                // empty upper corner, so it stays visible in every layout state.
+                FilledTonalIconButton(
+                    onClick = { detailed = !detailed },
+                    modifier = Modifier.align(Alignment.TopEnd).testTag("analysis_pyramid_toggle"),
+                ) {
+                    Icon(
+                        if (detailed) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                        contentDescription = stringResource(
+                            if (detailed) R.string.analysis_pyramid_collapse else R.string.analysis_pyramid_expand,
+                        ),
                     )
-                    top = bottom
                 }
             }
             Spacer(Modifier.height(10.dp))
-            freeSlice?.let { PyramidLegendLine(it, legendDenominator) }
-            installedAppsSlice?.let { PyramidLegendLine(it, legendDenominator) }
-            hiddenSlice?.let { PyramidLegendLine(it, legendDenominator) }
-            categorySlices.forEach { slice ->
-                PyramidLegendLine(slice, legendDenominator)
+            if (detailed) {
+                // Used space first, free space last; the legend is the category list.
+                report.categories.entries
+                    .filter { it.value > 0 }
+                    .sortedByDescending { it.value }
+                    .forEach { (category, bytes) ->
+                        PyramidLegendLine(
+                            PyramidSlice(categoryLabel(category), bytes, categoryColor(category)),
+                            legendDenominator,
+                            onClick = if (category == FileCategory.OTHER) null else ({ onOpenCategory(category) }),
+                            tag = "analysis_category:" + category.name,
+                        )
+                    }
+                installedAppsSlice?.let { PyramidLegendLine(it, legendDenominator) }
+                hiddenSlice?.let { PyramidLegendLine(it, legendDenominator) }
+                freeSlice?.let { PyramidLegendLine(it, legendDenominator) }
+            } else {
+                // The device's five largest categories, biggest first, free last.
+                simpleContentSlices.forEach { PyramidLegendLine(it, legendDenominator) }
+                freeSlice?.let { PyramidLegendLine(it, legendDenominator) }
+            }
+            // The biggest folders live inside the pyramid card: top 5 in the
+            // simple view, top 10 once the chart is expanded.
+            if (report.topFolders.isNotEmpty()) {
+                Spacer(Modifier.height(12.dp))
+                Text(stringResource(R.string.largest_folders), style = MaterialTheme.typography.titleSmall)
+                Spacer(Modifier.height(4.dp))
+                report.topFolders.take(if (detailed) 10 else 5).forEach { folder ->
+                    AnalysisLine(
+                        folder.name,
+                        stringResource(R.string.analysis_folder_value, FileLogic.formatSize(folder.sizeBytes), folder.fileCount),
+                        subtitle = folder.path,
+                        onClick = { onOpenFolder(folder.path) },
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-private fun PyramidLegendLine(slice: PyramidSlice, totalBytes: Long, modifier: Modifier = Modifier) {
+private fun PyramidLegendLine(slice: PyramidSlice, totalBytes: Long, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null, tag: String? = null) {
     Row(
-        modifier = modifier.fillMaxWidth().padding(vertical = 3.dp),
+        modifier = modifier.fillMaxWidth()
+            .let { if (tag != null) it.testTag(tag) else it }
+            .let { if (onClick != null) it.clickable { onClick() } else it }
+            .padding(vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.size(10.dp).clip(CircleShape).background(slice.color))

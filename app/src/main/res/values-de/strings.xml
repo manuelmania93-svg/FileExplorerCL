@@ -152,6 +152,10 @@
     <string name="installed_apps_permission_grant">Nutzungszugriff erlauben</string>
     <string name="storage_pyramid_note_installed">Die Ebenenflächen zeigen Anteile am Gesamtspeicher. Die leere Spitze ist Speicher, den die App nicht zuordnen kann, etwa Systemdaten.</string>
     <string name="free_space_label">Freier Speicher</string>
+    <string name="analysis_pyramid_expand">Alle Kategorien zeigen</string>
+    <string name="analysis_pyramid_collapse">Top-Kategorien zeigen</string>
+    <string name="analysis_pyramid_note_simple">Die 5 größten Kategorien auf diesem Gerät. Tippe auf den Pfeil im Diagramm für die vollständige Aufschlüsselung.</string>
+    <string name="analysis_pyramid_note_simple_estimated">Installierte Apps sind geschätzt. Die 5 größten Kategorien auf diesem Gerät; tippe auf den Pfeil im Diagramm für die vollständige Aufschlüsselung.</string>
     <string name="categories">Kategorien</string>
     <string name="largest_folders">Größte Ordner</string>
     <string name="analysis_folder_value">%1$s • %2$d Dateien</string>

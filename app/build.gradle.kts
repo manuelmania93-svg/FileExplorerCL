@@ -21,7 +21,7 @@ android {
         // Semantic version. Every PR intended to produce a release bumps this (minor for
         // features, patch for fixes); the publish job skips cleanly when the tag exists,
         // so merges without a bump intentionally publish nothing.
-        versionName = "0.8.0"
+        versionName = "0.9.0"
         testInstrumentationRunner = providers.gradleProperty("sfeTestRunner").orNull ?: "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
     }

@@ -2,8 +2,8 @@ package com.stockfileexplorer.app
 
 import android.os.Build
 import android.os.Environment
+import android.content.Intent
 import androidx.test.core.app.ApplicationProvider
-import androidx.test.ext.junit.rules.ActivityScenarioRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
@@ -12,7 +12,6 @@ import androidx.test.uiautomator.Until
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
-import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
@@ -25,9 +24,6 @@ import java.util.Locale
  */
 @RunWith(AndroidJUnit4::class)
 class AppCacheCleanerTest {
-
-    @get:Rule
-    val activityRule = ActivityScenarioRule(MainActivity::class.java)
 
     private val context get() = ApplicationProvider.getApplicationContext<android.content.Context>()
     private val device: UiDevice by lazy { UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()) }
@@ -50,22 +46,29 @@ class AppCacheCleanerTest {
             @Suppress("DEPRECATION")
             context.resources.updateConfiguration(context.resources.configuration, context.resources.displayMetrics)
         }
-        device.setOrientationNatural()
-        device.wait(Until.hasObject(By.pkg(context.packageName).depth(0)), 10_000)
-        device.pressHome()
         File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "SfeCacheShots").mkdirs()
+    }
+
+    private fun launch() {
+        context.startActivity(
+            Intent(context, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        )
+        device.wait(Until.hasObject(By.pkg(context.packageName).depth(0)), 10_000)
+        device.waitForIdle()
     }
 
     @Test
     fun dashboardCacheCleanerFreesOnlyCache() {
         seedFixtures()
         try {
-            // Dashboard -> home
-            device.findObject(By.desc(context.getString(R.string.cd_open_dashboard)))?.click()
-            val card = device.wait(Until.findObject(By.res(context.packageName, "home_storage_card")), 20_000)
-            assertTrue("storage card", card != null)
+            launch()
+            // The dashboard is the start screen; wait for the cache row, then for
+            // the scan to finish with a positive size ("App-Cache: X - Bereinigen").
+            assertTrue("cache row tag", device.wait(Until.hasObject(By.res("home_cache_row")), 20_000))
             // Wait until the scan finished with a positive size ("App-Cache: X • Bereinigen")
             device.wait(Until.hasObject(By.textContains("Bereinigen")), 60_000)
+            device.waitForIdle(3_000)
             shot("sfe-cache-01-row.png")
 
             // Open the confirmation dialog

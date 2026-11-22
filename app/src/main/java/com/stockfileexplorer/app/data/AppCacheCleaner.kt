@@ -75,15 +75,22 @@ object AppCacheCleaner {
         return out
     }
 
-    /** Measure every app's external cache. Slow on big volumes: call off the main thread. */
+    /**
+     * Measure every app's external cache, merged per package (an app can have
+     * cache under both Android/data and Android/media). Slow on big volumes:
+     * call off the main thread.
+     */
     fun scan(root: File, context: Context? = null): Scan {
         val pm = context?.packageManager
-        val apps = perApp(root, context).map { (appDir, dirs) ->
-            val bytes = dirs.sumOf { dirSize(it) }
+        val perPackage = LinkedHashMap<String, Long>()
+        for ((appDir, dirs) in perApp(root, context)) {
+            perPackage[appDir.name] = (perPackage[appDir.name] ?: 0L) + dirs.sumOf { dirSize(it) }
+        }
+        val apps = perPackage.map { (pkg, bytes) ->
             val label = pm?.let {
-                runCatching { it.getApplicationLabel(it.getApplicationInfo(appDir.name, 0)).toString() }.getOrNull()
-            } ?: appDir.name
-            AppCache(appDir.name, label, bytes)
+                runCatching { it.getApplicationLabel(it.getApplicationInfo(pkg, 0)).toString() }.getOrNull()
+            } ?: pkg
+            AppCache(pkg, label, bytes)
         }.filter { it.bytes > 0 }.sortedByDescending { it.bytes }
         return Scan(apps.sumOf { it.bytes }, apps)
     }

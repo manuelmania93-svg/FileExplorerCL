@@ -26,6 +26,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -234,6 +236,9 @@ fun DashboardScreen(
         val result = cacheResult
         AlertDialog(
             onDismissRequest = { if (!cacheCleaning) cacheDialog = false },
+            // Dialogs render in their own window, outside the app root's
+            // testTagsAsResourceId scope - re-enable it so dialog tags reach UI Automator.
+            modifier = Modifier.semantics { testTagsAsResourceId = true },
             title = { Text(stringResource(if (result == null) R.string.cache_clean_dialog_title else R.string.cache_clean_result_title)) },
             text = {
                 Column {

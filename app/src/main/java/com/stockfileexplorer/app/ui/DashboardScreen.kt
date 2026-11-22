@@ -26,11 +26,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -52,9 +56,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.stockfileexplorer.app.R
+import com.stockfileexplorer.app.data.AppCacheCleaner
 import com.stockfileexplorer.app.data.FileLogic
 import com.stockfileexplorer.app.theme.AmberDark
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
@@ -65,6 +71,7 @@ import kotlinx.coroutines.withContext
  * The media categories live in the Library tab.
  */
 @Composable
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 fun DashboardScreen(
     onOpenStorage: () -> Unit,
     onOpenDownloads: () -> Unit,
@@ -94,6 +101,29 @@ fun DashboardScreen(
 
     val usedBytes = (totalBytes - freeBytes).coerceAtLeast(0L)
     val usedFraction = if (totalBytes > 0) usedBytes.toFloat() / totalBytes.toFloat() else 0f
+
+    // App-cache cleaner: measured off-thread on appear/resume alongside the
+    // volume stats. The row replaces the old "X frei" line on the card.
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var cacheScan by remember { mutableStateOf<AppCacheCleaner.Scan?>(null) }
+    var cacheDialog by remember { mutableStateOf(false) }
+    var cacheCleaning by remember { mutableStateOf(false) }
+    var cacheResult by remember { mutableStateOf<AppCacheCleaner.CleanResult?>(null) }
+    val cacheScope = androidx.compose.runtime.rememberCoroutineScope()
+    fun refreshCacheScan() {
+        cacheScope.launch {
+            val scan = withContext(Dispatchers.IO) { AppCacheCleaner.scan(root, context.applicationContext) }
+            cacheScan = scan
+        }
+    }
+    LaunchedEffect(Unit) { refreshCacheScan() }
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val cacheObserver = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) refreshCacheScan()
+        }
+        lifecycleOwner.lifecycle.addObserver(cacheObserver)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(cacheObserver) }
+    }
 
     LazyVerticalGrid(
         columns = GridCells.Fixed(2),
@@ -156,12 +186,24 @@ fun DashboardScreen(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
+                        val scan = cacheScan
                         Text(
-                            text = stringResource(R.string.free_space, FileLogic.formatSize(freeBytes)),
+                            text = when {
+                                scan == null -> stringResource(R.string.cache_clean_row_scanning)
+                                scan.totalBytes <= 0L -> stringResource(R.string.cache_clean_row_empty)
+                                else -> stringResource(R.string.cache_clean_row, FileLogic.formatSize(scan.totalBytes))
+                            },
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = if (scan != null && scan.totalBytes > 0L) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .testTag("home_cache_row")
+                                .clickable(enabled = scan != null && scan.totalBytes > 0L) {
+                                    cacheResult = null
+                                    cacheDialog = true
+                                }
                         )
                     }
                     Icon(
@@ -189,6 +231,90 @@ fun DashboardScreen(
         item { ShortcutCard(SfeIcons.Download, Color(0xFF009688), stringResource(R.string.downloads), onOpenDownloads, Modifier.testTag("home_downloads_tile")) }
         item { ShortcutCard(Icons.Filled.Settings, Color(0xFF795548), stringResource(R.string.settings_title), onOpenSettings, Modifier.testTag("home_settings_tile")) }
         item { ShortcutCard(Icons.Filled.Delete, Color(0xFF607D8B), stringResource(R.string.papierkorb), onOpenPapierkorb, Modifier.testTag("home_papierkorb_tile")) }
+    }
+
+    if (cacheDialog) {
+        val result = cacheResult
+        AlertDialog(
+            onDismissRequest = { if (!cacheCleaning) cacheDialog = false },
+            // Dialogs render in their own window, outside the app root's
+            // testTagsAsResourceId scope - re-enable it so dialog tags reach UI Automator.
+            modifier = Modifier.semantics { testTagsAsResourceId = true },
+            title = { Text(stringResource(if (result == null) R.string.cache_clean_dialog_title else R.string.cache_clean_result_title)) },
+            text = {
+                Column {
+                    if (result == null) {
+                        val scanNow = cacheScan
+                        Text(
+                            stringResource(
+                                R.string.cache_clean_dialog_summary,
+                                FileLogic.formatSize(scanNow?.totalBytes ?: 0L),
+                                scanNow?.apps?.size ?: 0,
+                            ),
+                            modifier = Modifier.testTag("cache_clean_summary")
+                        )
+                        scanNow?.apps?.take(3)?.forEach { app ->
+                            Text(
+                                "${app.label} ${FileLogic.formatSize(app.bytes)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        Text(
+                            stringResource(R.string.cache_clean_dialog_guarantee),
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.testTag("cache_clean_guarantee")
+                        )
+                        if (cacheCleaning) {
+                            Spacer(Modifier.height(10.dp))
+                            Text(stringResource(R.string.cache_clean_working), style = MaterialTheme.typography.bodySmall)
+                        }
+                    } else {
+                        Text(stringResource(R.string.cache_clean_result, FileLogic.formatSize(result.freedBytes)))
+                        if (result.failedDirs > 0) {
+                            Text(
+                                stringResource(R.string.cache_clean_result_skipped, result.failedDirs),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                if (result == null) {
+                    TextButton(
+                        onClick = {
+                            cacheCleaning = true
+                            cacheScope.launch {
+                                val cleaned = withContext(Dispatchers.IO) { AppCacheCleaner.clean(root) }
+                                cacheResult = cleaned
+                                cacheCleaning = false
+                                withContext(Dispatchers.IO) { com.stockfileexplorer.app.data.VolumeStats.refresh(root) }
+                                refreshCacheScan()
+                            }
+                        },
+                        enabled = !cacheCleaning,
+                        modifier = Modifier.testTag("cache_clean_confirm"),
+                    ) { Text(stringResource(R.string.cache_clean_confirm)) }
+                } else {
+                    TextButton(
+                        onClick = { cacheDialog = false },
+                        modifier = Modifier.testTag("cache_clean_done"),
+                    ) { Text(stringResource(R.string.cache_clean_done)) }
+                }
+            },
+            dismissButton = {
+                if (result == null) {
+                    TextButton(onClick = { cacheDialog = false }, enabled = !cacheCleaning) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                }
+            },
+        )
     }
 }
 

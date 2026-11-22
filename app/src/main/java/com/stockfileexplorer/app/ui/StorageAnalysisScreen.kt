@@ -20,9 +20,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -266,17 +269,7 @@ fun StorageAnalysisScreen(
                     }
                 }
 
-                item { StoragePyramid(value, onOpenCategory) }
-
-                item { SectionTitle(stringResource(R.string.largest_folders)) }
-                items(value.topFolders) { folder ->
-                    AnalysisLine(
-                        folder.name,
-                        stringResource(R.string.analysis_folder_value, FileLogic.formatSize(folder.sizeBytes), folder.fileCount),
-                        subtitle = folder.path,
-                        onClick = { onOpenFolder(folder.path) },
-                    )
-                }
+                item { StoragePyramid(value, onOpenCategory, onOpenFolder) }
 
                 item { SectionTitle(stringResource(R.string.large_files)) }
                 items(value.largeFiles.take(10)) { file -> FileAnalysisLine(file, onOpen = openFileAction, onOpenFolder = onOpenFolder) }
@@ -377,10 +370,12 @@ private data class PyramidSlice(
 )
 
 @Composable
-private fun StoragePyramid(report: StorageAnalyzer.Report, onOpenCategory: (FileCategory) -> Unit) {
+private fun StoragePyramid(report: StorageAnalyzer.Report, onOpenCategory: (FileCategory) -> Unit, onOpenFolder: (String) -> Unit) {
     val totalBytes = report.totalBytes
-    // Simple view (default): a few honest big groups. Tapping the chart or the
-    // Details action expands into the full per-category breakdown, whose legend
+    // Simple view (default): the 5 largest categories on this device, computed
+    // per device from what is actually on the phone (videos, pictures, music,
+    // installed apps, ...), plus the free-space layer. An arrow button overlaid
+    // on the chart enlarges the pyramid into the full breakdown, whose legend
     // lines double as the (single) category list.
     var detailed by remember { mutableStateOf(false) }
     val categorySlices = report.categories.entries
@@ -408,17 +403,15 @@ private fun StoragePyramid(report: StorageAnalyzer.Report, onOpenCategory: (File
     } else {
         null
     }
-    val indexedBytes = report.categories.values.sum()
-    val filesSlice = if (indexedBytes > 0) {
-        PyramidSlice(stringResource(R.string.analysis_files_indexed), indexedBytes, Color(0xFFF9A825))
-    } else {
-        null
-    }
-    val slices = if (detailed) {
-        (categorySlices + listOfNotNull(installedAppsSlice, hiddenSlice, freeSlice)).sortedBy { it.bytes }
-    } else {
-        listOfNotNull(filesSlice, installedAppsSlice, hiddenSlice, freeSlice).sortedBy { it.bytes }
-    }
+    // Everything that takes up space, largest first; the simple view keeps the
+    // top five of these, the detailed view keeps them all. Free space is not a
+    // category, so it joins as its own layer afterwards in both views.
+    val contentSlices = (categorySlices + listOfNotNull(installedAppsSlice, hiddenSlice))
+        .sortedByDescending { it.bytes }
+    val simpleContentSlices = contentSlices.take(5)
+    val slices = (
+        (if (detailed) contentSlices else simpleContentSlices) + listOfNotNull(freeSlice)
+    ).sortedBy { it.bytes }
     if (slices.isEmpty()) return
     val geometry = storagePyramidGeometry(slices.map { it.bytes }, totalBytes)
     // Percentages are shares of the device total; when the measurements are
@@ -428,15 +421,7 @@ private fun StoragePyramid(report: StorageAnalyzer.Report, onOpenCategory: (File
 
     Card {
         Column(Modifier.fillMaxWidth().padding(16.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.storage_pyramid), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                Text(
-                    stringResource(if (detailed) R.string.analysis_pyramid_show_simple else R.string.analysis_pyramid_show_details),
-                    color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.titleSmall,
-                    modifier = Modifier.testTag("analysis_pyramid_toggle").clickable { detailed = !detailed }.padding(4.dp),
-                )
-            }
+            Text(stringResource(R.string.storage_pyramid), style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(4.dp))
             Text(
                 stringResource(
@@ -452,24 +437,40 @@ private fun StoragePyramid(report: StorageAnalyzer.Report, onOpenCategory: (File
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(12.dp))
-            Canvas(Modifier.fillMaxWidth().height(150.dp).clickable { detailed = !detailed }) {
-                var top = geometry.apexGapFraction * size.height
-                geometry.layers.forEachIndexed { index, layer ->
-                    val bottom = top + layer.heightFraction * size.height
-                    val topWidth = layer.topWidthFraction * size.width
-                    val bottomWidth = layer.bottomWidthFraction * size.width
-                    val center = size.width / 2f
-                    drawPath(
-                        path = Path().apply {
-                            moveTo(center - topWidth / 2f, top)
-                            lineTo(center + topWidth / 2f, top)
-                            lineTo(center + bottomWidth / 2f, bottom)
-                            lineTo(center - bottomWidth / 2f, bottom)
-                            close()
-                        },
-                        color = slices[index].color,
+            Box(Modifier.fillMaxWidth()) {
+                Canvas(Modifier.fillMaxWidth().height(if (detailed) 200.dp else 150.dp)) {
+                    var top = geometry.apexGapFraction * size.height
+                    geometry.layers.forEachIndexed { index, layer ->
+                        val bottom = top + layer.heightFraction * size.height
+                        val topWidth = layer.topWidthFraction * size.width
+                        val bottomWidth = layer.bottomWidthFraction * size.width
+                        val center = size.width / 2f
+                        drawPath(
+                            path = Path().apply {
+                                moveTo(center - topWidth / 2f, top)
+                                lineTo(center + topWidth / 2f, top)
+                                lineTo(center + bottomWidth / 2f, bottom)
+                                lineTo(center - bottomWidth / 2f, bottom)
+                                close()
+                            },
+                            color = slices[index].color,
+                        )
+                        top = bottom
+                    }
+                }
+                // Overlapping expand/collapse button: enlarges the pyramid to the
+                // full category breakdown and back. TopEnd sits on the chart's
+                // empty upper corner, so it stays visible in every layout state.
+                FilledTonalIconButton(
+                    onClick = { detailed = !detailed },
+                    modifier = Modifier.align(Alignment.TopEnd).testTag("analysis_pyramid_toggle"),
+                ) {
+                    Icon(
+                        if (detailed) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                        contentDescription = stringResource(
+                            if (detailed) R.string.analysis_pyramid_collapse else R.string.analysis_pyramid_expand,
+                        ),
                     )
-                    top = bottom
                 }
             }
             Spacer(Modifier.height(10.dp))
@@ -490,10 +491,24 @@ private fun StoragePyramid(report: StorageAnalyzer.Report, onOpenCategory: (File
                 hiddenSlice?.let { PyramidLegendLine(it, legendDenominator) }
                 freeSlice?.let { PyramidLegendLine(it, legendDenominator) }
             } else {
-                filesSlice?.let { PyramidLegendLine(it, legendDenominator) }
-                installedAppsSlice?.let { PyramidLegendLine(it, legendDenominator) }
-                hiddenSlice?.let { PyramidLegendLine(it, legendDenominator) }
+                // The device's five largest categories, biggest first, free last.
+                simpleContentSlices.forEach { PyramidLegendLine(it, legendDenominator) }
                 freeSlice?.let { PyramidLegendLine(it, legendDenominator) }
+            }
+            // The biggest folders live inside the pyramid card: top 5 in the
+            // simple view, top 10 once the chart is expanded.
+            if (report.topFolders.isNotEmpty()) {
+                Spacer(Modifier.height(12.dp))
+                Text(stringResource(R.string.largest_folders), style = MaterialTheme.typography.titleSmall)
+                Spacer(Modifier.height(4.dp))
+                report.topFolders.take(if (detailed) 10 else 5).forEach { folder ->
+                    AnalysisLine(
+                        folder.name,
+                        stringResource(R.string.analysis_folder_value, FileLogic.formatSize(folder.sizeBytes), folder.fileCount),
+                        subtitle = folder.path,
+                        onClick = { onOpenFolder(folder.path) },
+                    )
+                }
             }
         }
     }

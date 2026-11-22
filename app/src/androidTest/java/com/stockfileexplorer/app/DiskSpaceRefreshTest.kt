@@ -32,7 +32,11 @@ class DiskSpaceRefreshTest {
         extras.forEach { (k, v) -> if (v is Boolean) i.putExtra(k, v) }
         context.startActivity(i)
     }
-    private fun freeText(bytes: Long) = context.getString(R.string.free_space, FileLogic.formatSize(bytes))
+    // The dashboard card shows "X von Y belegt" (the old "X frei" line made way for
+    // the cache-cleaner row); used bytes move with freed space just the same.
+    private fun usedText() = VolumeStats.read().let {
+        context.getString(R.string.used_of, FileLogic.formatSize(it.usedBytes), FileLogic.formatSize(it.totalBytes))
+    }
     private fun waitText(text: String, ms: Long = 20000) {
         if (!device.wait(Until.hasObject(By.text(text)), ms)) {
             device.takeScreenshot(File("/sdcard/Download/sfe-disk-missing.png"))
@@ -58,7 +62,7 @@ class DiskSpaceRefreshTest {
         assertTrue("moving to the bin must not free space (changed by $moveDelta bytes)", moveDelta < 50L * 1024 * 1024)
 
         launch()
-        waitText(freeText(VolumeStats.read().freeBytes))
+        waitText(usedText())
         device.takeScreenshot(File("/sdcard/Download/sfe-disk-1-before.png"))
 
         launch("papierkorb" to true)
@@ -73,7 +77,8 @@ class DiskSpaceRefreshTest {
         assertTrue("deleting from the bin must free the space (before ${freeInBin}, after $freeAfter)", freeAfter - freeInBin > size * 8 / 10)
 
         device.pressBack()
-        waitText(freeText(freeAfter))
+        Thread.sleep(1500)
+        waitText(usedText())
         device.takeScreenshot(File("/sdcard/Download/sfe-disk-3-after.png"))
         out.writeText("withFile=$freeWithFile inBin=$freeInBin afterDelete=$freeAfter movedDelta=$moveDelta freedByDelete=${freeAfter - freeInBin}\n")
         dir.deleteRecursively(); Trash.root().deleteRecursively()

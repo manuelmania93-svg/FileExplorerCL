@@ -71,6 +71,7 @@ import kotlinx.coroutines.withContext
  * The media categories live in the Library tab.
  */
 @Composable
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 fun DashboardScreen(
     onOpenStorage: () -> Unit,
     onOpenDownloads: () -> Unit,

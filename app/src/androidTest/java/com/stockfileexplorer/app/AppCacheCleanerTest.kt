@@ -96,29 +96,33 @@ class AppCacheCleanerTest {
     // Android/data of another package is not writable from the app uid (scoped storage), so
     // fixtures are created and verified through the shell identity, like a real other app's files.
     private fun sh(cmd: String): String {
-        // UiAutomation executes an argv command, not a shell program. Explicitly
-        // invoke sh so mkdir/pipe/redirection and && run as intended.
-        val shellCommand = "sh -c '" + cmd.replace("'", "'\\''") + "'"
-        val fd = InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(shellCommand)
+        // executeShellCommand tokenizes on whitespace with no shell at all: no
+        // quoting, pipes, redirects or &&. All fixture paths are space-free, so
+        // single argv-style commands (mkdir/dd/md5sum/ls/rm) are used instead.
+        val fd = InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(cmd)
         return android.os.ParcelFileDescriptor.AutoCloseInputStream(fd).use { it.readBytes().toString(Charsets.UTF_8) }.trim()
     }
 
     private val keeperHashes = mutableMapOf<String, String>()
 
-    // Whether the shell identity could create the fake app's Android/data dir.
-    // On Android 11+ scoped storage usually blocks even shell there; the probe
-    // records the answer in the pulled artifact so the limitation is evidence,
-    // not a guess.
+    // Whether the shell identity could create the fake app's Android/data dir
+    // and whether the app itself can list Android/data at all. The probe records
+    // both answers in the pulled artifact so the limitation is evidence, not a guess.
     private var dataRootReachable = false
+    private var appSeesDataRoot = false
 
     private fun probeAndroidData() {
-        val probe = sh("mkdir -p '${dataApp.path}/probe' && echo PROBE_OK || echo PROBE_FAIL")
-        dataRootReachable = probe.lines().any { it.trim() == "PROBE_OK" }
-        sh("rm -rf '${dataApp.path}/probe'")
+        sh("mkdir -p ${dataApp.path}/probe")
+        dataRootReachable = sh("ls -d ${dataApp.path}/probe").contains(dataApp.path)
+        sh("rm -rf ${dataApp.path}/probe")
+        // The app-side view is the product answer: listFiles on another app's
+        // Android/data is silently empty on Android 11+, even with all-files access.
+        appSeesDataRoot = File(root, "Android/data").listFiles()?.isNotEmpty() == true
         val report = buildString {
             append("shell identity: ").append(sh("id")).append('\n')
-            append("roots:\n").append(sh("ls -ld '${root.path}/Android/data' '${root.path}/Android/media' 2>&1")).append('\n')
+            append("roots:\n").append(sh("ls -ld ${root.path}/Android/data ${root.path}/Android/media")).append('\n')
             append("Android/data/<fakeapp> writable by shell: ").append(if (dataRootReachable) "YES" else "NO").append('\n')
+            append("Android/data visible to the app (listFiles non-empty): ").append(if (appSeesDataRoot) "YES" else "NO").append('\n')
         }
         val dir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "SfeCacheShots")
         dir.mkdirs()
@@ -127,35 +131,41 @@ class AppCacheCleanerTest {
 
     private fun seedFixtures() {
         probeAndroidData()
-        fun seed(file: File, size: Int, octalFill: String, keep: Boolean) {
-            sh("mkdir -p '${file.parentFile!!.path}' && head -c $size /dev/zero | tr '\\000' '\\$octalFill' > '${file.path}'")
-            if (keep) keeperHashes[file.path] = sh("md5sum '${file.path}'").substringBefore(' ')
+        fun seed(file: File, sizeKb: Int, keep: Boolean) {
+            sh("mkdir -p ${file.parentFile!!.path}")
+            sh("dd if=/dev/zero of=${file.path} bs=1024 count=$sizeKb")
+            if (keep) keeperHashes[file.path] = sh("md5sum ${file.path}").substringBefore(' ')
         }
         if (dataRootReachable) {
-            seed(File(dataApp, "cache/blob.bin"), 4 * 1024 * 1024, "001", keep = false)
-            seed(File(dataApp, ".cache/small.bin"), 1024 * 1024, "002", keep = false)
-            seed(File(dataApp, "files/keep.db"), 700_000, "011", keep = true)
-            seed(File(dataApp, "shared_prefs/prefs.xml"), 1_024, "101", keep = true)
-            seed(File(dataApp, "databases/app.db"), 2 * 1024 * 1024, "007", keep = true)
+            seed(File(dataApp, "cache/blob.bin"), 4096, keep = false)
+            seed(File(dataApp, ".cache/small.bin"), 1024, keep = false)
+            seed(File(dataApp, "files/keep.db"), 700, keep = true)
+            seed(File(dataApp, "shared_prefs/prefs.xml"), 1, keep = true)
+            seed(File(dataApp, "databases/app.db"), 2048, keep = true)
         }
-        seed(File(mediaApp, "cache/mc.bin"), 2 * 1024 * 1024, "004", keep = false)
-        seed(File(mediaApp, "keep/media.dat"), 100_000, "005", keep = true)
+        seed(File(mediaApp, "cache/mc.bin"), 2048, keep = false)
+        seed(File(mediaApp, "keep/media.dat"), 100, keep = true)
         keeperHashes.forEach { (path, hash) -> assertTrue("seed failed for $path", hash.length == 32) }
     }
 
+    private fun existsViaShell(path: String) = sh("ls -d $path").contains(path)
+
     private fun verifyCleanupAndSiblings() {
-        if (dataRootReachable) {
-            assertFalse("data cache removed", sh("test -e '${dataApp.path}/cache' && echo yes").contains("yes"))
-            assertFalse("data .cache removed", sh("test -e '${dataApp.path}/.cache' && echo yes").contains("yes"))
+        assertFalse("media cache removed", existsViaShell("${mediaApp.path}/cache"))
+        if (dataRootReachable && appSeesDataRoot) {
+            assertFalse("data cache removed", existsViaShell("${dataApp.path}/cache"))
+            assertFalse("data .cache removed", existsViaShell("${dataApp.path}/.cache"))
+        } else if (dataRootReachable) {
+            // Out of the app's platform reach: the cleaner must not touch it at all.
+            assertTrue("unreachable data cache must be untouched", existsViaShell("${dataApp.path}/cache"))
         }
-        assertFalse("media cache removed", sh("test -e '${mediaApp.path}/cache' && echo yes").contains("yes"))
         keeperHashes.forEach { (path, hash) ->
-            assertTrue("$path must survive and be byte-identical", sh("md5sum '$path'").substringBefore(' ') == hash)
+            assertTrue("$path must survive and be byte-identical", sh("md5sum $path").substringBefore(' ') == hash)
         }
     }
 
     private fun cleanupFixtures() {
-        sh("rm -rf '${dataApp.path}' '${mediaApp.path}'")
+        sh("rm -rf ${dataApp.path} ${mediaApp.path}")
         keeperHashes.clear()
     }
 

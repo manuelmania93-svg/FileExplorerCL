@@ -39,6 +39,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -377,7 +378,9 @@ private fun StoragePyramid(report: StorageAnalyzer.Report, onOpenCategory: (File
     // installed apps, ...), plus the free-space layer. An arrow button overlaid
     // on the chart enlarges the pyramid into the full breakdown, whose legend
     // lines double as the (single) category list.
-    var detailed by remember { mutableStateOf(false) }
+    // Saveable: the report streams in updates (index observer, usage-stats
+    // measurement), and a refresh must not collapse the expanded view.
+    var detailed by rememberSaveable { mutableStateOf(false) }
     val categorySlices = report.categories.entries
         .filter { it.value > 0 }
         .map { (category, bytes) -> PyramidSlice(categoryLabel(category), bytes, categoryColor(category)) }

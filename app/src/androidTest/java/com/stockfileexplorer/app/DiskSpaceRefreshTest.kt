@@ -47,10 +47,15 @@ class DiskSpaceRefreshTest {
     // verified through the percentage readout, which renders from the SAME
     // usage state and IS reliably in the tree.
     private fun waitText(text: String, ms: Long = 20000) {
-        if (device.wait(Until.hasObject(By.res("home_storage_used").text(text)), 8000)) return
+        // Generic path first: most texts (Papierkorb rows, dialog labels) sit in
+        // the tree normally.
+        if (device.wait(Until.hasObject(By.text(text)), 12000)) return
+        // Fallbacks below exist only for the dashboard's used-space line, whose
+        // Compose node provably does not enter the a11y tree on the CI image.
+        if (device.wait(Until.hasObject(By.res("home_storage_used").text(text)), 5000)) return
         val stats = VolumeStats.read()
         val expectedPct = if (stats.totalBytes > 0) (stats.usedBytes * 100 / stats.totalBytes).toInt() else 0
-        val deadline = System.currentTimeMillis() + ms
+        val deadline = System.currentTimeMillis() + 8000
         var seen: String? = null
         while (System.currentTimeMillis() < deadline) {
             // No By.textMatches in this UiAutomator version: scan the package

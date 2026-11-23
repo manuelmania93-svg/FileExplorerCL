@@ -63,7 +63,7 @@
              "Allow restricted settings" unlock on this app's info page. -->
         <service
             android:name=".service.CacheClearService"
-            android:exported="false"
+            android:exported="true"
             android:label="@string/cache_clear_service_label"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
             <intent-filter>

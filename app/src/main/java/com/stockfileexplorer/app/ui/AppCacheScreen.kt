@@ -22,15 +22,22 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
@@ -44,7 +51,10 @@ import androidx.core.graphics.drawable.toBitmap
 import com.stockfileexplorer.app.R
 import com.stockfileexplorer.app.data.AppCacheList
 import com.stockfileexplorer.app.data.FileLogic
+import com.stockfileexplorer.app.service.CacheClear
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
@@ -56,10 +66,31 @@ import kotlinx.coroutines.withContext
 @Composable
 fun AppCacheScreen(onBack: () -> Unit) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var apps by remember { mutableStateOf<List<AppCacheList.AppCache>?>(null) }
+    var showGuide by remember { mutableStateOf(false) }
+    val clearProgress by CacheClear.progress.collectAsState()
+    var serviceEnabled by remember { mutableStateOf(CacheClear.isServiceEnabled(context)) }
 
-    LaunchedEffect(Unit) {
-        apps = withContext(Dispatchers.IO) { AppCacheList.query(context.applicationContext) }
+    // While the guided-enable dialog is open, watch for the user flipping the switch.
+    LaunchedEffect(showGuide) {
+        while (showGuide && !serviceEnabled) {
+            delay(800)
+            serviceEnabled = CacheClear.isServiceEnabled(context)
+        }
+    }
+
+    fun reload() {
+        scope.launch {
+            apps = withContext(Dispatchers.IO) { AppCacheList.query(context.applicationContext) }
+        }
+    }
+
+    LaunchedEffect(Unit) { reload() }
+
+    // Refresh the measured list once a clearing run finishes.
+    LaunchedEffect(clearProgress.finished) {
+        if (clearProgress.finished) reload()
     }
 
     Column(Modifier.fillMaxSize()) {
@@ -86,7 +117,83 @@ fun AppCacheScreen(onBack: () -> Unit) {
         val list = apps
         if (list == null) {
             Text(stringResource(R.string.loading), Modifier.padding(16.dp))
-        } else LazyColumn(Modifier.fillMaxSize().testTag("appcache_list")) {
+            return@Column
+        }
+
+        // One-tap clearing state UI (accessibility route; see service/CacheClearService.kt).
+        if (clearProgress.finished) {
+            Column(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+                    .testTag("appcache_summary"),
+            ) {
+                Text(
+                    if (clearProgress.skipped.isEmpty()) {
+                        stringResource(R.string.cache_run_done,
+                            clearProgress.clearedCount,
+                            FileLogic.formatSize(clearProgress.clearedBytes))
+                    } else {
+                        stringResource(R.string.cache_run_done_skipped,
+                            clearProgress.clearedCount,
+                            FileLogic.formatSize(clearProgress.clearedBytes),
+                            clearProgress.skipped.joinToString(", "))
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                TextButton(
+                    onClick = { CacheClear.dismissSummary() },
+                    modifier = Modifier.align(Alignment.End).testTag("appcache_summary_ok"),
+                ) { Text(stringResource(R.string.cache_run_dismiss)) }
+            }
+        } else if (clearProgress.running) {
+            Column(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+                    .testTag("appcache_progress"),
+            ) {
+                LinearProgressIndicator(
+                    progress = { if (clearProgress.total > 0) clearProgress.done.toFloat() / clearProgress.total else 0f },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Row(
+                    Modifier.fillMaxWidth().padding(top = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        stringResource(R.string.cache_run_progress,
+                            clearProgress.done, clearProgress.total,
+                            clearProgress.currentLabel ?: ""),
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(
+                        onClick = { CacheClear.stop() },
+                        enabled = !clearProgress.stopRequested,
+                        modifier = Modifier.testTag("appcache_stop"),
+                    ) {
+                        Text(stringResource(
+                            if (clearProgress.stopRequested) R.string.cache_run_stopping
+                            else R.string.cache_run_stop))
+                    }
+                }
+            }
+        } else if (list.any { it.cacheBytes > 0 }) {
+            Button(
+                onClick = {
+                    // Fresh check: the user may have enabled the service without the guide.
+                    serviceEnabled = CacheClear.isServiceEnabled(context)
+                    if (serviceEnabled) {
+                        CacheClear.start(context.applicationContext, list)
+                    } else {
+                        showGuide = true
+                    }
+                },
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                    .testTag("appcache_clear_all"),
+            ) { Text(stringResource(R.string.cache_clear_all)) }
+        }
+
+        LazyColumn(Modifier.fillMaxSize().testTag("appcache_list")) {
             items(list, key = { it.packageName }) { app ->
                 Row(
                     Modifier.fillMaxWidth().clickable {
@@ -128,5 +235,54 @@ fun AppCacheScreen(onBack: () -> Unit) {
                 HorizontalDivider()
             }
         }
+    }
+
+    if (showGuide) {
+        AlertDialog(
+            onDismissRequest = { showGuide = false },
+            title = { Text(stringResource(R.string.cache_guide_title)) },
+            text = {
+                Column {
+                    Text(stringResource(R.string.cache_guide_step1))
+                    TextButton(
+                        onClick = {
+                            context.startActivity(
+                                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                    Uri.parse("package:${context.packageName}"))
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                        },
+                        modifier = Modifier.testTag("appcache_guide_appinfo"),
+                    ) { Text(stringResource(R.string.cache_guide_open_appinfo)) }
+                    Text(stringResource(R.string.cache_guide_step2))
+                    TextButton(
+                        onClick = {
+                            context.startActivity(
+                                Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                        },
+                        modifier = Modifier.testTag("appcache_guide_a11y"),
+                    ) { Text(stringResource(R.string.cache_guide_open_a11y)) }
+                    if (!serviceEnabled) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(top = 8.dp),
+                        ) {
+                            CircularProgressIndicator(Modifier.size(16.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                stringResource(R.string.cache_guide_step3),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showGuide = false }) {
+                    Text(stringResource(R.string.cache_guide_close))
+                }
+            },
+        )
     }
 }

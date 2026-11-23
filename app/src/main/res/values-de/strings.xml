@@ -334,5 +334,21 @@
     <string name="cache_row_access">App-Cache: Zugriff nötig • Aktivieren</string>
     <string name="cache_list_title">App-Cache</string>
     <string name="cache_list_total">%1$s in %2$d Apps</string>
-    <string name="cache_list_hint">Tippe eine App an, um ihre System-Seite zu öffnen, und wähle dort „Cache leeren“.</string>
+    <string name="cache_list_hint">Tippe eine App an, um ihre System-Seite zu öffnen, und wähle dort „Cache leeren“. Oder die App erledigt die Runde für dich:</string>
+    <string name="cache_clear_all">Alle leeren</string>
+    <string name="cache_clear_service_label">File Explorer CL Cache-Leerer</string>
+    <string name="cache_clear_service_desc">Öffnet die System-Speicherseite jeder App und tippt „Cache leeren“ für dich, eine App nach der anderen. Tippt ausschließlich „Cache leeren“ - niemals „Daten löschen“ oder etwas anderes.</string>
+    <string name="cache_guide_title">Ein-Tippen-Leeren aktivieren</string>
+    <string name="cache_guide_step1">1. Weil die App nicht aus dem Play Store installiert wurde, braucht Android 13+ zuerst eine einmalige Freigabe: auf der App-Info-Seite das \u22EE-Menü öffnen und „Eingeschränkte Einstellungen zulassen“ wählen.</string>
+    <string name="cache_guide_open_appinfo">App-Info öffnen</string>
+    <string name="cache_guide_step2">2. Dann unter Einstellungen \u25B8 Bedienungshilfen den „File Explorer CL Cache-Leerer“ aktivieren.</string>
+    <string name="cache_guide_open_a11y">Bedienungshilfen öffnen</string>
+    <string name="cache_guide_step3">3. Zurück hierher - der Button „Alle leeren“ wird von selbst aktiv.</string>
+    <string name="cache_guide_close">Schließen</string>
+    <string name="cache_run_progress">%1$d/%2$d \u2022 %3$s</string>
+    <string name="cache_run_stop">Stopp</string>
+    <string name="cache_run_stopping">Nach dieser App stoppen\u2026</string>
+    <string name="cache_run_done">Fertig: %1$d Apps geleert, %2$s frei.</string>
+    <string name="cache_run_done_skipped">Fertig: %1$d Apps geleert, %2$s frei. Übersprungen: %3$s</string>
+    <string name="cache_run_dismiss">OK</string>
 </resources>

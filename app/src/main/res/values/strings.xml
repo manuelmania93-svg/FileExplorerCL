@@ -334,5 +334,21 @@
     <string name="cache_row_access">App cache: access needed • Enable</string>
     <string name="cache_list_title">App cache</string>
     <string name="cache_list_total">%1$s in %2$d apps</string>
-    <string name="cache_list_hint">Tap an app to open its system page, then tap "Clear cache" there.</string>
+    <string name="cache_list_hint">Tap an app to open its system page, then tap "Clear cache" there. Or let the app do the rounds for you:</string>
+    <string name="cache_clear_all">Clear all</string>
+    <string name="cache_clear_service_label">File Explorer CL cache clearer</string>
+    <string name="cache_clear_service_desc">Opens each app\'s system storage page and taps "Clear cache" for you, one app at a time. It only ever taps "Clear cache" - never "Clear data" or anything else.</string>
+    <string name="cache_guide_title">Enable one-tap clearing</string>
+    <string name="cache_guide_step1">1. Because this app was installed outside the Play Store, Android 13+ first needs a one-time unlock: on the app info page, open the \u22EE menu and tap "Allow restricted settings".</string>
+    <string name="cache_guide_open_appinfo">Open app info</string>
+    <string name="cache_guide_step2">2. Then enable "File Explorer CL cache clearer" under Settings \u25B8 Accessibility.</string>
+    <string name="cache_guide_open_a11y">Open accessibility settings</string>
+    <string name="cache_guide_step3">3. Come back here - the Clear all button activates on its own.</string>
+    <string name="cache_guide_close">Close</string>
+    <string name="cache_run_progress">%1$d/%2$d \u2022 %3$s</string>
+    <string name="cache_run_stop">Stop</string>
+    <string name="cache_run_stopping">Stopping after this app\u2026</string>
+    <string name="cache_run_done">Done: %1$d apps cleared, %2$s freed.</string>
+    <string name="cache_run_done_skipped">Done: %1$d apps cleared, %2$s freed. Skipped: %3$s</string>
+    <string name="cache_run_dismiss">OK</string>
 </resources>

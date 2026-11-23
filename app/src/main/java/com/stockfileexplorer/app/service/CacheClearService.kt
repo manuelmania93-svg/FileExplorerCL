@@ -1,0 +1,334 @@
+package com.stockfileexplorer.app.service
+
+import android.accessibilityservice.AccessibilityService
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
+import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
+import com.stockfileexplorer.app.MainActivity
+import com.stockfileexplorer.app.data.AppCacheList
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
+
+/**
+ * One-tap cache clearing through Android's own app pages.
+ *
+ * Why this exists: since Android 11 no app may see or delete another app's cache
+ * directories, and the user ruled out shell/Shizuku/ADB. The only remaining route
+ * is the one a person would take by hand: open each app's system storage page and
+ * tap "Clear cache". This accessibility service performs exactly those taps.
+ *
+ * Safety contract ("cache only, never data"), enforced by construction:
+ *  - The only destructive click target is a node whose trimmed text EXACTLY
+ *    matches a known "Clear cache" label.
+ *  - A denylist ("Clear data", "Daten", "Manage space", ...) is checked on top:
+ *    any node whose text contains one of those fragments is unclickable here,
+ *    even if it also matched a candidate.
+ *  - Resource IDs containing clear_data / clear_storage are never clicked.
+ */
+object CacheClear {
+
+    data class Progress(
+        val running: Boolean = false,
+        val total: Int = 0,
+        val done: Int = 0,
+        val currentLabel: String? = null,
+        val clearedCount: Int = 0,
+        val clearedBytes: Long = 0L,
+        val skipped: List<String> = emptyList(),
+        val stopRequested: Boolean = false,
+        val finished: Boolean = false,
+    )
+
+    val progress: StateFlow<Progress> get() = _progress
+    private val _progress = MutableStateFlow(Progress())
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var runJob: Job? = null
+    @Volatile private var completion: ((Boolean) -> Unit)? = null
+
+    /** True when the user enabled this app's accessibility service in system Settings. */
+    fun isServiceEnabled(context: Context): Boolean {
+        val expected = ComponentName(context, CacheClearService::class.java)
+        val flat = Settings.Secure.getString(
+            context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: return false
+        val splitter = android.text.TextUtils.SimpleStringSplitter(':')
+        splitter.setString(flat)
+        for (name in splitter) {
+            if (ComponentName.unflattenFromString(name) == expected) return true
+        }
+        return false
+    }
+
+    /** Start clearing the given apps (largest first), no-op while a run is active. */
+    @Synchronized
+    fun start(context: Context, apps: List<AppCacheList.AppCache>) {
+        if (runJob?.isActive == true) return
+        val queue = apps.filter { it.cacheBytes > 0 }.sortedByDescending { it.cacheBytes }
+        _progress.value = Progress(running = true, total = queue.size)
+        val appContext = context.applicationContext
+        runJob = scope.launch {
+            var cleared = 0
+            var clearedBytes = 0L
+            val skipped = ArrayList<String>()
+            for ((index, app) in queue.withIndex()) {
+                if (_progress.value.stopRequested) break
+                _progress.value = _progress.value.copy(done = index, currentLabel = app.label)
+                if (clearOne(appContext, app.packageName)) {
+                    cleared++
+                    clearedBytes += app.cacheBytes
+                } else {
+                    skipped += app.label
+                }
+            }
+            _progress.value = _progress.value.copy(
+                running = false, finished = true, done = queue.size, currentLabel = null,
+                clearedCount = cleared, clearedBytes = clearedBytes, skipped = skipped)
+            // Leave Settings and bring the app forward so the result is visible.
+            CacheClearService.instance?.performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME)
+            delay(400)
+            appContext.startActivity(
+                Intent(appContext, MainActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
+        }
+    }
+
+    fun stop() {
+        _progress.value = _progress.value.copy(stopRequested = true)
+    }
+
+    fun dismissSummary() {
+        _progress.value = Progress()
+    }
+
+    private suspend fun clearOne(context: Context, pkg: String): Boolean {
+        val service = CacheClearService.awaitInstance(4000) ?: return false
+        service.beginApp()
+        val result = CompletableDeferred<Boolean>()
+        completion = { result.complete(it) }
+        context.startActivity(
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$pkg"))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        val ok = withTimeoutOrNull(25000) { result.await() } ?: false
+        completion = null
+        service.endApp()
+        return ok
+    }
+
+    internal fun completeCurrent(ok: Boolean) {
+        completion?.invoke(ok)
+    }
+}
+
+class CacheClearService : AccessibilityService() {
+
+    private enum class Step { IDLE, OPEN_INFO, OPEN_STORAGE, CLEARING }
+
+    @Volatile private var step = Step.IDLE
+    @Volatile private var stepDeadline = 0L
+    @Volatile private var clearClickedAt = 0L
+
+    fun beginApp() {
+        step = Step.OPEN_INFO
+        stepDeadline = System.currentTimeMillis() + 8000
+        clearClickedAt = 0L
+    }
+
+    fun endApp() {
+        step = Step.IDLE
+    }
+
+    override fun onServiceConnected() {
+        instance = this
+    }
+
+    override fun onUnbind(intent: Intent?): Boolean {
+        instance = null
+        return super.onUnbind(intent)
+    }
+
+    override fun onDestroy() {
+        instance = null
+        super.onDestroy()
+    }
+
+    override fun onInterrupt() {
+        if (step != Step.IDLE) {
+            step = Step.IDLE
+            CacheClear.completeCurrent(false)
+        }
+    }
+
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        if (step == Step.IDLE) return
+        val now = System.currentTimeMillis()
+
+        if (step == Step.CLEARING) {
+            // A few skins ask for confirmation; tap a simple positive button if one shows.
+            val root = rootInActiveWindow
+            if (root != null) {
+                findByText(root, CONFIRM, exact = true)?.let { node ->
+                    if (clickNode(node)) return
+                }
+            }
+            if (now - clearClickedAt > 900) {
+                step = Step.IDLE
+                CacheClear.completeCurrent(true)
+            }
+            return
+        }
+
+        if (now > stepDeadline) {
+            step = Step.IDLE
+            CacheClear.completeCurrent(false)
+            return
+        }
+
+        val root = rootInActiveWindow ?: return
+        when (step) {
+            Step.OPEN_INFO -> {
+                val row = findByText(root, STORAGE_ROW, exact = true)
+                if (row != null && clickNode(row)) {
+                    step = Step.OPEN_STORAGE
+                    stepDeadline = now + 8000
+                }
+            }
+            Step.OPEN_STORAGE -> {
+                val button = findClearCacheButton(root)
+                if (button != null) {
+                    if (!button.isEnabled) {
+                        // Nothing to clear (cache already zero): count as cleared, not skipped.
+                        step = Step.IDLE
+                        CacheClear.completeCurrent(true)
+                        return
+                    }
+                    if (clickNode(button)) {
+                        step = Step.CLEARING
+                        clearClickedAt = now
+                    }
+                }
+            }
+            else -> {}
+        }
+    }
+
+    /** Exact "Clear cache" label, denylist applied, or the AOSP button id. */
+    private fun findClearCacheButton(root: AccessibilityNodeInfo): AccessibilityNodeInfo? =
+        findNode(root) { node ->
+            val text = node.text?.toString()?.trim()?.lowercase()
+            val id = node.viewIdResourceName?.lowercase()
+            val idDenied = id != null && (id.contains("clear_data") || id.contains("clear_storage"))
+            val textDenied = text != null && DENY.any { text.contains(it) }
+            if (idDenied || textDenied) {
+                false
+            } else {
+                (id != null && id.endsWith("clear_cache_button")) ||
+                    (text != null && CLEAR_CACHE.any { text == it })
+            }
+        }
+
+    private fun clickNode(node: AccessibilityNodeInfo): Boolean {
+        var current: AccessibilityNodeInfo? = node
+        while (current != null) {
+            if (current.isClickable && current.isEnabled) return current.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+            current = current.parent
+        }
+        return false
+    }
+
+    private fun findByText(root: AccessibilityNodeInfo, candidates: List<String>, exact: Boolean): AccessibilityNodeInfo? =
+        findNode(root) { node ->
+            val text = node.text?.toString()?.trim()?.lowercase() ?: return@findNode false
+            if (exact) candidates.any { text == it } else candidates.any { text.contains(it) }
+        }
+
+    /** Iterative DFS; returns a live node (caller recycles nothing - used immediately). */
+    private fun findNode(root: AccessibilityNodeInfo, matches: (AccessibilityNodeInfo) -> Boolean): AccessibilityNodeInfo? {
+        val stack = ArrayDeque<AccessibilityNodeInfo>()
+        stack.add(root)
+        var visited = 0
+        while (stack.isNotEmpty() && visited < 4000) {
+            val node = stack.removeLast()
+            visited++
+            if (matches(node)) {
+                // Recycle everything queued but not returned.
+                stack.forEach { if (it != root) it.recycle() }
+                return node
+            }
+            for (i in 0 until node.childCount) {
+                node.getChild(i)?.let { stack.add(it) }
+            }
+            if (node != root) node.recycle()
+        }
+        stack.forEach { if (it != root) it.recycle() }
+        return null
+    }
+
+    companion object {
+        @Volatile var instance: CacheClearService? = null
+            private set
+
+        suspend fun awaitInstance(timeoutMs: Long): CacheClearService? {
+            val deadline = System.currentTimeMillis() + timeoutMs
+            while (System.currentTimeMillis() < deadline) {
+                instance?.let { return it }
+                delay(150)
+            }
+            return null
+        }
+
+        /** Trimmed, case-insensitive exact matches for the destructive tap. */
+        private val CLEAR_CACHE = listOf(
+            "clear cache",
+            "cache leeren", "cache löschen",
+            "borrar caché", "vaciar caché",
+            "vider le cache", "effacer le cache",
+            "svuota cache", "cancella cache",
+            "limpar cache", "apagar cache",
+            "cache wissen", "cachegeheugen wissen",
+            "wyczyść pamięć podręczną", "wyczyść cache",
+            "önbelleği temizle",
+            "очистить кэш",
+        )
+
+        /** Exact matches for the row that opens the app's storage page. */
+        private val STORAGE_ROW = listOf(
+            "storage & cache", "storage and cache", "storage",
+            "speicher und cache", "speicher",
+            "almacenamiento y caché", "almacenamiento",
+            "stockage et cache", "stockage",
+            "spazio di archiviazione e cache", "memoria",
+            "armazenamento e cache", "armazenamento",
+            "opslag en cache", "opslag",
+            "pamięć i pamięć podręczna",
+            "depolama ve önbellek", "depolama",
+            "хранилище и кэш", "хранилище",
+        )
+
+        /** Never clickable here, even if a candidate also matches. */
+        private val DENY = listOf(
+            "clear data", "clear storage", "manage space",
+            "daten", "speicher leeren",
+            "borrar datos", "effacer les données", "elimina dati",
+            "apagar dados", "gegevens", "wyczyść dane",
+            "verileri", "стереть данные", "удалить данные",
+        )
+
+        /** Optional confirmation buttons on skins that ask before clearing. */
+        private val CONFIRM = listOf(
+            "ok", "clear", "delete", "löschen", "leeren",
+            "borrar", "effacer", "elimina", "apagar", "wissen", "wyczyść", "temizle",
+        )
+    }
+}

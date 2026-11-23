@@ -186,6 +186,11 @@ capture
 ./gradlew installDebug
 adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
 ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.AppCacheListTest || { capture; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }
+# One-tap cache clearing: the test enables the accessibility service itself via
+# shell and restores the previous setting afterwards, so no manual grant here.
+./gradlew installDebug
+adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.AppCacheClearTest || { capture; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }
 ./gradlew installDebug
 adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
 ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.UserFlowsTest || { capture; adb logcat -d > app/build/reports/device/logcat-flows.txt || true; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }

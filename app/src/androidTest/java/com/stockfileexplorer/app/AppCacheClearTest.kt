@@ -55,7 +55,7 @@ class AppCacheClearTest {
         val log = shell("logcat -d -t 400")
         log.lineSequence()
             .filter { it.contains("AccessibilityManagerService") || it.contains("CacheClear") }
-            .takeLast(40)
+            .toList().takeLast(40)
             .forEach { sb.append(it).append('\n') }
         return sb.toString()
     }

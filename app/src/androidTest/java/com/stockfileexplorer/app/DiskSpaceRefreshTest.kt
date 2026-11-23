@@ -53,7 +53,10 @@ class DiskSpaceRefreshTest {
         val deadline = System.currentTimeMillis() + ms
         var seen: String? = null
         while (System.currentTimeMillis() < deadline) {
-            val node = device.findObject(By.textMatches(java.util.regex.Pattern.compile("^\\d{1,3}%$")))
+            // No By.textMatches in this UiAutomator version: scan the package
+            // nodes and match the percent text ourselves.
+            val node = device.findObjects(By.pkg(context.packageName))
+                .firstOrNull { it.text?.matches(Regex("^\\d{1,3}%$")) == true }
             seen = node?.text
             val pct = seen?.removeSuffix("%")?.toIntOrNull()
             if (pct != null && kotlin.math.abs(pct - expectedPct) <= 2) return

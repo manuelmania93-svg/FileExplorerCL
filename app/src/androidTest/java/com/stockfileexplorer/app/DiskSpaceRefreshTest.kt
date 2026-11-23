@@ -37,16 +37,21 @@ class DiskSpaceRefreshTest {
     private fun usedText() = VolumeStats.read().let {
         context.getString(R.string.used_of, FileLogic.formatSize(it.usedBytes), FileLogic.formatSize(it.totalBytes))
     }
+    // Lookup by tag, not by the exact text: on the main gate, By.text missed the
+    // rendered used-space node for the full timeout twice (screenshots proved it
+    // on screen). The tag lookup finds the node whatever the current values are;
+    // the text comparison below then reports the ACTUAL content on mismatch.
     private fun waitText(text: String, ms: Long = 20000) {
-        if (device.wait(Until.hasObject(By.text(text)), ms)) return
-        // Transient accessibility-tree staleness can hide a node that IS rendered
-        // (main gate: failure screenshot showed the exact expected text on screen
-        // while hasObject missed it for the full timeout). One idle-settled retry
-        // absorbs that before declaring the text missing.
-        device.waitForIdle(5000)
-        if (device.wait(Until.hasObject(By.text(text)), 5000)) return
+        val deadline = System.currentTimeMillis() + ms
+        var actual: String? = null
+        while (System.currentTimeMillis() < deadline) {
+            val node = device.wait(Until.findObject(By.res("home_storage_used")), 3000)
+            actual = node?.text
+            if (actual == text) return
+            Thread.sleep(500)
+        }
         device.takeScreenshot(File("/sdcard/Download/sfe-disk-missing.png"))
-        throw AssertionError("Expected '$text'. Visible: " + device.findObjects(By.pkg(context.packageName)).mapNotNull { it.text }.distinct().take(30))
+        throw AssertionError("Expected '$text'. Node text: '$actual'. Visible: " + device.findObjects(By.pkg(context.packageName)).mapNotNull { it.text }.distinct().take(30))
     }
 
     @Test

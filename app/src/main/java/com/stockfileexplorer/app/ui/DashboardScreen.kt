@@ -184,6 +184,7 @@ fun DashboardScreen(
                                 FileLogic.formatSize(usedBytes),
                                 FileLogic.formatSize(totalBytes)
                             ),
+                            modifier = Modifier.testTag("home_storage_used"),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,

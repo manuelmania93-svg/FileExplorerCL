@@ -5,6 +5,8 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
@@ -120,7 +122,7 @@ object CacheClear {
         context.startActivity(
             Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$pkg"))
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        val ok = withTimeoutOrNull(25000) { result.await() } ?: false
+        val ok = withTimeoutOrNull(35000) { result.await() } ?: false
         completion = null
         service.endApp()
         return ok
@@ -138,15 +140,47 @@ class CacheClearService : AccessibilityService() {
     @Volatile private var step = Step.IDLE
     @Volatile private var stepDeadline = 0L
     @Volatile private var clearClickedAt = 0L
+    @Volatile private var clearStartedAt = 0L
+    @Volatile private var reclicks = 0
+
+    // The state machine is tick-driven, not event-driven: after the "Clear cache"
+    // tap the page may not change at all (stale size stats), and with no incoming
+    // accessibility event an event-only machine stalls forever (proven on the
+    // CI emulator: stuck after a successful clearBtn click with zero follow-up
+    // events). The ticker re-evaluates the live window every 300 ms.
+    private val handler = Handler(Looper.getMainLooper())
+    private var ticker: Runnable? = null
+
+    private fun startTicker() {
+        stopTicker()
+        val r = object : Runnable {
+            override fun run() {
+                if (step == Step.IDLE) return
+                processState()
+                handler.postDelayed(this, 300)
+            }
+        }
+        ticker = r
+        handler.postDelayed(r, 300)
+    }
+
+    private fun stopTicker() {
+        ticker?.let { handler.removeCallbacks(it) }
+        ticker = null
+    }
 
     fun beginApp() {
         step = Step.OPEN_INFO
         stepDeadline = System.currentTimeMillis() + 8000
         clearClickedAt = 0L
+        clearStartedAt = 0L
+        reclicks = 0
+        startTicker()
     }
 
     fun endApp() {
         step = Step.IDLE
+        stopTicker()
     }
 
     override fun onServiceConnected() {
@@ -166,25 +200,47 @@ class CacheClearService : AccessibilityService() {
     override fun onInterrupt() {
         if (step != Step.IDLE) {
             step = Step.IDLE
+            stopTicker()
             CacheClear.completeCurrent(false)
         }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (step == Step.IDLE) return
+        processState()
+    }
+
+    private fun processState() {
         val now = System.currentTimeMillis()
 
         if (step == Step.CLEARING) {
-            // A few skins ask for confirmation; tap a simple positive button if one shows.
-            val root = rootInActiveWindow
-            if (root != null) {
-                findByText(root, CONFIRM, exact = true)?.let { node ->
-                    if (clickNode(node)) return
-                }
-            }
-            if (now - clearClickedAt > 900) {
-                debugState = "cleared"
+            val root = rootInActiveWindow ?: return
+            val button = findClearCacheButton(root)
+            if (button == null || !button.isEnabled) {
+                // The page dropped the button or greyed it out: the cache is gone.
+                debugState = "cleared (button ${if (button == null) "gone" else "disabled"})"
                 step = Step.IDLE
+                stopTicker()
+                CacheClear.completeCurrent(true)
+                return
+            }
+            // A few skins ask for confirmation; tap a simple positive button if one shows.
+            findByText(root, CONFIRM, exact = true)?.let { node ->
+                if (clickNode(node)) return
+            }
+            // Stats can stay stale and keep the button enabled after a successful
+            // clear; re-tap a couple of times (harmless - clearing an empty cache
+            // is a no-op), then accept best-effort. The tap itself did land.
+            if (now - clearClickedAt > 2000 && reclicks < 3) {
+                debugState = "CLEARING re-tap ${reclicks + 1}"
+                reclicks++
+                if (clickNode(button)) clearClickedAt = now
+                return
+            }
+            if (now - clearStartedAt > 10000) {
+                debugState = "cleared (best-effort, button still enabled)"
+                step = Step.IDLE
+                stopTicker()
                 CacheClear.completeCurrent(true)
             }
             return
@@ -193,6 +249,7 @@ class CacheClearService : AccessibilityService() {
         if (now > stepDeadline) {
             debugState = "timeout in $step"
             step = Step.IDLE
+            stopTicker()
             CacheClear.completeCurrent(false)
             return
         }
@@ -214,13 +271,17 @@ class CacheClearService : AccessibilityService() {
                 if (button != null) {
                     if (!button.isEnabled) {
                         // Nothing to clear (cache already zero): count as cleared, not skipped.
+                        debugState = "nothing to clear (button disabled)"
                         step = Step.IDLE
+                        stopTicker()
                         CacheClear.completeCurrent(true)
                         return
                     }
                     if (clickNode(button)) {
                         step = Step.CLEARING
                         clearClickedAt = now
+                        clearStartedAt = now
+                        reclicks = 0
                     }
                 }
             }

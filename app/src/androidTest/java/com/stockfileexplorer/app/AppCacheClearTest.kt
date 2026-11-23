@@ -47,16 +47,21 @@ class AppCacheClearTest {
             .append(shell("settings get secure accessibility_enabled").trim()).append('\n')
         sb.append("restricted_settings_appop=")
             .append(shell("appops get ${context.packageName} ACCESS_RESTRICTED_SETTINGS").trim()).append('\n')
-        val dump = shell("dumpsys accessibility")
-        dump.lineSequence()
-            .filter { it.contains("stockfileexplorer", ignoreCase = true) || it.contains("CacheClear") }
-            .take(40)
+        sb.append("== pm dump (service decl) ==\n")
+        shell("dumpsys package ${context.packageName}").lineSequence()
+            .filter { it.contains("CacheClear") || it.contains("accessibility", ignoreCase = true) }
+            .take(20)
             .forEach { sb.append(it).append('\n') }
-        val log = shell("logcat -d -t 400")
-        log.lineSequence()
-            .filter { it.contains("AccessibilityManagerService") || it.contains("CacheClear") }
-            .toList().takeLast(40)
+        sb.append("== dumpsys accessibility (full) ==\n").append(shell("dumpsys accessibility")).append('\n')
+        sb.append("== logcat (accessibility lines) ==\n")
+        shell("logcat -d -t 600").lineSequence()
+            .filter { it.contains("ccessibility") }
+            .toList().takeLast(60)
             .forEach { sb.append(it).append('\n') }
+        // Full copy to a pullable file; the gradle console truncates long assertion texts.
+        runCatching {
+            File("/sdcard/Download/sfe-cacheclear-diag.txt").writeText(sb.toString())
+        }
         return sb.toString()
     }
 

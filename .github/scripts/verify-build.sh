@@ -191,6 +191,7 @@ adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
 ./gradlew installDebug
 adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
 ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.AppCacheClearTest || { capture; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }
+adb pull /sdcard/Download/sfe-cacheclear-diag.txt app/build/reports/device/ || true
 ./gradlew installDebug
 adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
 ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.UserFlowsTest || { capture; adb logcat -d > app/build/reports/device/logcat-flows.txt || true; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }

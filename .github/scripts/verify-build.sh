@@ -185,9 +185,7 @@ adb pull /sdcard/Download/sfe-disk-refresh.txt app/build/reports/device/ || true
 capture
 ./gradlew installDebug
 adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
-./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.AppCacheCleanerTest || { capture; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }
-mkdir -p app/build/reports/device/Download/SfeCacheShots
-adb pull /sdcard/Download/SfeCacheShots/. app/build/reports/device/Download/SfeCacheShots/ || true
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.AppCacheListTest || { capture; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }
 ./gradlew installDebug
 adb shell appops set com.stockfileexplorer.app MANAGE_EXTERNAL_STORAGE allow
 ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.stockfileexplorer.app.UserFlowsTest || { capture; adb logcat -d > app/build/reports/device/logcat-flows.txt || true; FAILED_SUITES="$FAILED_SUITES line$LINENO"; }

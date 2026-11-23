@@ -183,6 +183,7 @@ class CacheClearService : AccessibilityService() {
                 }
             }
             if (now - clearClickedAt > 900) {
+                debugState = "cleared"
                 step = Step.IDLE
                 CacheClear.completeCurrent(true)
             }
@@ -190,6 +191,7 @@ class CacheClearService : AccessibilityService() {
         }
 
         if (now > stepDeadline) {
+            debugState = "timeout in $step"
             step = Step.IDLE
             CacheClear.completeCurrent(false)
             return
@@ -199,13 +201,16 @@ class CacheClearService : AccessibilityService() {
         when (step) {
             Step.OPEN_INFO -> {
                 val row = findByText(root, STORAGE_ROW, exact = true)
+                debugState = "OPEN_INFO pkg=${root.packageName} rowFound=${row != null}"
                 if (row != null && clickNode(row)) {
+                    debugState = "OPEN_INFO clicked storage row"
                     step = Step.OPEN_STORAGE
                     stepDeadline = now + 8000
                 }
             }
             Step.OPEN_STORAGE -> {
                 val button = findClearCacheButton(root)
+                debugState = "OPEN_STORAGE pkg=${root.packageName} clearBtn=${button != null} enabled=${button?.isEnabled}"
                 if (button != null) {
                     if (!button.isEnabled) {
                         // Nothing to clear (cache already zero): count as cleared, not skipped.
@@ -277,6 +282,10 @@ class CacheClearService : AccessibilityService() {
 
     companion object {
         @Volatile var instance: CacheClearService? = null
+            private set
+
+        /** Last observed flow state, for test diagnostics. */
+        @Volatile var debugState: String = "idle"
             private set
 
         suspend fun awaitInstance(timeoutMs: Long): CacheClearService? {

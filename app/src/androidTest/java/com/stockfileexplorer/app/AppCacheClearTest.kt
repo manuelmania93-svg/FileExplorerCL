@@ -52,6 +52,7 @@ class AppCacheClearTest {
     /** Device state for diagnosing why the accessibility service did not come up. */
     private fun diagnostics(): String {
         val sb = StringBuilder()
+        sb.append("service_debug_state=").append(CacheClearService.debugState).append('\n')
         sb.append("enabled_services=")
             .append(shell("settings get secure enabled_accessibility_services").trim()).append('\n')
         sb.append("a11y_enabled=")
@@ -64,6 +65,11 @@ class AppCacheClearTest {
             .take(20)
             .forEach { sb.append(it).append('\n') }
         sb.append("== dumpsys accessibility (full) ==\n").append(shell("dumpsys accessibility")).append('\n')
+        sb.append("== current window dump ==\n")
+        runCatching {
+            shell("uiautomator dump /sdcard/sfe-window.xml")
+            sb.append(shell("cat /sdcard/sfe-window.xml").take(6000)).append('\n')
+        }
         sb.append("== logcat (accessibility lines) ==\n")
         shell("logcat -d -t 600").lineSequence()
             .filter { it.contains("ccessibility") }
@@ -103,10 +109,15 @@ class AppCacheClearTest {
 
             awaitUntil(60000, "clearing run to finish") { CacheClear.progress.value.finished }
             val progress = CacheClear.progress.value
-            assertTrue("run did not finish", progress.finished)
-            assertEquals("skipped apps: ${progress.skipped}", 1, progress.clearedCount)
-            assertTrue("skipped list should be empty: ${progress.skipped}", progress.skipped.isEmpty())
-            assertFalse("seeded cache file survived the clear", seed.exists())
+            try {
+                assertTrue("run did not finish", progress.finished)
+                assertEquals("skipped apps: ${progress.skipped}", 1, progress.clearedCount)
+                assertTrue("skipped list should be empty: ${progress.skipped}", progress.skipped.isEmpty())
+                assertFalse("seeded cache file survived the clear", seed.exists())
+            } catch (t: Throwable) {
+                diagnostics() // writes the pullable diag file; assertion text stays short
+                throw t
+            }
         } finally {
             CacheClear.dismissSummary()
             if (prevServices.isEmpty() || prevServices == "null") {

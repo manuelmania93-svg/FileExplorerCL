@@ -22,6 +22,27 @@ object AppCacheList {
 
     data class AppCache(val packageName: String, val label: String, val cacheBytes: Long)
 
+    /**
+     * Below this an app is not worth a tap or a run: hundreds of system stubs
+     * report a tiny floor value (12 KB-ish, sometimes shared per-UID on OEM
+     * ROMs) and bury the apps that actually hold cache.
+     */
+    const val MIN_CACHE_BYTES = 1_000_000L
+
+    /** Significant entries only, biggest first. Pure, unit-tested. */
+    fun significant(apps: List<AppCache>): List<AppCache> =
+        apps.filter { it.cacheBytes >= MIN_CACHE_BYTES }.sortedByDescending { it.cacheBytes }
+
+    // Short-lived process cache: a full StorageStats pass over hundreds of
+    // packages takes many seconds on real devices, and re-running it on every
+    // resume/settings round-trip read as "it scans over and over".
+    @Volatile private var cache: Pair<Long, List<AppCache>?>? = null
+    private const val TTL_MS = 60_000L
+
+    fun invalidate() {
+        cache = null
+    }
+
     fun hasAccess(context: Context): Boolean = InstalledAppsStats.hasUsageAccess(context)
 
     /**
@@ -30,8 +51,15 @@ object AppCacheList {
      * per-package failure rate means the service is broken, not that no cache
      * exists). Slow on many packages: call off the main thread.
      */
-    fun query(context: Context): List<AppCache>? {
+    fun query(context: Context, maxAgeMs: Long = TTL_MS): List<AppCache>? {
         if (!hasAccess(context)) return null
+        cache?.let { (at, value) -> if (System.currentTimeMillis() - at < maxAgeMs) return value }
+        val result = queryUncached(context)
+        cache = System.currentTimeMillis() to result
+        return result
+    }
+
+    private fun queryUncached(context: Context): List<AppCache>? {
         val statsManager = context.getSystemService(Context.STORAGE_STATS_SERVICE) as StorageStatsManager
         val pm = context.packageManager
         val packages = try {
@@ -61,7 +89,9 @@ object AppCacheList {
             }
         }
         if (packages.isNotEmpty() && failures == packages.size) return null
-        return out.sortedByDescending { it.cacheBytes }
+        // Dual-app ROMs can report a package twice; duplicate entries double-count
+        // the total and break LazyColumn keys in the list.
+        return out.distinctBy { it.packageName }.sortedByDescending { it.cacheBytes }
     }
 
     private const val TAG = "AppCacheList"

@@ -351,4 +351,6 @@
     <string name="cache_run_done">Fertig: %1$d Apps geleert, %2$s frei.</string>
     <string name="cache_run_done_skipped">Fertig: %1$d Apps geleert, %2$s frei. Übersprungen: %3$s</string>
     <string name="cache_run_dismiss">OK</string>
+    <string name="cache_show_more">%1$d kleinere Apps anzeigen</string>
+    <string name="cache_show_less">Kleinere Apps ausblenden</string>
 </resources>

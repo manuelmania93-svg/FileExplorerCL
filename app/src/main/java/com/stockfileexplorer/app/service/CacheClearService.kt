@@ -77,7 +77,8 @@ object CacheClear {
     @Synchronized
     fun start(context: Context, apps: List<AppCacheList.AppCache>) {
         if (runJob?.isActive == true) return
-        val queue = apps.filter { it.cacheBytes > 0 }.sortedByDescending { it.cacheBytes }
+        val queue = apps.filter { it.cacheBytes >= AppCacheList.MIN_CACHE_BYTES }
+            .sortedByDescending { it.cacheBytes }
         _progress.value = Progress(running = true, total = queue.size)
         val appContext = context.applicationContext
         runJob = scope.launch {

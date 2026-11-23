@@ -68,6 +68,7 @@ fun AppCacheScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var apps by remember { mutableStateOf<List<AppCacheList.AppCache>?>(null) }
+    var showAll by remember { mutableStateOf(false) }
     var showGuide by remember { mutableStateOf(false) }
     val clearProgress by CacheClear.progress.collectAsState()
     var serviceEnabled by remember { mutableStateOf(CacheClear.isServiceEnabled(context)) }
@@ -88,9 +89,13 @@ fun AppCacheScreen(onBack: () -> Unit) {
 
     LaunchedEffect(Unit) { reload() }
 
-    // Refresh the measured list once a clearing run finishes.
+    // Refresh the measured list once a clearing run finishes; the run changed
+    // real cache sizes, so bypass the short-lived measurement cache.
     LaunchedEffect(clearProgress.finished) {
-        if (clearProgress.finished) reload()
+        if (clearProgress.finished) {
+            AppCacheList.invalidate()
+            reload()
+        }
     }
 
     Column(Modifier.fillMaxSize()) {
@@ -98,7 +103,7 @@ fun AppCacheScreen(onBack: () -> Unit) {
             title = { Text(stringResource(R.string.cache_list_title)) },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, null) } },
             actions = {
-                val list = apps
+                val list = apps?.let { AppCacheList.significant(it) }
                 if (!list.isNullOrEmpty()) {
                     Text(
                         stringResource(R.string.cache_list_total, FileLogic.formatSize(list.sumOf { it.cacheBytes }), list.size),
@@ -114,11 +119,13 @@ fun AppCacheScreen(onBack: () -> Unit) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
         )
-        val list = apps
-        if (list == null) {
+        val full = apps
+        if (full == null) {
             Text(stringResource(R.string.loading), Modifier.padding(16.dp))
             return@Column
         }
+        val significant = AppCacheList.significant(full)
+        val list = if (showAll) full else significant
 
         // One-tap clearing state UI (accessibility route; see service/CacheClearService.kt).
         if (clearProgress.finished) {
@@ -177,20 +184,41 @@ fun AppCacheScreen(onBack: () -> Unit) {
                     }
                 }
             }
-        } else if (list.any { it.cacheBytes > 0 }) {
-            Button(
-                onClick = {
-                    // Fresh check: the user may have enabled the service without the guide.
-                    serviceEnabled = CacheClear.isServiceEnabled(context)
-                    if (serviceEnabled) {
-                        CacheClear.start(context.applicationContext, list)
-                    } else {
-                        showGuide = true
+        } else if (significant.isNotEmpty()) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Button(
+                    onClick = {
+                        // Fresh check: the user may have enabled the service without the guide.
+                        serviceEnabled = CacheClear.isServiceEnabled(context)
+                        if (serviceEnabled) {
+                            CacheClear.start(context.applicationContext, significant)
+                        } else {
+                            showGuide = true
+                        }
+                    },
+                    modifier = Modifier.testTag("appcache_clear_all"),
+                ) { Text(stringResource(R.string.cache_clear_all)) }
+                val hidden = full.size - significant.size
+                if (hidden > 0) {
+                    TextButton(
+                        onClick = { showAll = !showAll },
+                        modifier = Modifier.testTag("appcache_show_more"),
+                    ) {
+                        Text(stringResource(
+                            if (showAll) R.string.cache_show_less
+                            else R.string.cache_show_more, hidden))
                     }
-                },
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                    .testTag("appcache_clear_all"),
-            ) { Text(stringResource(R.string.cache_clear_all)) }
+                }
+            }
+        } else if (full.size > significant.size) {
+            // Nothing significant, but smaller caches exist: offer to show them.
+            TextButton(
+                onClick = { showAll = true },
+                modifier = Modifier.padding(horizontal = 16.dp).testTag("appcache_show_more"),
+            ) { Text(stringResource(R.string.cache_show_more, full.size - significant.size)) }
         }
 
         LazyColumn(Modifier.fillMaxSize().testTag("appcache_list")) {

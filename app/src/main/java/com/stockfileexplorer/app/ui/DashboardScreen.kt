@@ -190,7 +190,7 @@ fun DashboardScreen(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
-                        val apps = cacheApps
+                        val apps = cacheApps?.let { AppCacheList.significant(it) }
                         val cacheTotal = apps?.sumOf { it.cacheBytes } ?: 0L
                         Text(
                             text = when {

@@ -351,4 +351,6 @@
     <string name="cache_run_done">Done: %1$d apps cleared, %2$s freed.</string>
     <string name="cache_run_done_skipped">Done: %1$d apps cleared, %2$s freed. Skipped: %3$s</string>
     <string name="cache_run_dismiss">OK</string>
+    <string name="cache_show_more">Show %1$d smaller apps</string>
+    <string name="cache_show_less">Hide smaller apps</string>
 </resources>

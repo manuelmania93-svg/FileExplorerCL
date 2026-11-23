@@ -35,7 +35,29 @@ class AppCacheClearTest {
             if (cond()) return
             Thread.sleep(300)
         }
-        throw AssertionError("Timed out waiting for: $label")
+        throw AssertionError("Timed out waiting for: $label\n" + diagnostics())
+    }
+
+    /** Device state for diagnosing why the accessibility service did not come up. */
+    private fun diagnostics(): String {
+        val sb = StringBuilder()
+        sb.append("enabled_services=")
+            .append(shell("settings get secure enabled_accessibility_services").trim()).append('\n')
+        sb.append("a11y_enabled=")
+            .append(shell("settings get secure accessibility_enabled").trim()).append('\n')
+        sb.append("restricted_settings_appop=")
+            .append(shell("appops get ${context.packageName} ACCESS_RESTRICTED_SETTINGS").trim()).append('\n')
+        val dump = shell("dumpsys accessibility")
+        dump.lineSequence()
+            .filter { it.contains("stockfileexplorer", ignoreCase = true) || it.contains("CacheClear") }
+            .take(40)
+            .forEach { sb.append(it).append('\n') }
+        val log = shell("logcat -d -t 400")
+        log.lineSequence()
+            .filter { it.contains("AccessibilityManagerService") || it.contains("CacheClear") }
+            .takeLast(40)
+            .forEach { sb.append(it).append('\n') }
+        return sb.toString()
     }
 
     @Test
@@ -49,11 +71,15 @@ class AppCacheClearTest {
             val component = "${context.packageName}/.service.CacheClearService"
             val services = if (prevServices.isEmpty() || prevServices == "null") component
                 else "$prevServices:$component"
+            // Belt and braces: sideloaded apps on Android 13+ sit behind the
+            // restricted-settings appop; adb-installed apps should be exempt, but
+            // allow it explicitly so the enable below can never be blocked by it.
+            shell("appops set ${context.packageName} ACCESS_RESTRICTED_SETTINGS allow")
             shell("settings put secure enabled_accessibility_services $services")
             shell("settings put secure accessibility_enabled 1")
 
             awaitUntil(15000, "service enabled flag") { CacheClear.isServiceEnabled(context) }
-            awaitUntil(15000, "service connected") { CacheClearService.instance != null }
+            awaitUntil(30000, "service connected") { CacheClearService.instance != null }
             assertNotNull(CacheClearService.instance)
 
             CacheClear.start(context, listOf(

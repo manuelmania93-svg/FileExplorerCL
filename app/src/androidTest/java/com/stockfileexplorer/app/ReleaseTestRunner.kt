@@ -11,6 +11,12 @@ import java.util.concurrent.atomic.AtomicBoolean
 class ReleaseTestRunner : AndroidJUnitRunner() {
     private val watching = AtomicBoolean(false)
     @Volatile private var watcher: Thread? = null
+    private var runnerArgs: Bundle? = null
+
+    override fun onCreate(arguments: Bundle?) {
+        runnerArgs = arguments
+        super.onCreate(arguments)
+    }
 
     override fun finish(resultCode: Int, results: Bundle?) {
         // Stop before Instrumentation disconnects UiAutomation. The watcher must never
@@ -21,6 +27,16 @@ class ReleaseTestRunner : AndroidJUnitRunner() {
     }
 
     override fun onStart() {
+        // AppCacheClearTest drives a real accessibility service. The watcher's
+        // UiDevice connects the instrumentation's default UiAutomation, which
+        // suppresses every other accessibility service while connected (and a
+        // second UiAutomation registration races the test's own flagged one
+        // with "already registered"). Skip the watcher for that suite so its
+        // FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES connection is the only one.
+        if (runnerArgs?.getString("class")?.contains("AppCacheClearTest") == true) {
+            super.onStart()
+            return
+        }
         val device = UiDevice.getInstance(this)
         watching.set(true)
         watcher = Thread({

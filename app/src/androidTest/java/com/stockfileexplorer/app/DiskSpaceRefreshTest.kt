@@ -38,10 +38,15 @@ class DiskSpaceRefreshTest {
         context.getString(R.string.used_of, FileLogic.formatSize(it.usedBytes), FileLogic.formatSize(it.totalBytes))
     }
     private fun waitText(text: String, ms: Long = 20000) {
-        if (!device.wait(Until.hasObject(By.text(text)), ms)) {
-            device.takeScreenshot(File("/sdcard/Download/sfe-disk-missing.png"))
-            throw AssertionError("Expected '$text'. Visible: " + device.findObjects(By.pkg(context.packageName)).mapNotNull { it.text }.distinct().take(30))
-        }
+        if (device.wait(Until.hasObject(By.text(text)), ms)) return
+        // Transient accessibility-tree staleness can hide a node that IS rendered
+        // (main gate: failure screenshot showed the exact expected text on screen
+        // while hasObject missed it for the full timeout). One idle-settled retry
+        // absorbs that before declaring the text missing.
+        device.waitForIdle(5000)
+        if (device.wait(Until.hasObject(By.text(text)), 5000)) return
+        device.takeScreenshot(File("/sdcard/Download/sfe-disk-missing.png"))
+        throw AssertionError("Expected '$text'. Visible: " + device.findObjects(By.pkg(context.packageName)).mapNotNull { it.text }.distinct().take(30))
     }
 
     @Test

@@ -40,9 +40,12 @@ class AppCacheListTest {
         device.wait(Until.findObject(By.res(value)), timeout)
             ?: throw AssertionError("Missing res $value")
 
+    // No force-stop: killing the app mid-run aborts the whole instrumentation
+    // session ("Process crashed"). appops mode is read live (same pattern as
+    // StoragePyramidUsageAccessTest); the CLEAR_TASK relaunch re-runs the
+    // dashboard's LaunchedEffect refresh.
     private fun grantUsageAccess(grant: Boolean) {
         shell("appops set ${context.packageName} android:get_usage_stats ${if (grant) "allow" else "default"}")
-        shell("am force-stop ${context.packageName}")
     }
 
     @Test

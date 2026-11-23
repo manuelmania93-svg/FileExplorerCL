@@ -10,18 +10,6 @@
     <string name="perm_grant">Einstellungen öffnen</string>
     <string name="internal_storage">Interner Speicher</string>
     <string name="used_of">%1$s von %2$s belegt</string>
-    <string name="cache_clean_row">App-Cache: %1$s • Bereinigen</string>
-    <string name="cache_clean_row_scanning">App-Cache wird berechnet…</string>
-    <string name="cache_clean_row_empty">Kein App-Cache gefunden</string>
-    <string name="cache_clean_dialog_title">App-Cache bereinigen?</string>
-    <string name="cache_clean_dialog_summary">%1$s Cache von %2$d Apps</string>
-    <string name="cache_clean_dialog_guarantee">Nur Cache wird gelöscht. App-Daten, Logins und Einstellungen bleiben unberührt.</string>
-    <string name="cache_clean_confirm">Cache leeren</string>
-    <string name="cache_clean_working">Bereinige…</string>
-    <string name="cache_clean_result_title">Cache bereinigt</string>
-    <string name="cache_clean_result">%1$s freigegeben</string>
-    <string name="cache_clean_result_skipped">%1$d Cache-Ordner waren in Verwendung und wurden übersprungen</string>
-    <string name="cache_clean_done">Fertig</string>
     <string name="free_space">%1$s frei</string>
     <string name="cat_images">Bilder</string>
     <string name="cat_videos">Videos</string>
@@ -340,4 +328,11 @@
     <string name="thumbnail_medium">Mittel</string>
     <string name="thumbnail_large">Groß</string>
     <string name="update_changes">Änderungen</string>
+    <string name="cache_row">App-Cache: %1$s • Anzeigen</string>
+    <string name="cache_row_scanning">App-Cache wird gemessen…</string>
+    <string name="cache_row_empty">Kein App-Cache gefunden</string>
+    <string name="cache_row_access">App-Cache: Zugriff nötig • Aktivieren</string>
+    <string name="cache_list_title">App-Cache</string>
+    <string name="cache_list_total">%1$s in %2$d Apps</string>
+    <string name="cache_list_hint">Tippe eine App an, um ihre System-Seite zu öffnen, und wähle dort „Cache leeren“.</string>
 </resources>

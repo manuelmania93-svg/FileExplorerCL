@@ -143,6 +143,7 @@ fun MainScaffold(
     var showSearch by remember { mutableStateOf(false) }
     var showRecent by remember { mutableStateOf(false) }
     var showApps by remember { mutableStateOf(false) }
+    var showAppCache by remember { mutableStateOf(false) }
     var showPapierkorb by remember { mutableStateOf(initialPapierkorb) }
     var showStorageAnalysis by remember { mutableStateOf(initialStorageAnalysis) }
     var showSettings by remember { mutableStateOf(false) }
@@ -226,7 +227,7 @@ fun MainScaffold(
 
     // Intercept Back only while the screen it closes is visible - all of these live on the
     // Local tab. Closing hidden state read as "Back does nothing, then the app exits".
-    BackHandler(enabled = tab == TAB_LOCAL && (savedView != null || showRecent || showSearch || browsePath != null || analysisCategory != null || showApps || showStorageAnalysis || showPapierkorb || showSettings)) {
+    BackHandler(enabled = tab == TAB_LOCAL && (savedView != null || showRecent || showSearch || browsePath != null || analysisCategory != null || showApps || showAppCache || showStorageAnalysis || showPapierkorb || showSettings)) {
         // An open folder or category closes first, so Back from a destination opened out of
         // the analysis returns to the analysis.
         if (savedView != null) savedView = null
@@ -237,6 +238,7 @@ fun MainScaffold(
         else if (showPapierkorb) showPapierkorb = false
         else if (showStorageAnalysis) { showStorageAnalysis = false; analysisHolder.report = null }
         else if (showApps) showApps = false
+        else if (showAppCache) showAppCache = false
         else if (showSettings) showSettings = false
     }
 
@@ -321,6 +323,10 @@ fun MainScaffold(
                     Column(Modifier.fillMaxSize().padding(padding)) {
                         InstalledAppsScreen(onBack = { showApps = false })
                     }
+                } else if (showAppCache && path == null) {
+                    Column(Modifier.fillMaxSize().padding(padding)) {
+                        com.stockfileexplorer.app.ui.AppCacheScreen(onBack = { showAppCache = false })
+                    }
                 } else if (path == null) {
                     Box(Modifier.fillMaxSize().padding(padding)) {
                       com.stockfileexplorer.app.ui.FolderBackdrop(Modifier.fillMaxWidth().height(190.dp))
@@ -366,6 +372,7 @@ fun MainScaffold(
                             onOpenStorage = { browsePath = storageRoot },
                             onOpenDownloads = { browsePath = downloadsPath },
                             onOpenApps = { showApps = true },
+                            onOpenAppCache = { showAppCache = true },
                             onOpenStorageAnalysis = { showStorageAnalysis = true },
                             onOpenPapierkorb = { showPapierkorb = true },
                             onOpenSettings = { showSettings = true },

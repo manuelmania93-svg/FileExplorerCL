@@ -1,7 +1,9 @@
 package com.stockfileexplorer.app.ui
 
+import android.content.Intent
 import android.os.Environment
 import android.os.StatFs
+import android.provider.Settings
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -26,15 +28,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.testTagsAsResourceId
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -56,7 +54,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.stockfileexplorer.app.R
-import com.stockfileexplorer.app.data.AppCacheCleaner
+import com.stockfileexplorer.app.data.AppCacheList
 import com.stockfileexplorer.app.data.FileLogic
 import com.stockfileexplorer.app.theme.AmberDark
 import kotlinx.coroutines.Dispatchers
@@ -76,6 +74,7 @@ fun DashboardScreen(
     onOpenStorage: () -> Unit,
     onOpenDownloads: () -> Unit,
     onOpenApps: () -> Unit,
+    onOpenAppCache: () -> Unit = {},
     onOpenStorageAnalysis: () -> Unit,
     onOpenPapierkorb: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
@@ -102,18 +101,22 @@ fun DashboardScreen(
     val usedBytes = (totalBytes - freeBytes).coerceAtLeast(0L)
     val usedFraction = if (totalBytes > 0) usedBytes.toFloat() / totalBytes.toFloat() else 0f
 
-    // App-cache cleaner: measured off-thread on appear/resume alongside the
-    // volume stats. The row replaces the old "X frei" line on the card.
+    // App-cache row: real per-app cache sizes via StorageStats (the system Settings
+    // source). File-based scanning of Android/data is dead on Android 11+, so the row
+    // reports three honest states: measuring, usage-access missing (tap enables it),
+    // or the measured total (tap opens the per-app list with system-page deep links).
     val context = androidx.compose.ui.platform.LocalContext.current
-    var cacheScan by remember { mutableStateOf<AppCacheCleaner.Scan?>(null) }
-    var cacheDialog by remember { mutableStateOf(false) }
-    var cacheCleaning by remember { mutableStateOf(false) }
-    var cacheResult by remember { mutableStateOf<AppCacheCleaner.CleanResult?>(null) }
+    var cacheApps by remember { mutableStateOf<List<AppCacheList.AppCache>?>(null) }
+    var cacheAccess by remember { mutableStateOf(true) }
     val cacheScope = androidx.compose.runtime.rememberCoroutineScope()
     fun refreshCacheScan() {
         cacheScope.launch {
-            val scan = withContext(Dispatchers.IO) { AppCacheCleaner.scan(root, context.applicationContext) }
-            cacheScan = scan
+            val (access, result) = withContext(Dispatchers.IO) {
+                val granted = AppCacheList.hasAccess(context.applicationContext)
+                granted to if (granted) AppCacheList.query(context.applicationContext) else null
+            }
+            cacheAccess = access
+            if (result != null) cacheApps = result
         }
     }
     LaunchedEffect(Unit) { refreshCacheScan() }
@@ -186,23 +189,29 @@ fun DashboardScreen(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
-                        val scan = cacheScan
+                        val apps = cacheApps
+                        val cacheTotal = apps?.sumOf { it.cacheBytes } ?: 0L
                         Text(
                             text = when {
-                                scan == null -> stringResource(R.string.cache_clean_row_scanning)
-                                scan.totalBytes <= 0L -> stringResource(R.string.cache_clean_row_empty)
-                                else -> stringResource(R.string.cache_clean_row, FileLogic.formatSize(scan.totalBytes))
+                                !cacheAccess -> stringResource(R.string.cache_row_access)
+                                apps == null -> stringResource(R.string.cache_row_scanning)
+                                cacheTotal <= 0L -> stringResource(R.string.cache_row_empty)
+                                else -> stringResource(R.string.cache_row, FileLogic.formatSize(cacheTotal))
                             },
                             style = MaterialTheme.typography.bodySmall,
-                            color = if (scan != null && scan.totalBytes > 0L) MaterialTheme.colorScheme.primary
+                            color = if (cacheAccess && cacheTotal > 0L) MaterialTheme.colorScheme.primary
                                 else MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier
                                 .testTag("home_cache_row")
-                                .clickable(enabled = scan != null && scan.totalBytes > 0L) {
-                                    cacheResult = null
-                                    cacheDialog = true
+                                .clickable(enabled = !cacheAccess || cacheTotal > 0L) {
+                                    if (!cacheAccess) {
+                                        context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
+                                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                                    } else {
+                                        onOpenAppCache()
+                                    }
                                 }
                         )
                     }
@@ -233,89 +242,7 @@ fun DashboardScreen(
         item { ShortcutCard(Icons.Filled.Delete, Color(0xFF607D8B), stringResource(R.string.papierkorb), onOpenPapierkorb, Modifier.testTag("home_papierkorb_tile")) }
     }
 
-    if (cacheDialog) {
-        val result = cacheResult
-        AlertDialog(
-            onDismissRequest = { if (!cacheCleaning) cacheDialog = false },
-            // Dialogs render in their own window, outside the app root's
-            // testTagsAsResourceId scope - re-enable it so dialog tags reach UI Automator.
-            modifier = Modifier.semantics { testTagsAsResourceId = true },
-            title = { Text(stringResource(if (result == null) R.string.cache_clean_dialog_title else R.string.cache_clean_result_title)) },
-            text = {
-                Column {
-                    if (result == null) {
-                        val scanNow = cacheScan
-                        Text(
-                            stringResource(
-                                R.string.cache_clean_dialog_summary,
-                                FileLogic.formatSize(scanNow?.totalBytes ?: 0L),
-                                scanNow?.apps?.size ?: 0,
-                            ),
-                            modifier = Modifier.testTag("cache_clean_summary")
-                        )
-                        scanNow?.apps?.take(3)?.forEach { app ->
-                            Text(
-                                "${app.label} ${FileLogic.formatSize(app.bytes)}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                        Spacer(Modifier.height(10.dp))
-                        Text(
-                            stringResource(R.string.cache_clean_dialog_guarantee),
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.testTag("cache_clean_guarantee")
-                        )
-                        if (cacheCleaning) {
-                            Spacer(Modifier.height(10.dp))
-                            Text(stringResource(R.string.cache_clean_working), style = MaterialTheme.typography.bodySmall)
-                        }
-                    } else {
-                        Text(stringResource(R.string.cache_clean_result, FileLogic.formatSize(result.freedBytes)))
-                        if (result.failedDirs > 0) {
-                            Text(
-                                stringResource(R.string.cache_clean_result_skipped, result.failedDirs),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                if (result == null) {
-                    TextButton(
-                        onClick = {
-                            cacheCleaning = true
-                            cacheScope.launch {
-                                val cleaned = withContext(Dispatchers.IO) { AppCacheCleaner.clean(root) }
-                                cacheResult = cleaned
-                                cacheCleaning = false
-                                withContext(Dispatchers.IO) { com.stockfileexplorer.app.data.VolumeStats.refresh(root) }
-                                refreshCacheScan()
-                            }
-                        },
-                        enabled = !cacheCleaning,
-                        modifier = Modifier.testTag("cache_clean_confirm"),
-                    ) { Text(stringResource(R.string.cache_clean_confirm)) }
-                } else {
-                    TextButton(
-                        onClick = { cacheDialog = false },
-                        modifier = Modifier.testTag("cache_clean_done"),
-                    ) { Text(stringResource(R.string.cache_clean_done)) }
-                }
-            },
-            dismissButton = {
-                if (result == null) {
-                    TextButton(onClick = { cacheDialog = false }, enabled = !cacheCleaning) {
-                        Text(stringResource(R.string.cancel))
-                    }
-                }
-            },
-        )
-    }
+
 }
 
 @Composable

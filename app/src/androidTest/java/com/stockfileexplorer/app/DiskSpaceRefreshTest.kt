@@ -51,6 +51,9 @@ class DiskSpaceRefreshTest {
             Thread.sleep(500)
         }
         device.takeScreenshot(File("/sdcard/Download/sfe-disk-missing.png"))
+        // Forensics for the missing-node mystery: the full window hierarchy at
+        // failure time (pulled by verify-build's capture as sfe-*.xml).
+        try { device.dumpWindowHierarchy(File("/sdcard/Download/sfe-disk-dump.xml")) } catch (_: Exception) {}
         throw AssertionError("Expected '$text'. Node text: '$actual'. Visible: " + device.findObjects(By.pkg(context.packageName)).mapNotNull { it.text }.distinct().take(30))
     }
 

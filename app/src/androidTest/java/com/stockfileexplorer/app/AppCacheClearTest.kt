@@ -1,5 +1,6 @@
 package com.stockfileexplorer.app
 
+import android.app.UiAutomation
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.stockfileexplorer.app.data.AppCacheList
@@ -24,8 +25,18 @@ class AppCacheClearTest {
     private val inst = InstrumentationRegistry.getInstrumentation()
     private val context = inst.targetContext
 
+    // Shell through a UiAutomation that does NOT suppress accessibility services:
+    // the default instrumentation UiAutomation makes AccessibilityManagerService
+    // suppress (never bind) every other service while it is connected - the
+    // dumpsys proof: "Enabled services" listed ours while "Bound services" and
+    // "Binding services" stayed empty, right after UiAutomationManager logged
+    // "Registering UiTestAutomationService".
+    private val shellAutomation: UiAutomation by lazy {
+        inst.getUiAutomation(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES)
+    }
+
     private fun shell(cmd: String): String {
-        val fd = inst.uiAutomation.executeShellCommand(cmd)
+        val fd = shellAutomation.executeShellCommand(cmd)
         return android.os.ParcelFileDescriptor.AutoCloseInputStream(fd).use { String(it.readBytes()) }
     }
 

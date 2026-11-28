@@ -224,6 +224,7 @@ fun BrowserScreen(
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var menuTarget by remember { mutableStateOf<FileItem?>(null) }
     var folderStats by remember { mutableStateOf<Map<String, FileIndex.DirectoryStats>>(emptyMap()) }
+    var childCounts by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
     val indexStatus by FileIndex.state.collectAsState()
     var propertiesTarget by remember { mutableStateOf<FileItem?>(null) }
     var viewSheetOpen by remember { mutableStateOf(false) }
@@ -251,8 +252,16 @@ fun BrowserScreen(
         val directoryPaths = rawItems.filter { it.isDirectory }.map { it.file.absolutePath }
         if (directoryPaths.isEmpty()) {
             folderStats = emptyMap()
+            childCounts = emptyMap()
         } else {
             folderStats = FileIndex.directoryStats(directoryPaths)
+            // CX-style "N Elemente": direct children, instant from the filesystem -
+            // no index wait and no provisional markers on the row.
+            childCounts = withContext(Dispatchers.IO) {
+                directoryPaths.associateWith { p ->
+                    runCatching { File(p).list()?.size ?: -1 }.getOrDefault(-1)
+                }
+            }
         }
     }
 
@@ -494,9 +503,7 @@ fun BrowserScreen(
                         favorite = item.file.absolutePath in favoritePaths,
                         selected = selection.contains(item.file.absolutePath),
                         selecting = selecting,
-                        directoryStats = folderStats[item.file.absolutePath],
-                        statsProvisional = indexStatus.refreshing || indexStatus.incomplete ||
-                                knownIncompleteFolder(item.file.absolutePath, rootPath),
+                        childCount = childCounts[item.file.absolutePath],
                         onClick = {
                             if (selecting) toggleSelection(item.file.absolutePath)
                             else if (item.isDirectory) navigateTo(item.file.absolutePath)
@@ -514,14 +521,11 @@ fun BrowserScreen(
                 items(items.size, key = { items[it].file.absolutePath }) { index ->
                     val item = items[index]
                     FileListRow(
-                        thumbnailDp = thumbnailSize.listDp,
                         item = item,
                         favorite = item.file.absolutePath in favoritePaths,
                         selected = selection.contains(item.file.absolutePath),
                         selecting = selecting,
-                        directoryStats = folderStats[item.file.absolutePath],
-                        statsProvisional = indexStatus.refreshing || indexStatus.incomplete ||
-                                knownIncompleteFolder(item.file.absolutePath, rootPath),
+                        childCount = childCounts[item.file.absolutePath],
                         onClick = {
                             if (selecting) toggleSelection(item.file.absolutePath)
                             else if (item.isDirectory) navigateTo(item.file.absolutePath)
@@ -982,12 +986,10 @@ fun FileListRow(
     favorite: Boolean = false,
     selected: Boolean,
     selecting: Boolean,
-    directoryStats: FileIndex.DirectoryStats?,
-    statsProvisional: Boolean,
+    childCount: Int?,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     trailing: (@Composable () -> Unit)? = null,
-    thumbnailDp: Int = 40
 ) {
     val background = if (selected) MaterialTheme.colorScheme.secondaryContainer
     else Color.Transparent
@@ -997,14 +999,15 @@ fun FileListRow(
             .background(background)
             .testTag("file_row_${item.name}")
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (selecting) {
             Checkbox(checked = selected, onCheckedChange = { onClick() })
             Spacer(Modifier.width(4.dp))
         }
-        FileIcon(item = item, size = thumbnailDp)
+        // Compact CX-style row: small fixed icon, one meta line.
+        FileIcon(item = item, size = 38)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1025,17 +1028,16 @@ fun FileListRow(
             }
             Text(
                 text = if (item.isDirectory)
-                    folderMetadata(item, directoryStats, statsProvisional)
+                    childCount?.takeIf { it >= 0 }?.let { stringResource(R.string.items_count, it) } ?: ""
                 else FileLogic.formatSize(item.size) + " • " + FileLogic.formatDate(item.lastModified),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = if (item.isDirectory) 2 else 1,
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
         }
         trailing?.invoke()
     }
-    androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -1045,8 +1047,7 @@ fun FileGridCell(
     favorite: Boolean = false,
     selected: Boolean,
     selecting: Boolean,
-    directoryStats: FileIndex.DirectoryStats?,
-    statsProvisional: Boolean,
+    childCount: Int?,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     onMenu: () -> Unit = {}
@@ -1102,47 +1103,17 @@ fun FileGridCell(
             )
             Text(
                 text = if (item.isDirectory)
-                    folderMetadata(item, directoryStats, statsProvisional)
+                    childCount?.takeIf { it >= 0 }?.let { stringResource(R.string.items_count, it) } ?: ""
                 else FileLogic.formatSize(item.size),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
         }
     }
 }
 
-private fun knownIncompleteFolder(path: String, rootPath: String): Boolean {
-    val androidRoot = "$rootPath/Android"
-    return path == androidRoot ||
-            path.startsWith("$androidRoot/data/") || path == "$androidRoot/data" ||
-            path.startsWith("$androidRoot/obb/") || path == "$androidRoot/obb"
-}
-
-@Composable
-private fun folderMetadata(
-    item: FileItem,
-    stats: FileIndex.DirectoryStats?,
-    provisional: Boolean
-): String {
-    val date = FileLogic.formatDate(item.lastModified)
-    return when {
-        stats == null -> stringResource(R.string.folder_stats_pending, date)
-        provisional -> stringResource(
-            R.string.folder_stats_partial,
-            stats.fileCount,
-            FileLogic.formatSize(stats.totalBytes),
-            date
-        )
-        else -> stringResource(
-            R.string.folder_stats,
-            stats.fileCount,
-            FileLogic.formatSize(stats.totalBytes),
-            date
-        )
-    }
-}
 
 @Composable
 fun FileIcon(item: FileItem, size: Int) {

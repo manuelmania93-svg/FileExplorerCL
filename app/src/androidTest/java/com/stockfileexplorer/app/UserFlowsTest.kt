@@ -53,15 +53,18 @@ class UserFlowsTest {
         viewOptions.click()
         // Rows below the fold are clipped by the sheet's scroll container and are
         // invisible to uiautomator until scrolled into view - scroll first, then look.
-        val sheet = device.wait(Until.findObject(By.res("view_sort_sheet")), 15000)
-            ?: throw AssertionError("view/sort sheet missing")
-        var sizeRow = device.findObject(By.text("Size"))
+        // Re-find both nodes every iteration: Compose replaces them while scrolling
+        // and a cached handle goes stale (StaleObjectException).
+        var sizeRow: androidx.test.uiautomator.UiObject2? = null
         var scrollGuard = 0
-        while ((sizeRow == null || sizeRow.visibleBounds.bottom > device.displayHeight - 60) && scrollGuard++ < 10) {
+        while (scrollGuard++ < 10) {
+            sizeRow = device.findObject(By.text("Size"))
+            if (sizeRow != null && sizeRow.visibleBounds.bottom <= device.displayHeight - 60) break
+            val sheet = device.findObject(By.res("view_sort_sheet"))
+                ?: throw AssertionError("view/sort sheet missing")
             sheet.scroll(Direction.DOWN, 0.8f)
             device.waitForIdle()
             Thread.sleep(300)
-            sizeRow = device.findObject(By.text("Size"))
         }
         if (sizeRow == null) { shot("missing-Size"); throw AssertionError("Expected 'Size'") }
         shot("sort-2-menu")

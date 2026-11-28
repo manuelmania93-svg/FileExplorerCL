@@ -70,21 +70,21 @@ class UserFlowsTest {
         }
         if (sizeRow == null) { shot("missing-Size"); throw AssertionError("Expected 'Size'") }
         shot("sort-2-menu")
-        // Tap Size and watch the list behind the sheet re-sort; retry the tap if the
-        // first one landed mid-animation on a neighbouring row. Selecting the same
-        // mode again is harmless, so retrying can never make things worse.
-        var sizeApplied = false
-        var clickGuard = 0
-        while (clickGuard++ < 4 && !sizeApplied) {
+        // Tap Size and confirm the pick through the saved pref (the sheet writes it on
+        // selection); a tap can land mid-animation on a neighbour row, so retry.
+        var pickGuard = 0
+        do {
             device.findObject(By.text("Size"))?.click()
             device.waitForIdle()
-            var poll = 0
-            while (poll++ < 12 && !sizeApplied) {
-                Thread.sleep(500)
-                sizeApplied = top("z-large.txt") < top("a-small.txt")
-            }
+            Thread.sleep(400)
+        } while (com.stockfileexplorer.app.FileActionPreferences.browserSort(context) != "SIZE" && pickGuard++ < 4)
+        // Rows behind the open sheet report clipped bounds to uiautomator, so the
+        // order can only be measured after the sheet is gone.
+        var dismissGuard = 0
+        while (device.findObject(By.res("view_sort_sheet")) != null && dismissGuard++ < 5) {
+            device.pressBack()
+            device.wait(Until.gone(By.res("view_sort_sheet")), 3000)
         }
-        device.pressBack()
         device.wait(Until.hasObject(By.text("z-large.txt")), 5000)
         shot("sort-3-by-size")
         assertTrue("size order expected", top("z-large.txt") < top("a-small.txt"))

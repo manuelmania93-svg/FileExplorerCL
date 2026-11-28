@@ -66,21 +66,24 @@ class SortPersistenceUiTest {
             Thread.sleep(300)
         }
         if (sizeRow == null) { device.takeScreenshot(File("/sdcard/Download/sfe-sortpersist-missing.png")); throw AssertionError("Expected 'Size'") }
-        // Tap Size and watch the list behind the sheet re-sort; retry the tap if the
-        // first one landed mid-animation on a neighbouring row.
-        var sizeApplied = false
-        var clickGuard = 0
-        while (clickGuard++ < 4 && !sizeApplied) {
+        
+        // Tap Size and confirm the pick through the saved pref (the sheet writes it on
+        // selection); a tap can land mid-animation on a neighbour row, so retry.
+        var pickGuard = 0
+        do {
             device.findObject(By.text("Size"))?.click()
             device.waitForIdle()
-            var poll = 0
-            while (poll++ < 12 && !sizeApplied) {
-                Thread.sleep(500)
-                sizeApplied = top("z-large.txt") < top("a-small.txt")
-            }
+            Thread.sleep(400)
+        } while (com.stockfileexplorer.app.FileActionPreferences.browserSort(context) != "SIZE" && pickGuard++ < 4)
+        // Rows behind the open sheet report clipped bounds to uiautomator, so the
+        // order can only be measured after the sheet is gone.
+        var dismissGuard = 0
+        while (device.findObject(By.res("view_sort_sheet")) != null && dismissGuard++ < 5) {
+            device.pressBack()
+            device.wait(Until.gone(By.res("view_sort_sheet")), 3000)
         }
-        device.pressBack()
         device.wait(Until.hasObject(By.text("z-large.txt")), 5000)
+        
         assertTrue("size order expected after choosing Size", top("z-large.txt") < top("a-small.txt"))
         device.takeScreenshot(File("/sdcard/Download/sfe-sortpersist-1-chosen.png"))
     }

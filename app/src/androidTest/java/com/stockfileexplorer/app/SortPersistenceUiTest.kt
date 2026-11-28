@@ -48,19 +48,19 @@ class SortPersistenceUiTest {
         val viewOptions = device.wait(Until.findObject(By.desc(context.getString(R.string.view_options))), 15000)
             ?: throw AssertionError("Missing view options button")
         viewOptions.click()
-        // The sheet can be taller than the screen (small displays, large fonts), so
-        // scroll its tagged container until the Size row is actually visible.
+        // Rows below the fold are clipped by the sheet's scroll container and are
+        // invisible to uiautomator until scrolled into view - scroll first, then look.
         val sheet = device.wait(Until.findObject(By.res("view_sort_sheet")), 15000)
             ?: throw AssertionError("view/sort sheet missing")
-        var sizeRow = device.wait(Until.findObject(By.text("Size")), 20000)
-            ?: throw AssertionError("Expected 'Size'")
+        var sizeRow = device.findObject(By.text("Size"))
         var scrollGuard = 0
-        while (sizeRow.visibleBounds.bottom > device.displayHeight - 60 && scrollGuard++ < 8) {
+        while ((sizeRow == null || sizeRow.visibleBounds.bottom > device.displayHeight - 60) && scrollGuard++ < 10) {
             sheet.scroll(Direction.DOWN, 0.8f)
             device.waitForIdle()
             Thread.sleep(300)
-            sizeRow = device.findObject(By.text("Size")) ?: break
+            sizeRow = device.findObject(By.text("Size"))
         }
+        if (sizeRow == null) { device.takeScreenshot(File("/sdcard/Download/sfe-sortpersist-missing.png")); throw AssertionError("Expected 'Size'") }
         device.findObject(By.text("Size")).click()
         device.pressBack()
         device.wait(Until.hasObject(By.text("z-large.txt")), 5000)

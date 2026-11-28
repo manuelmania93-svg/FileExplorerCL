@@ -147,6 +147,24 @@ fun MainScaffold(
     var showPapierkorb by remember { mutableStateOf(initialPapierkorb) }
     var showStorageAnalysis by remember { mutableStateOf(initialStorageAnalysis) }
     var showSettings by remember { mutableStateOf(false) }
+    // Copy/Move started outside the browser (Library categories, search): land the user in
+    // the browser at the source folder so the CX-style paste bar can finish it there.
+    androidx.compose.runtime.LaunchedEffect(com.stockfileexplorer.app.PasteBoard.pendingPath) {
+        com.stockfileexplorer.app.PasteBoard.pendingPath?.let { target ->
+            com.stockfileexplorer.app.PasteBoard.pendingPath = null
+            tab = TAB_LOCAL
+            savedView = null
+            showRecent = false
+            showSearch = false
+            showSettings = false
+            showPapierkorb = false
+            analysisCategory = null
+            showStorageAnalysis = false
+            showApps = false
+            showAppCache = false
+            browsePath = target
+        }
+    }
     val storageRoot = remember { Environment.getExternalStorageDirectory().absolutePath }
     val downloadsPath = remember { Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).absolutePath }
 
@@ -384,7 +402,8 @@ fun MainScaffold(
                     Column(Modifier.fillMaxSize().padding(padding)) {
                         BrowserScreen(
                             startPath = path,
-                            onNavigateUp = { browsePath = null }
+                            onNavigateUp = { browsePath = null },
+                            onSearch = { showSearch = true }
                         )
                     }
                 }

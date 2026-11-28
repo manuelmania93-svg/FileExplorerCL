@@ -43,10 +43,13 @@ class SortPersistenceUiTest {
         launchBrowser()
         waitText("z-large.txt")
         assertTrue("name order expected before choosing Size", top("a-small.txt") < top("z-large.txt"))
-        val b = device.findObject(By.desc(context.getString(R.string.view_grid))).visibleBounds
-        device.click((device.displayWidth * 0.93).toInt(), b.centerY())
+        // View/sort lives in the bottom sheet behind the left of the two three-dot buttons.
+        val viewOptions = device.wait(Until.findObject(By.desc(context.getString(R.string.view_options))), 15000)
+            ?: throw AssertionError("Missing view options button")
+        viewOptions.click()
         waitText("Size")
         device.findObject(By.text("Size")).click()
+        device.pressBack()
         device.wait(Until.hasObject(By.text("z-large.txt")), 5000)
         assertTrue("size order expected after choosing Size", top("z-large.txt") < top("a-small.txt"))
         device.takeScreenshot(File("/sdcard/Download/sfe-sortpersist-1-chosen.png"))

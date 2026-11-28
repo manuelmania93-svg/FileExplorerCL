@@ -234,19 +234,20 @@ class FileActionsInstrumentedTest {
         screenshot("sfe-file-actions-category")
 
         clickText("Copy")
-        waitText("Choose copy destination")
-        clickText("Download")
-        waitText(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).absolutePath)
-        clickText("SfeActions")
-        waitText(root.absolutePath)
+        // CX-style paste: copying in a category routes to the browser at the source folder,
+        // then the paste bar finishes it in whatever folder is open.
+        waitText("Paste")
         clickText(categoryDestination.name)
-        waitText(categoryDestination.absolutePath)
-        clickText("Copy here")
+        clickText("Paste")
         val categoryCopy = File(categoryDestination, categoryImage.name)
         assertTrue("category copy did not create the destination", waitForFile(categoryCopy))
         assertTrue("category copy removed the original", categoryImage.exists())
         screenshot("sfe-file-actions-category-transfer")
 
+        device.pressBack()
+        device.pressBack()
+        clickText("Library")
+        clickText("Images")
         openActionsFor(categoryImage.name)
         clickText("Favorite")
         waitDescription("Favorite")
@@ -270,30 +271,21 @@ class FileActionsInstrumentedTest {
         launch()
         openActionsFor(copySource.name)
         clickText("Copy")
-        waitText("Choose copy destination")
-        clickText("Download")
-        waitText(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).absolutePath)
-        clickText("SfeActions")
-        waitText(root.absolutePath)
+        waitText("Paste")
         clickText(destination.name)
-        waitText(destination.absolutePath)
-        clickText("Copy here")
+        clickText("Paste")
         val copied = File(destination, "copy-source (1).txt")
         assertTrue("copy did not create a unique destination", waitForFile(copied))
         assertTrue("copy content did not land", waitForFileText(copied, "copy content"))
         assertTrue("copy removed the original", copySource.exists())
         assertEquals("existing content", File(destination, copySource.name).readText())
 
+        device.pressBack()
         openActionsFor(moveSource.name)
         clickText("Move to")
-        waitText("Choose move destination")
-        clickText("Download")
-        waitText(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).absolutePath)
-        clickText("SfeActions")
-        waitText(root.absolutePath)
+        waitText("Paste")
         clickText(destination.name)
-        waitText(destination.absolutePath)
-        clickText("Move here")
+        clickText("Paste")
         val moved = File(destination, moveSource.name)
         assertTrue("move did not create the destination", waitForFile(moved))
         assertTrue("move left the original behind", waitForFile(moveSource, shouldExist = false))
@@ -303,6 +295,27 @@ class FileActionsInstrumentedTest {
         root.deleteRecursively()
     }
 
+
+    @Test fun breadcrumbSegmentsNavigateToTheirFolder() {
+        root.deleteRecursively()
+        root.mkdirs()
+        val sub = File(root, "sub").apply { mkdirs() }
+        File(sub, "inner.txt").writeText("inner")
+        File(root, "outer.txt").writeText("outer")
+
+        launch()
+        clickText("sub")
+        waitText("inner.txt")
+        // Every breadcrumb segment is tappable and jumps straight to its folder.
+        clickText("SfeActions")
+        waitText("outer.txt")
+        clickText("sub")
+        waitText("inner.txt")
+        clickText("Download")
+        waitText("SfeActions")
+
+        root.deleteRecursively()
+    }
 
     @Test fun favoriteAndCustomizationSurviveRelaunch() {
         root.deleteRecursively()

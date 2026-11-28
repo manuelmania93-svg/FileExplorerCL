@@ -21,12 +21,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import android.os.Environment
 import com.stockfileexplorer.app.FileActionCallbacks
 import com.stockfileexplorer.app.FileActionMenu
 import com.stockfileexplorer.app.FileActionPreferences
 import com.stockfileexplorer.app.FileOperations
 import com.stockfileexplorer.app.MenuCustomizationDialog
+import com.stockfileexplorer.app.PasteBoard
 import com.stockfileexplorer.app.R
 import com.stockfileexplorer.app.data.*
 import kotlinx.coroutines.Dispatchers
@@ -60,9 +60,6 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
     var hideTarget by remember { mutableStateOf<FileItem?>(null) }
     var deletes by remember { mutableStateOf<List<java.io.File>>(emptyList()) }
     var properties by remember { mutableStateOf<FileItem?>(null) }
-    var transferSources by remember { mutableStateOf<List<FileItem>>(emptyList()) }
-    var transferMove by remember { mutableStateOf(false) }
-    var conflictPrompt by remember { mutableStateOf<ConflictPrompt?>(null) }
     val menuStyle = com.stockfileexplorer.app.AppSettings.selectionMenuStyle(context)
     var showMenuCustomization by remember { mutableStateOf(false) }
     var favoritePaths by remember { mutableStateOf(FileActionPreferences.favoritePaths(context)) }
@@ -231,8 +228,20 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
                 }
             }
             SelectionActionBar(
-                onCopy = { collectSelected { transferSources = it; transferMove = false } },
-                onMove = { collectSelected { transferSources = it; transferMove = true } },
+                onCopy = {
+                    collectSelected { chosen ->
+                        PasteBoard.begin(chosen, move = false, navigateToPath = chosen.firstOrNull()?.file?.parent)
+                        Toast.makeText(context, R.string.paste_hint, Toast.LENGTH_LONG).show()
+                        selection = emptySet()
+                    }
+                },
+                onMove = {
+                    collectSelected { chosen ->
+                        PasteBoard.begin(chosen, move = true, navigateToPath = chosen.firstOrNull()?.file?.parent)
+                        Toast.makeText(context, R.string.paste_hint, Toast.LENGTH_LONG).show()
+                        selection = emptySet()
+                    }
+                },
                 onDelete = { deletes = selection.map { java.io.File(it) } },
                 onMore = if (menuStyle == com.stockfileexplorer.app.SelectionMenuStyle.CLASSIC) {
                     { quickActionsOpen = true }
@@ -272,12 +281,12 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
                 onSaveLocation = { item.file.parent?.let { FileActionPreferences.saveShortcut(context, it) }; Toast.makeText(context, R.string.location_saved, Toast.LENGTH_SHORT).show() },
                 onContainingFolder = { item.file.parent?.let { containingFolder = it } },
                 onCopy = {
-                    transferSources = listOf(item)
-                    transferMove = false
+                    PasteBoard.begin(listOf(item), move = false, navigateToPath = item.file.parent)
+                    Toast.makeText(context, R.string.paste_hint, Toast.LENGTH_LONG).show()
                 },
                 onMove = {
-                    transferSources = listOf(item)
-                    transferMove = true
+                    PasteBoard.begin(listOf(item), move = true, navigateToPath = item.file.parent)
+                    Toast.makeText(context, R.string.paste_hint, Toast.LENGTH_LONG).show()
                 },
                 onRename = { rename = item },
                 onHide = { hideTarget = item },
@@ -302,51 +311,6 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
             ),
         )
     }
-    if (transferSources.isNotEmpty()) {
-        FolderPickerDialog(
-            title = stringResource(
-                if (transferMove) R.string.choose_move_destination else R.string.choose_copy_destination
-            ),
-            confirmLabel = stringResource(if (transferMove) R.string.move_here else R.string.copy_here),
-            rootPath = Environment.getExternalStorageDirectory().absolutePath,
-            blockedPaths = emptySet(),
-            onDismiss = { transferSources = emptyList() },
-            onConfirm = { destination ->
-                val sources = transferSources
-                val move = transferMove
-                transferSources = emptyList()
-                scope.launch {
-                    var done = 0
-                    var skipped = 0
-                    withContext(Dispatchers.IO) {
-                        for (source in sources) {
-                            val resolution = resolveConflict(context, destination, source.file.name) { conflictPrompt = it }
-                            if (resolution == null) break
-                            when (FileOperations.transferOutcome(source.file, destination, move) { resolution }) {
-                                FileOperations.TransferOutcome.DONE -> done++
-                                FileOperations.TransferOutcome.SKIPPED -> skipped++
-                                FileOperations.TransferOutcome.FAILED -> { }
-                            }
-                        }
-                    }
-                    if (done > 0) {
-                        Toast.makeText(
-                            context,
-                            if (move) R.string.moved_ok else R.string.copied_ok,
-                            Toast.LENGTH_SHORT,
-                        ).show()
-                        FileIndex.invalidate()
-                    }
-                    if (skipped > 0) {
-                        Toast.makeText(context, context.getString(R.string.transfer_skipped, skipped), Toast.LENGTH_SHORT).show()
-                    }
-                    if (done == 0 && skipped == 0) {
-                        Toast.makeText(context, R.string.transfer_failed, Toast.LENGTH_SHORT).show()
-                    }
-                }
-            },
-        )
-    }
     properties?.let { item ->
         PropertiesDialog(
             name = item.name,
@@ -361,7 +325,6 @@ fun IndexedFilesScreen(category: FileCategory?, title: String, onBack: () -> Uni
     if (showMenuCustomization) {
         MenuCustomizationDialog(onDismiss = { showMenuCustomization = false })
     }
-    conflictPrompt?.let { ConflictDialog(it) }
     hideTarget?.let { target ->
         val hiding = !target.name.startsWith(".")
         ConfirmDialog(title = stringResource(if (hiding) R.string.hide_confirm_title else R.string.unhide_confirm_title, target.name),

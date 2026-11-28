@@ -46,11 +46,13 @@ class UserFlowsTest {
         waitText("z-large.txt")
         assertTrue("name order expected first", top("a-small.txt") < top("z-large.txt"))
         shot("sort-1-by-name")
-        val gridButton = device.findObject(By.desc(context.getString(R.string.view_grid)))
-        val b = gridButton.visibleBounds
-        device.click((device.displayWidth * 0.93).toInt(), b.centerY())   // the three-dot menu is the right-most toolbar icon
+        // View/sort lives in the bottom sheet behind the left of the two three-dot buttons.
+        val viewOptions = device.wait(Until.findObject(By.desc(context.getString(R.string.view_options))), 15000)
+            ?: throw AssertionError("Missing view options button")
+        viewOptions.click()
         waitText("Size"); shot("sort-2-menu")
         device.findObject(By.text("Size")).click()
+        device.pressBack()
         device.wait(Until.hasObject(By.text("z-large.txt")), 5000)
         assertTrue("size order expected", top("z-large.txt") < top("a-small.txt"))
         shot("sort-3-by-size")

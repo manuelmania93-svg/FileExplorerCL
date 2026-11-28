@@ -150,6 +150,9 @@ class BuiltInViewersTest {
     }
     @Test fun libraryAndRecentOpenInternallyAndErrorsStayInApp() {
         fixtures()
+        // Recent and Library read the file index, and the fixtures are plain File
+        // writes MediaStore never sees: only the full filesystem walk picks them up.
+        com.stockfileexplorer.app.data.FileIndex.invalidate(full = true)
         mainAndDownload()
         open("broken-picture.jpg");waitText("Cannot open this file");screenshot("broken-picture-error");device.pressBack()
         open("broken-video.mp4");waitText("Cannot open this file");screenshot("broken-video-error");device.pressBack()

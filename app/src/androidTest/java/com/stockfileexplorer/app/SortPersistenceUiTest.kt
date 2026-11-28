@@ -4,7 +4,6 @@ import android.content.Intent
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
-import androidx.test.uiautomator.Direction
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
 import org.junit.Assert.*
@@ -48,18 +47,21 @@ class SortPersistenceUiTest {
         val viewOptions = device.wait(Until.findObject(By.desc(context.getString(R.string.view_options))), 15000)
             ?: throw AssertionError("Missing view options button")
         viewOptions.click()
-        // Rows below the fold are clipped by the sheet's scroll container and are
-        // invisible to uiautomator until scrolled into view - scroll first, then look.
-        // Re-find both nodes every iteration: Compose replaces them while scrolling
-        // and a cached handle goes stale (StaleObjectException).
+        // The sheet can be taller than the screen; rows below the fold are clipped and
+        // invisible to uiautomator. Scroll with real swipes inside the sheet area -
+        // node handles go stale between scrolls (StaleObjectException), swipes don't.
+        if (!device.wait(Until.hasObject(By.res("view_sort_sheet")), 15000)) {
+            device.takeScreenshot(File("/sdcard/Download/sfe-sortpersist-missing.png"));
+            throw AssertionError("view/sort sheet missing")
+        }
+        val w = device.displayWidth
+        val h = device.displayHeight
         var sizeRow: androidx.test.uiautomator.UiObject2? = null
         var scrollGuard = 0
         while (scrollGuard++ < 10) {
             sizeRow = device.findObject(By.text("Size"))
-            if (sizeRow != null && sizeRow.visibleBounds.bottom <= device.displayHeight - 60) break
-            val sheet = device.findObject(By.res("view_sort_sheet"))
-                ?: throw AssertionError("view/sort sheet missing")
-            sheet.scroll(Direction.DOWN, 0.8f)
+            if (sizeRow != null && sizeRow.visibleBounds.bottom <= h - 60) break
+            device.swipe(w / 2, (h * 0.85).toInt(), w / 2, (h * 0.55).toInt(), 20)
             device.waitForIdle()
             Thread.sleep(300)
         }

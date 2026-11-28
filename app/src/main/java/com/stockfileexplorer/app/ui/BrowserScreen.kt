@@ -867,7 +867,7 @@ private fun SheetRadioRow(selected: Boolean, label: String, onClick: () -> Unit)
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 private fun ViewSortSheet(
     gridView: Boolean,
@@ -882,7 +882,7 @@ private fun ViewSortSheet(
         var applyAll by remember { mutableStateOf(true) }
         // The sheet must scroll: on small screens or with large fonts the sort rows
         // otherwise fall below the viewport and become unreachable.
-        Column(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState()).testTag("view_sort_sheet")) {
+        Column(Modifier.semantics { testTagsAsResourceId = true }.verticalScroll(androidx.compose.foundation.rememberScrollState()).testTag("view_sort_sheet")) {
         Row(
             Modifier.fillMaxWidth().clickable { applyAll = !applyAll }.padding(horizontal = 16.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,

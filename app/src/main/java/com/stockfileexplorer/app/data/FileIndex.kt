@@ -52,10 +52,14 @@ object FileIndex {
     private var job: Job? = null
     private var refreshJob: Job? = null
     private val requested = AtomicLong(0)
+    // Set by invalidate(full = true): the next refresh runs the filesystem walk
+    // regardless of the 24h cadence.
+    private val walkRequested = AtomicBoolean(false)
     private var verifying = false
     private val running = AtomicBoolean(false)
     private var lastPublished = 0L
     private var lastResumeCheck = 0L
+    private const val WALK_INTERVAL_MS = 24L * 60 * 60 * 1000
 
     @Synchronized fun start(ctx: Context) {
         if (helper != null) return
@@ -67,9 +71,14 @@ object FileIndex {
         invalidate()
     }
 
-    /** Keep the last disk view visible. Coalesce mutations instead of dropping all results. */
-    @Synchronized fun invalidate() {
+    /**
+     * Keep the last disk view visible. Coalesce mutations instead of dropping all results.
+     * full = true forces the slow filesystem walk (manual Aktualisieren); otherwise the
+     * walk runs at most once per 24h, on an empty database, or in fixture verification.
+     */
+    @Synchronized fun invalidate(full: Boolean = false) {
         if (verifying) return
+        if (full) walkRequested.set(true)
         requested.incrementAndGet()
         if (helper == null) return
         refreshJob?.cancel()
@@ -169,6 +178,20 @@ object FileIndex {
             batch.clear()
         }
         afterIndex?.invoke()
+        // The walk over the whole storage costs minutes on big devices and left every
+        // folder row provisional on each app start. MediaStore rows above already refresh
+        // the visible library fast, so the walk only runs when forced, when the database
+        // is empty, or once a day.
+        val prefs = ctx.getSharedPreferences("file-index", Context.MODE_PRIVATE)
+        val forced = walkRequested.getAndSet(false)
+        val dbEmpty = helper!!.readableDatabase
+            .query("files", arrayOf("path"), null, null, null, null, null, "1").use { !it.moveToFirst() }
+        val walkDue = rootOverride != null || forced || dbEmpty ||
+            System.currentTimeMillis() - prefs.getLong("last_walk", 0L) > WALK_INTERVAL_MS
+        if (!walkDue) {
+            publish(false, checked, incomplete, true)
+            return
+        }
         try {
             val queue = ArrayDeque<File>()
             val base = File(root)
@@ -195,7 +218,10 @@ object FileIndex {
             writeBatch(batch, token)
             // Never prune based on a failed or inaccessible traversal. Successful scans
             // replace indexed ghosts and files deleted while the app was not running.
-            if (!incomplete) helper!!.writableDatabase.delete("files", "seen != ?", arrayOf(token.toString()))
+            if (!incomplete) {
+                helper!!.writableDatabase.delete("files", "seen != ?", arrayOf(token.toString()))
+                prefs.edit().putLong("last_walk", System.currentTimeMillis()).apply()
+            }
         } catch (_: Exception) { incomplete = true }
         publish(false, checked, incomplete, true)
     }

@@ -46,7 +46,9 @@ class RemoteAndSearchTest {
         File(root,"RemoteNeedle_100%.txt").writeText("literal search fixture")
         context.startActivity(Intent(context,MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
         text("Internal storage")
-        FileIndex.invalidate()
+        // The fixture file is written by this process, so MediaStore has no row for it:
+        // the search below only finds it through the full filesystem walk.
+        FileIndex.invalidate(full = true)
     }
     private fun position(): Int = tag("video_position").text.substringBefore(" / ").toInt()
     private fun waitPosition(test: (Int) -> Boolean) {

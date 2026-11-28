@@ -42,8 +42,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
@@ -217,7 +215,6 @@ fun BrowserScreen(
     // Floating Rename/Share quick actions card (replaces the bar's old "More" menu):
     // opened by long-press, Select-all or the file menu's Select; leaves with the selection.
     var quickActionsOpen by remember { mutableStateOf(false) }
-    var menuOpen by remember { mutableStateOf(false) }
     var showNewFolder by remember { mutableStateOf(false) }
     var renameTarget by remember { mutableStateOf<FileItem?>(null) }
     var hideTarget by remember { mutableStateOf<FileItem?>(null) }
@@ -412,57 +409,10 @@ fun BrowserScreen(
                             )
                         )
                     }
+                    // One menu: the 3-dots open the sheet that carries the actions
+                    // (Neu/Suchen/Aktualisieren/Ort speichern) above view & sort.
                     IconButton(onClick = { viewSheetOpen = true }, modifier = Modifier.testTag("view_options")) {
                         Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.view_options))
-                    }
-                    Box {
-                        IconButton(onClick = { menuOpen = true }) {
-                            Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.menu_more))
-                        }
-                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                            var neuOpen by remember { mutableStateOf(false) }
-                            Box {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.menu_new)) },
-                                    leadingIcon = { Icon(Icons.Filled.Add, null) },
-                                    trailingIcon = { Text("\u203A") },
-                                    onClick = { neuOpen = true }
-                                )
-                                DropdownMenu(expanded = neuOpen, onDismissRequest = { neuOpen = false }) {
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.new_folder)) },
-                                        leadingIcon = { Icon(SfeIcons.CreateNewFolder, null) },
-                                        onClick = { neuOpen = false; menuOpen = false; showNewFolder = true }
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.new_file)) },
-                                        leadingIcon = { Icon(SfeIcons.InsertDriveFile, null) },
-                                        onClick = { neuOpen = false; menuOpen = false; showNewFile = true }
-                                    )
-                                }
-                            }
-                            if (onSearch != null) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.search)) },
-                                    leadingIcon = { Icon(Icons.Filled.Search, null) },
-                                    onClick = { menuOpen = false; onSearch() }
-                                )
-                            }
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.refresh)) },
-                                leadingIcon = { Icon(Icons.Filled.Refresh, null) },
-                                onClick = {
-                                    menuOpen = false
-                                    com.stockfileexplorer.app.data.FileIndex.invalidate()
-                                    refreshTick++
-                                }
-                            )
-                            DropdownMenuItem(text = { Text(stringResource(R.string.save_location)) }, leadingIcon = { Icon(SfeIcons.Link, null) }, onClick = {
-                                com.stockfileexplorer.app.FileActionPreferences.saveShortcut(context, currentPath)
-                                Toast.makeText(context, R.string.location_saved, Toast.LENGTH_SHORT).show()
-                                menuOpen = false
-                            })
-                        }
                     }
                 }
             )
@@ -738,6 +688,18 @@ fun BrowserScreen(
                 if (applyAll) com.stockfileexplorer.app.FileActionPreferences.saveBrowserShowHidden(context, hidden)
             },
             onDismiss = { viewSheetOpen = false },
+            onNewFolder = { showNewFolder = true },
+            onNewFile = { showNewFile = true },
+            onSearch = onSearch,
+            onRefresh = {
+                // Manual Aktualisieren: the one path that always reruns the full walk.
+                com.stockfileexplorer.app.data.FileIndex.invalidate(full = true)
+                refreshTick++
+            },
+            onSaveLocation = {
+                com.stockfileexplorer.app.FileActionPreferences.saveShortcut(context, currentPath)
+                Toast.makeText(context, R.string.location_saved, Toast.LENGTH_SHORT).show()
+            },
         )
     }
 
@@ -860,6 +822,18 @@ private fun PasteBar(count: Int, pasteEnabled: Boolean, onPaste: () -> Unit, onC
 }
 
 @Composable
+private fun SheetActionRow(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(16.dp))
+        Text(label)
+    }
+}
+
+@Composable
 private fun SheetRadioRow(selected: Boolean, label: String, onClick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 6.dp),
@@ -881,12 +855,26 @@ private fun ViewSortSheet(
     onSortChange: (SortMode, Boolean) -> Unit,
     onHiddenChange: (Boolean, Boolean) -> Unit,
     onDismiss: () -> Unit,
+    onNewFolder: (() -> Unit)? = null,
+    onNewFile: (() -> Unit)? = null,
+    onSearch: (() -> Unit)? = null,
+    onRefresh: (() -> Unit)? = null,
+    onSaveLocation: (() -> Unit)? = null,
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         var applyAll by remember { mutableStateOf(true) }
         // The sheet must scroll: on small screens or with large fonts the sort rows
         // otherwise fall below the viewport and become unreachable.
         Column(Modifier.semantics { testTagsAsResourceId = true }.verticalScroll(androidx.compose.foundation.rememberScrollState()).testTag("view_sort_sheet")) {
+        // Actions from the old second 3-dots menu, now rows above view & sort.
+        if (onNewFolder != null || onNewFile != null || onSearch != null || onRefresh != null || onSaveLocation != null) {
+            if (onNewFolder != null) SheetActionRow(SfeIcons.CreateNewFolder, stringResource(R.string.new_folder)) { onDismiss(); onNewFolder() }
+            if (onNewFile != null) SheetActionRow(SfeIcons.InsertDriveFile, stringResource(R.string.new_file)) { onDismiss(); onNewFile() }
+            if (onSearch != null) SheetActionRow(Icons.Filled.Search, stringResource(R.string.search)) { onDismiss(); onSearch() }
+            if (onRefresh != null) SheetActionRow(Icons.Filled.Refresh, stringResource(R.string.refresh)) { onDismiss(); onRefresh() }
+            if (onSaveLocation != null) SheetActionRow(SfeIcons.Link, stringResource(R.string.save_location)) { onDismiss(); onSaveLocation() }
+            androidx.compose.material3.HorizontalDivider()
+        }
         Row(
             Modifier.fillMaxWidth().clickable { applyAll = !applyAll }.padding(horizontal = 16.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,

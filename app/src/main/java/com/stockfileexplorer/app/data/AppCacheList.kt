@@ -6,6 +6,12 @@ import android.content.pm.PackageManager
 import android.os.Process
 import android.os.storage.StorageManager
 import android.util.Log
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.Dispatchers
 
 /**
  * Real per-app cache sizes via the same StorageStats API the system Settings app
@@ -37,10 +43,42 @@ object AppCacheList {
     // packages takes many seconds on real devices, and re-running it on every
     // resume/settings round-trip read as "it scans over and over".
     @Volatile private var cache: Pair<Long, List<AppCache>?>? = null
-    private const val TTL_MS = 60_000L
+    // 15 minutes: revisiting the screen inside the TTL shows the last measurement
+    // instead of rescanning, and a cold process start shows the persisted snapshot
+    // instantly while one background pass refreshes it.
+    private const val TTL_MS = 15L * 60 * 1000
 
     fun invalidate() {
         cache = null
+    }
+
+    private const val PREFS = "app-cache-list"
+    private const val KEY_SNAPSHOT = "snapshot"
+
+    /** Last measured list, persisted across process death. Instant; may be stale. */
+    fun snapshot(context: Context): List<AppCache>? {
+        val raw = context.applicationContext
+            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_SNAPSHOT, null) ?: return null
+        return try {
+            val arr = org.json.JSONArray(raw)
+            (0 until arr.length()).map { i ->
+                val o = arr.getJSONObject(i)
+                AppCache(o.getString("pkg"), o.getString("label"), o.getLong("bytes"))
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun persist(context: Context, apps: List<AppCache>) {
+        val arr = org.json.JSONArray()
+        apps.forEach {
+            arr.put(org.json.JSONObject()
+                .put("pkg", it.packageName).put("label", it.label).put("bytes", it.cacheBytes))
+        }
+        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putString(KEY_SNAPSHOT, arr.toString()).apply()
     }
 
     fun hasAccess(context: Context): Boolean = InstalledAppsStats.hasUsageAccess(context)
@@ -55,43 +93,53 @@ object AppCacheList {
         if (!hasAccess(context)) return null
         cache?.let { (at, value) -> if (System.currentTimeMillis() - at < maxAgeMs) return value }
         val result = queryUncached(context)
+        if (result != null) persist(context, result)
         cache = System.currentTimeMillis() to result
         return result
     }
 
-    private fun queryUncached(context: Context): List<AppCache>? {
+    // queryStatsForPackage blocks tens of milliseconds per package and there are
+    // hundreds of them: serially that was the 15-60s scan. A small pool of IO
+    // workers brings it down to seconds without hammering the stats service.
+    private fun queryUncached(context: Context): List<AppCache>? = runBlocking {
         val statsManager = context.getSystemService(Context.STORAGE_STATS_SERVICE) as StorageStatsManager
         val pm = context.packageManager
         val packages = try {
             pm.getInstalledApplications(0)
         } catch (e: Exception) {
             Log.w(TAG, "package listing failed", e)
-            return null
+            return@runBlocking null
         }
-        val out = ArrayList<AppCache>()
-        var failures = 0
-        for (info in packages) {
-            try {
-                val stats = statsManager.queryStatsForPackage(
-                    StorageManager.UUID_DEFAULT, info.packageName, Process.myUserHandle())
-                if (stats.cacheBytes > 0L) {
-                    out += AppCache(
-                        packageName = info.packageName,
-                        label = pm.getApplicationLabel(info).toString(),
-                        cacheBytes = stats.cacheBytes,
-                    )
+        val out = java.util.concurrent.ConcurrentLinkedQueue<AppCache>()
+        val failures = java.util.concurrent.atomic.AtomicInteger(0)
+        val gate = Semaphore(6)
+        packages.map { info ->
+            async(Dispatchers.IO) {
+                gate.withPermit {
+                    try {
+                        val stats = statsManager.queryStatsForPackage(
+                            StorageManager.UUID_DEFAULT, info.packageName, Process.myUserHandle())
+                        if (stats.cacheBytes > 0L) {
+                            out += AppCache(
+                                packageName = info.packageName,
+                                label = pm.getApplicationLabel(info).toString(),
+                                cacheBytes = stats.cacheBytes,
+                            )
+                        }
+                        Unit
+                    } catch (_: PackageManager.NameNotFoundException) {
+                        failures.incrementAndGet()
+                    } catch (e: Exception) {
+                        failures.incrementAndGet()
+                        Log.w(TAG, "package stats failed for ${info.packageName}", e)
+                    }
                 }
-            } catch (_: PackageManager.NameNotFoundException) {
-                failures++
-            } catch (e: Exception) {
-                failures++
-                Log.w(TAG, "package stats failed for ${info.packageName}", e)
             }
-        }
-        if (packages.isNotEmpty() && failures == packages.size) return null
+        }.awaitAll()
+        if (packages.isNotEmpty() && failures.get() == packages.size) return@runBlocking null
         // Dual-app ROMs can report a package twice; duplicate entries double-count
         // the total and break LazyColumn keys in the list.
-        return out.distinctBy { it.packageName }.sortedByDescending { it.cacheBytes }
+        out.distinctBy { it.packageName }.sortedByDescending { it.cacheBytes }
     }
 
     private const val TAG = "AppCacheList"

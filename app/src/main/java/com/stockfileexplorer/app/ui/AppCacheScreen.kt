@@ -57,6 +57,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+// Decoding an app icon costs real ms; keep them across recompositions and visits.
+private val appIconCache = android.util.LruCache<String, ImageBitmap>(128)
+
 /**
  * Per-app cache sizes (StorageStats, needs the usage-access grant). This app cannot
  * delete other apps' caches on Android 11+: tapping a row opens the app's system
@@ -68,6 +71,7 @@ fun AppCacheScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var apps by remember { mutableStateOf<List<AppCacheList.AppCache>?>(null) }
+    var refreshing by remember { mutableStateOf(false) }
     var showAll by remember { mutableStateOf(false) }
     var showGuide by remember { mutableStateOf(false) }
     val clearProgress by CacheClear.progress.collectAsState()
@@ -83,11 +87,18 @@ fun AppCacheScreen(onBack: () -> Unit) {
 
     fun reload() {
         scope.launch {
+            refreshing = true
             apps = withContext(Dispatchers.IO) { AppCacheList.query(context.applicationContext) }
+            refreshing = false
         }
     }
 
-    LaunchedEffect(Unit) { reload() }
+    LaunchedEffect(Unit) {
+        // The persisted snapshot shows instantly; query() decides by TTL whether a
+        // real rescan runs behind it.
+        AppCacheList.snapshot(context.applicationContext)?.let { apps = it }
+        reload()
+    }
 
     // Refresh the measured list once a clearing run finishes; the run changed
     // real cache sizes, so bypass the short-lived measurement cache.
@@ -113,6 +124,9 @@ fun AppCacheScreen(onBack: () -> Unit) {
                 }
             },
         )
+        if (refreshing && apps != null) {
+            LinearProgressIndicator(Modifier.fillMaxWidth())
+        }
         Text(
             stringResource(R.string.cache_list_hint),
             style = MaterialTheme.typography.bodySmall,
@@ -232,9 +246,11 @@ fun AppCacheScreen(onBack: () -> Unit) {
                     }.padding(horizontal = 16.dp, vertical = 10.dp).testTag("appcache_item"),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    val icon by produceState<ImageBitmap?>(null, app.packageName) {
-                        value = withContext(Dispatchers.IO) {
-                            runCatching { context.packageManager.getApplicationIcon(app.packageName).toBitmap(96, 96).asImageBitmap() }.getOrNull()
+                    val icon by produceState<ImageBitmap?>(appIconCache.get(app.packageName), app.packageName) {
+                        if (value == null) {
+                            value = withContext(Dispatchers.IO) {
+                                runCatching { context.packageManager.getApplicationIcon(app.packageName).toBitmap(96, 96).asImageBitmap() }.getOrNull()
+                            }?.also { appIconCache.put(app.packageName, it) }
                         }
                     }
                     if (icon != null) {

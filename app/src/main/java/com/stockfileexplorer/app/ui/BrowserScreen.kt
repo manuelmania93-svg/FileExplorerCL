@@ -470,10 +470,12 @@ fun BrowserScreen(
         }
         when {
             restrictedKind != null && (restrictedHidden || restrictedOpen) -> RestrictedAccessPanel(currentPath, restrictedKind)
-            loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            // weight, not fillMaxSize: a full-size box would push the paste bar below off-screen
+            // exactly when pasting into an empty folder.
+            loading -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
-            items.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            items.isEmpty() -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 Text(
                     stringResource(R.string.empty_folder),
                     color = MaterialTheme.colorScheme.onSurfaceVariant

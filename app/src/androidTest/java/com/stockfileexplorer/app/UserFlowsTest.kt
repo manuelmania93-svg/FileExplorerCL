@@ -106,14 +106,10 @@ class UserFlowsTest {
             device.findObject(By.desc(context.getString(R.string.file_actions_for, source.name))).click()
             waitText("Copy")
             device.findObject(By.text("Copy")).click()
-            waitText("Choose copy destination")
-            device.findObject(By.text("Download")).click()
-            waitText("FlowSamples")
-            device.findObject(By.text("FlowSamples")).click()
-            waitText(destination.name)
+            waitText("Paste")
             device.findObject(By.text(destination.name)).click()
-            waitText("Copy here"); shot("conflict-1-picker")
-            device.findObject(By.text("Copy here")).click()
+            waitText("Paste"); shot("conflict-1-picker")
+            device.findObject(By.text("Paste")).click()
 
             // Ask mode pauses on the dialog instead of silently renaming.
             // Dialogs get their own window, so their testTags are not resource ids - match text.
@@ -127,17 +123,17 @@ class UserFlowsTest {
             assertEquals("existing content", File(destination, source.name).readText())
             shot("conflict-3-renamed")
 
+            // Back to the fixture root (the paste left the browser in the destination).
+            waitText("FlowSamples")
+            device.findObject(By.text("FlowSamples")).click()
+            waitText(source.name)
             device.findObject(By.desc(context.getString(R.string.file_actions_for, source.name))).click()
             waitText("Copy")
             device.findObject(By.text("Copy")).click()
-            waitText("Choose copy destination")
-            device.findObject(By.text("Download")).click()
-            waitText("FlowSamples")
-            device.findObject(By.text("FlowSamples")).click()
-            waitText(destination.name)
+            waitText("Paste")
             device.findObject(By.text(destination.name)).click()
-            waitText("Copy here")
-            device.findObject(By.text("Copy here")).click()
+            waitText("Paste")
+            device.findObject(By.text("Paste")).click()
             if (!device.wait(Until.hasObject(By.text("Skip")), 15000)) { shot("conflict-missing-2"); throw AssertionError("conflict dialog missing (2nd)") }
             device.findObject(By.text("Skip")).click()
             android.os.SystemClock.sleep(1500)

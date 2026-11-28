@@ -82,36 +82,25 @@ class SelectionBarTest {
         assertNotNull(device.wait(Until.findObject(By.text(label("3 selected", "3 ausgewählt"))), 5000))
         screenshot("selection-bar")
 
-        // Copy all three into the sibling folder through the folder picker.
+        // Copy all three into the sibling folder with the CX paste bar: the browsing
+        // layout stays live; navigate via the breadcrumb, open the destination, paste.
         device.findObject(By.res("selection_copy")).click()
-        waitText(label("Choose copy destination", "Ziel zum Kopieren wählen"))
+        waitText(label("Paste", "Einfügen"))
         waitText("Download").click()
         waitText("SfeSelectDest").click()
-        // The dialog just navigated into the picked folder; a tap during that
-        // transition can be consumed (evidence: picker-still-open screenshot).
-        // Prove the button settled, then tap exactly once - if the picker still
-        // stays open after a settled tap, that is a product bug and fails loud.
-        val copyHere = device.wait(Until.findObject(By.text(label("Copy here", "Hierher kopieren"))), 5000)
-            ?: throw AssertionError("Copy here button missing")
-        val before = copyHere.visibleBounds
-        device.waitForIdle()
-        Thread.sleep(400)
-        val after = device.findObject(By.text(label("Copy here", "Hierher kopieren")))
-        if (after == null || after.visibleBounds != before) {
-            device.waitForIdle()
-            Thread.sleep(400)
-        }
-        device.findObject(By.text(label("Copy here", "Hierher kopieren"))).click()
-        if (!device.wait(Until.gone(By.text(label("Choose copy destination", "Ziel zum Kopieren wählen"))), 15000)) {
-            screenshot("picker-still-open")
-            fail("Folder picker closes")
+        waitText(label("Paste", "Einfügen")).click()
+        if (!device.wait(Until.gone(By.text(label("Paste", "Einfügen"))), 15000)) {
+            screenshot("paste-bar-still-open")
+            fail("Paste bar closes after pasting")
         }
         Thread.sleep(2000)
         files.forEach { assertTrue("copied ${it.name}", File(dest, it.name).exists()) }
         files.forEach { assertTrue("source kept after copy ${it.name}", it.exists()) }
 
-        // A completed copy refreshes the folder and clears the selection, so re-select all
-        // three before deleting them.
+        // The paste left the browser in the destination; go back to the source folder
+        // and re-select all three before deleting them.
+        waitText("Download").click()
+        waitText("SfeSelect").click()
         waitText("sel-1.txt")
         device.findObject(By.text("sel-1.txt")).longClick()
         // The selection bar animates in after the hold; a no-wait lookup can beat it (NPE).

@@ -5,6 +5,7 @@ import androidx.core.content.FileProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
+import androidx.test.uiautomator.Direction
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
 import org.junit.Assert.*
@@ -50,7 +51,20 @@ class UserFlowsTest {
         val viewOptions = device.wait(Until.findObject(By.desc(context.getString(R.string.view_options))), 15000)
             ?: throw AssertionError("Missing view options button")
         viewOptions.click()
-        waitText("Size"); shot("sort-2-menu")
+        // The sheet can be taller than the screen (small displays, large fonts), so
+        // scroll its tagged container until the Size row is actually visible.
+        val sheet = device.wait(Until.findObject(By.res("view_sort_sheet")), 15000)
+            ?: throw AssertionError("view/sort sheet missing")
+        var sizeRow = device.wait(Until.findObject(By.text("Size")), 20000)
+            ?: run { shot("missing-Size"); throw AssertionError("Expected 'Size'") }
+        var scrollGuard = 0
+        while (sizeRow.visibleBounds.bottom > device.displayHeight - 60 && scrollGuard++ < 8) {
+            sheet.scroll(Direction.DOWN, 0.8f)
+            device.waitForIdle()
+            Thread.sleep(300)
+            sizeRow = device.findObject(By.text("Size")) ?: break
+        }
+        shot("sort-2-menu")
         device.findObject(By.text("Size")).click()
         device.pressBack()
         device.wait(Until.hasObject(By.text("z-large.txt")), 5000)

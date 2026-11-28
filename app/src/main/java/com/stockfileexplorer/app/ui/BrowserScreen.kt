@@ -16,6 +16,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -879,6 +880,9 @@ private fun ViewSortSheet(
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         var applyAll by remember { mutableStateOf(true) }
+        // The sheet must scroll: on small screens or with large fonts the sort rows
+        // otherwise fall below the viewport and become unreachable.
+        Column(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState()).testTag("view_sort_sheet")) {
         Row(
             Modifier.fillMaxWidth().clickable { applyAll = !applyAll }.padding(horizontal = 16.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -927,6 +931,7 @@ private fun ViewSortSheet(
             Text(stringResource(R.string.show_hidden))
         }
         Spacer(Modifier.height(24.dp))
+        }
     }
 }
 

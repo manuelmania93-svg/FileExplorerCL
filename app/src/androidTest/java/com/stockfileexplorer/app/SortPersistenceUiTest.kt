@@ -66,7 +66,19 @@ class SortPersistenceUiTest {
             Thread.sleep(300)
         }
         if (sizeRow == null) { device.takeScreenshot(File("/sdcard/Download/sfe-sortpersist-missing.png")); throw AssertionError("Expected 'Size'") }
-        device.findObject(By.text("Size")).click()
+        // Tap Size and watch the list behind the sheet re-sort; retry the tap if the
+        // first one landed mid-animation on a neighbouring row.
+        var sizeApplied = false
+        var clickGuard = 0
+        while (clickGuard++ < 4 && !sizeApplied) {
+            device.findObject(By.text("Size"))?.click()
+            device.waitForIdle()
+            var poll = 0
+            while (poll++ < 12 && !sizeApplied) {
+                Thread.sleep(500)
+                sizeApplied = top("z-large.txt") < top("a-small.txt")
+            }
+        }
         device.pressBack()
         device.wait(Until.hasObject(By.text("z-large.txt")), 5000)
         assertTrue("size order expected after choosing Size", top("z-large.txt") < top("a-small.txt"))

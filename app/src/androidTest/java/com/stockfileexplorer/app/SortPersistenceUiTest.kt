@@ -43,11 +43,47 @@ class SortPersistenceUiTest {
         launchBrowser()
         waitText("z-large.txt")
         assertTrue("name order expected before choosing Size", top("a-small.txt") < top("z-large.txt"))
-        val b = device.findObject(By.desc(context.getString(R.string.view_grid))).visibleBounds
-        device.click((device.displayWidth * 0.93).toInt(), b.centerY())
-        waitText("Size")
-        device.findObject(By.text("Size")).click()
+        // View/sort lives in the bottom sheet behind the left of the two three-dot buttons.
+        val viewOptions = device.wait(Until.findObject(By.desc(context.getString(R.string.view_options))), 15000)
+            ?: throw AssertionError("Missing view options button")
+        viewOptions.click()
+        // The sheet can be taller than the screen; rows below the fold are clipped and
+        // invisible to uiautomator. Scroll with real swipes inside the sheet area -
+        // node handles go stale between scrolls (StaleObjectException), swipes don't.
+        if (!device.wait(Until.hasObject(By.res("view_sort_sheet")), 15000)) {
+            device.takeScreenshot(File("/sdcard/Download/sfe-sortpersist-missing.png"));
+            throw AssertionError("view/sort sheet missing")
+        }
+        val w = device.displayWidth
+        val h = device.displayHeight
+        var sizeRow: androidx.test.uiautomator.UiObject2? = null
+        var scrollGuard = 0
+        while (scrollGuard++ < 10) {
+            sizeRow = device.findObject(By.text("Size"))
+            if (sizeRow != null && sizeRow.visibleBounds.bottom <= h - 60) break
+            device.swipe(w / 2, (h * 0.85).toInt(), w / 2, (h * 0.55).toInt(), 20)
+            device.waitForIdle()
+            Thread.sleep(300)
+        }
+        if (sizeRow == null) { device.takeScreenshot(File("/sdcard/Download/sfe-sortpersist-missing.png")); throw AssertionError("Expected 'Size'") }
+        
+        // Tap Size and confirm the pick through the saved pref (the sheet writes it on
+        // selection); a tap can land mid-animation on a neighbour row, so retry.
+        var pickGuard = 0
+        do {
+            device.findObject(By.text("Size"))?.click()
+            device.waitForIdle()
+            Thread.sleep(400)
+        } while (com.stockfileexplorer.app.FileActionPreferences.browserSort(context) != "SIZE" && pickGuard++ < 4)
+        // Rows behind the open sheet report clipped bounds to uiautomator, so the
+        // order can only be measured after the sheet is gone.
+        var dismissGuard = 0
+        while (device.findObject(By.res("view_sort_sheet")) != null && dismissGuard++ < 5) {
+            device.pressBack()
+            device.wait(Until.gone(By.res("view_sort_sheet")), 3000)
+        }
         device.wait(Until.hasObject(By.text("z-large.txt")), 5000)
+        
         assertTrue("size order expected after choosing Size", top("z-large.txt") < top("a-small.txt"))
         device.takeScreenshot(File("/sdcard/Download/sfe-sortpersist-1-chosen.png"))
     }

@@ -46,14 +46,48 @@ class UserFlowsTest {
         waitText("z-large.txt")
         assertTrue("name order expected first", top("a-small.txt") < top("z-large.txt"))
         shot("sort-1-by-name")
-        val gridButton = device.findObject(By.desc(context.getString(R.string.view_grid)))
-        val b = gridButton.visibleBounds
-        device.click((device.displayWidth * 0.93).toInt(), b.centerY())   // the three-dot menu is the right-most toolbar icon
-        waitText("Size"); shot("sort-2-menu")
-        device.findObject(By.text("Size")).click()
+        // View/sort lives in the bottom sheet behind the left of the two three-dot buttons.
+        val viewOptions = device.wait(Until.findObject(By.desc(context.getString(R.string.view_options))), 15000)
+            ?: throw AssertionError("Missing view options button")
+        viewOptions.click()
+        // The sheet can be taller than the screen; rows below the fold are clipped and
+        // invisible to uiautomator. Scroll with real swipes inside the sheet area -
+        // node handles go stale between scrolls (StaleObjectException), swipes don't.
+        if (!device.wait(Until.hasObject(By.res("view_sort_sheet")), 15000)) {
+            shot("missing-sheet");
+            throw AssertionError("view/sort sheet missing")
+        }
+        val w = device.displayWidth
+        val h = device.displayHeight
+        var sizeRow: androidx.test.uiautomator.UiObject2? = null
+        var scrollGuard = 0
+        while (scrollGuard++ < 10) {
+            sizeRow = device.findObject(By.text("Size"))
+            if (sizeRow != null && sizeRow.visibleBounds.bottom <= h - 60) break
+            device.swipe(w / 2, (h * 0.85).toInt(), w / 2, (h * 0.55).toInt(), 20)
+            device.waitForIdle()
+            Thread.sleep(300)
+        }
+        if (sizeRow == null) { shot("missing-Size"); throw AssertionError("Expected 'Size'") }
+        shot("sort-2-menu")
+        // Tap Size and confirm the pick through the saved pref (the sheet writes it on
+        // selection); a tap can land mid-animation on a neighbour row, so retry.
+        var pickGuard = 0
+        do {
+            device.findObject(By.text("Size"))?.click()
+            device.waitForIdle()
+            Thread.sleep(400)
+        } while (com.stockfileexplorer.app.FileActionPreferences.browserSort(context) != "SIZE" && pickGuard++ < 4)
+        // Rows behind the open sheet report clipped bounds to uiautomator, so the
+        // order can only be measured after the sheet is gone.
+        var dismissGuard = 0
+        while (device.findObject(By.res("view_sort_sheet")) != null && dismissGuard++ < 5) {
+            device.pressBack()
+            device.wait(Until.gone(By.res("view_sort_sheet")), 3000)
+        }
         device.wait(Until.hasObject(By.text("z-large.txt")), 5000)
-        assertTrue("size order expected", top("z-large.txt") < top("a-small.txt"))
         shot("sort-3-by-size")
+        assertTrue("size order expected", top("z-large.txt") < top("a-small.txt"))
         // Rebuild the whole screen from scratch, as when the app is opened again.
         device.pressHome()
         launchBrowser(root.absolutePath)
@@ -104,14 +138,10 @@ class UserFlowsTest {
             device.findObject(By.desc(context.getString(R.string.file_actions_for, source.name))).click()
             waitText("Copy")
             device.findObject(By.text("Copy")).click()
-            waitText("Choose copy destination")
-            device.findObject(By.text("Download")).click()
-            waitText("FlowSamples")
-            device.findObject(By.text("FlowSamples")).click()
-            waitText(destination.name)
+            waitText("Paste")
             device.findObject(By.text(destination.name)).click()
-            waitText("Copy here"); shot("conflict-1-picker")
-            device.findObject(By.text("Copy here")).click()
+            waitText("Paste"); shot("conflict-1-picker")
+            device.findObject(By.text("Paste")).click()
 
             // Ask mode pauses on the dialog instead of silently renaming.
             // Dialogs get their own window, so their testTags are not resource ids - match text.
@@ -125,17 +155,17 @@ class UserFlowsTest {
             assertEquals("existing content", File(destination, source.name).readText())
             shot("conflict-3-renamed")
 
+            // Back to the fixture root (the paste left the browser in the destination).
+            waitText("FlowSamples")
+            device.findObject(By.text("FlowSamples")).click()
+            waitText(source.name)
             device.findObject(By.desc(context.getString(R.string.file_actions_for, source.name))).click()
             waitText("Copy")
             device.findObject(By.text("Copy")).click()
-            waitText("Choose copy destination")
-            device.findObject(By.text("Download")).click()
-            waitText("FlowSamples")
-            device.findObject(By.text("FlowSamples")).click()
-            waitText(destination.name)
+            waitText("Paste")
             device.findObject(By.text(destination.name)).click()
-            waitText("Copy here")
-            device.findObject(By.text("Copy here")).click()
+            waitText("Paste")
+            device.findObject(By.text("Paste")).click()
             if (!device.wait(Until.hasObject(By.text("Skip")), 15000)) { shot("conflict-missing-2"); throw AssertionError("conflict dialog missing (2nd)") }
             device.findObject(By.text("Skip")).click()
             android.os.SystemClock.sleep(1500)

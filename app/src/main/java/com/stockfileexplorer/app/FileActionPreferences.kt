@@ -97,6 +97,18 @@ object FileActionPreferences {
     fun saveBrowserSort(context: Context, mode: String) {
         preferences(context).edit().putString("browser-sort", mode).apply()
     }
+
+    /** Folder-browser grid/list layout, kept when "Apply to all folders" is on. Default is list. */
+    fun browserGrid(context: Context): Boolean = preferences(context).getBoolean("browser-grid", false)
+    fun saveBrowserGrid(context: Context, grid: Boolean) {
+        preferences(context).edit().putBoolean("browser-grid", grid).apply()
+    }
+
+    /** Folder-browser hidden-files visibility, kept when "Apply to all folders" is on. Default hides them. */
+    fun browserShowHidden(context: Context): Boolean = preferences(context).getBoolean("browser-show-hidden", false)
+    fun saveBrowserShowHidden(context: Context, show: Boolean) {
+        preferences(context).edit().putBoolean("browser-show-hidden", show).apply()
+    }
     /** Category-list sort as "MODE:ascending", kept per category key; null when never chosen. */
     fun categorySort(context: Context, key: String): String? = preferences(context).getString("category-sort-$key", null)
     fun saveCategorySort(context: Context, key: String, mode: String, ascending: Boolean) {

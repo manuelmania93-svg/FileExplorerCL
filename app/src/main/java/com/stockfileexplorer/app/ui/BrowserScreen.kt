@@ -12,9 +12,11 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,15 +26,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -42,6 +46,8 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -60,6 +66,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
@@ -77,6 +84,7 @@ import com.stockfileexplorer.app.FileActionMenu
 import com.stockfileexplorer.app.FileActionPreferences
 import com.stockfileexplorer.app.FileOperations
 import com.stockfileexplorer.app.MenuCustomizationDialog
+import com.stockfileexplorer.app.PasteBoard
 import com.stockfileexplorer.app.R
 import com.stockfileexplorer.app.data.FileIndex
 import com.stockfileexplorer.app.data.FileItem
@@ -184,7 +192,8 @@ fun shareFiles(context: android.content.Context, files: List<File>) {
 @Composable
 fun BrowserScreen(
     startPath: String,
-    onNavigateUp: () -> Unit
+    onNavigateUp: () -> Unit,
+    onSearch: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -201,8 +210,8 @@ fun BrowserScreen(
     var loading by remember { mutableStateOf(true) }
     val sortContext = androidx.compose.ui.platform.LocalContext.current
     var sortMode by remember { mutableStateOf(SortMode.entries.firstOrNull { it.name == com.stockfileexplorer.app.FileActionPreferences.browserSort(sortContext) } ?: SortMode.NAME) }
-    var showHidden by remember { mutableStateOf(false) }
-    var gridView by remember { mutableStateOf(false) }
+    var showHidden by remember { mutableStateOf(com.stockfileexplorer.app.FileActionPreferences.browserShowHidden(context)) }
+    var gridView by remember { mutableStateOf(com.stockfileexplorer.app.FileActionPreferences.browserGrid(context)) }
     var refreshTick by remember { mutableIntStateOf(0) }
     var selection by remember { mutableStateOf(setOf<String>()) }
     // Floating Rename/Share quick actions card (replaces the bar's old "More" menu):
@@ -217,8 +226,8 @@ fun BrowserScreen(
     var folderStats by remember { mutableStateOf<Map<String, FileIndex.DirectoryStats>>(emptyMap()) }
     val indexStatus by FileIndex.state.collectAsState()
     var propertiesTarget by remember { mutableStateOf<FileItem?>(null) }
-    var transferSources by remember { mutableStateOf<List<FileItem>>(emptyList()) }
-    var transferMove by remember { mutableStateOf(false) }
+    var viewSheetOpen by remember { mutableStateOf(false) }
+    var showNewFile by remember { mutableStateOf(false) }
     var conflictPrompt by remember { mutableStateOf<ConflictPrompt?>(null) }
     val menuStyle = AppSettings.selectionMenuStyle(context)
     var showMenuCustomization by remember { mutableStateOf(false) }
@@ -277,6 +286,44 @@ fun BrowserScreen(
 
     fun closeQuickActions() {
         quickActionsOpen = false
+    }
+
+    fun executePaste() {
+        val pasteSources = PasteBoard.sources
+        val pasteMove = PasteBoard.move
+        val destination = File(currentPath)
+        PasteBoard.clear()
+        scope.launch {
+            var done = 0
+            var skipped = 0
+            var failed = 0
+            withContext(Dispatchers.IO) {
+                for (source in pasteSources) {
+                    val resolution = resolveConflict(context, destination, source.file.name) { conflictPrompt = it }
+                    if (resolution == null) break
+                    when (FileOperations.transferOutcome(source.file, destination, pasteMove) { resolution }) {
+                        FileOperations.TransferOutcome.DONE -> done++
+                        FileOperations.TransferOutcome.SKIPPED -> skipped++
+                        FileOperations.TransferOutcome.FAILED -> failed++
+                    }
+                }
+            }
+            if (done > 0) {
+                Toast.makeText(
+                    context,
+                    if (pasteMove) R.string.moved_ok else R.string.copied_ok,
+                    Toast.LENGTH_SHORT,
+                ).show()
+                com.stockfileexplorer.app.data.FileIndex.invalidate()
+                refreshTick++
+            }
+            if (skipped > 0) {
+                Toast.makeText(context, context.getString(R.string.transfer_skipped, skipped), Toast.LENGTH_SHORT).show()
+            }
+            if (done == 0 && skipped == 0) {
+                Toast.makeText(context, R.string.transfer_failed, Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     val selecting = selection.isNotEmpty()
@@ -356,51 +403,56 @@ fun BrowserScreen(
                             )
                         )
                     }
+                    IconButton(onClick = { viewSheetOpen = true }, modifier = Modifier.testTag("view_options")) {
+                        Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.view_options))
+                    }
                     Box {
                         IconButton(onClick = { menuOpen = true }) {
-                            Icon(Icons.Filled.MoreVert, contentDescription = null)
+                            Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.menu_more))
                         }
                         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            var neuOpen by remember { mutableStateOf(false) }
+                            Box {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.menu_new)) },
+                                    leadingIcon = { Icon(Icons.Filled.Add, null) },
+                                    trailingIcon = { Text("\u203A") },
+                                    onClick = { neuOpen = true }
+                                )
+                                DropdownMenu(expanded = neuOpen, onDismissRequest = { neuOpen = false }) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.new_folder)) },
+                                        leadingIcon = { Icon(SfeIcons.CreateNewFolder, null) },
+                                        onClick = { neuOpen = false; menuOpen = false; showNewFolder = true }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.new_file)) },
+                                        leadingIcon = { Icon(SfeIcons.InsertDriveFile, null) },
+                                        onClick = { neuOpen = false; menuOpen = false; showNewFile = true }
+                                    )
+                                }
+                            }
+                            if (onSearch != null) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.search)) },
+                                    leadingIcon = { Icon(Icons.Filled.Search, null) },
+                                    onClick = { menuOpen = false; onSearch() }
+                                )
+                            }
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.refresh)) },
+                                leadingIcon = { Icon(Icons.Filled.Refresh, null) },
+                                onClick = {
+                                    menuOpen = false
+                                    com.stockfileexplorer.app.data.FileIndex.invalidate()
+                                    refreshTick++
+                                }
+                            )
                             DropdownMenuItem(text = { Text(stringResource(R.string.save_location)) }, leadingIcon = { Icon(SfeIcons.Link, null) }, onClick = {
                                 com.stockfileexplorer.app.FileActionPreferences.saveShortcut(context, currentPath)
                                 Toast.makeText(context, R.string.location_saved, Toast.LENGTH_SHORT).show()
                                 menuOpen = false
                             })
-                            Text(
-                                text = stringResource(R.string.sort_by),
-                                style = MaterialTheme.typography.labelSmall,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
-                            )
-                            SortMode.entries.forEach { mode ->
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            when (mode) {
-                                                SortMode.NAME -> stringResource(R.string.sort_name)
-                                                SortMode.DATE -> stringResource(R.string.sort_date)
-                                                SortMode.SIZE -> stringResource(R.string.sort_size)
-                                                SortMode.TYPE -> stringResource(R.string.sort_type)
-                                            }
-                                        )
-                                    },
-                                    onClick = { sortMode = mode; com.stockfileexplorer.app.FileActionPreferences.saveBrowserSort(sortContext, mode.name); menuOpen = false }
-                                )
-                            }
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        stringResource(
-                                            if (showHidden) R.string.hide_hidden else R.string.show_hidden
-                                        )
-                                    )
-                                },
-                                onClick = { showHidden = !showHidden; menuOpen = false }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.new_folder)) },
-                                leadingIcon = { Icon(SfeIcons.CreateNewFolder, null) },
-                                onClick = { showNewFolder = true; menuOpen = false }
-                            )
                         }
                     }
                 }
@@ -419,10 +471,12 @@ fun BrowserScreen(
         }
         when {
             restrictedKind != null && (restrictedHidden || restrictedOpen) -> RestrictedAccessPanel(currentPath, restrictedKind)
-            loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            // weight, not fillMaxSize: a full-size box would push the paste bar below off-screen
+            // exactly when pasting into an empty folder.
+            loading -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
-            items.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            items.isEmpty() -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 Text(
                     stringResource(R.string.empty_folder),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -495,17 +549,31 @@ fun BrowserScreen(
         if (selecting) {
             SelectionActionBar(
                 onCopy = {
-                    transferSources = items.filter { it.file.absolutePath in selection }
-                    transferMove = false
+                    PasteBoard.begin(items.filter { it.file.absolutePath in selection }, move = false)
+                    selection = emptySet()
                 },
                 onMove = {
-                    transferSources = items.filter { it.file.absolutePath in selection }
-                    transferMove = true
+                    PasteBoard.begin(items.filter { it.file.absolutePath in selection }, move = true)
+                    selection = emptySet()
                 },
                 onDelete = { showDeleteConfirm = true },
                 onMore = if (menuStyle == com.stockfileexplorer.app.SelectionMenuStyle.CLASSIC) {
                     { quickActionsOpen = true }
                 } else null,
+            )
+        }
+        // CX-style paste bar: the normal folder layout stays live while a copy/move is pending;
+        // Paste lands the clipboard in the current folder, Cancel drops it.
+        if (PasteBoard.active && !selecting) {
+            val pasteBlocked = remember(currentPath, PasteBoard.sources) {
+                val current = File(currentPath).canonicalFile
+                PasteBoard.sources.filter { it.isDirectory }.any { FileOperations.isWithin(current, it.file.canonicalFile) }
+            }
+            PasteBar(
+                count = PasteBoard.sources.size,
+                pasteEnabled = !pasteBlocked,
+                onPaste = { executePaste() },
+                onCancel = { PasteBoard.clear() },
             )
         }
     }
@@ -548,14 +616,8 @@ fun BrowserScreen(
                     if (item.isDirectory) navigateTo(item.file.absolutePath)
                     else openFile(context, item.file, noAppMessage, items.filter { !it.isDirectory }.map { it.file })
                 },
-                onCopy = {
-                    transferSources = listOf(item)
-                    transferMove = false
-                },
-                onMove = {
-                    transferSources = listOf(item)
-                    transferMove = true
-                },
+                onCopy = { PasteBoard.begin(listOf(item), move = false) },
+                onMove = { PasteBoard.begin(listOf(item), move = true) },
                 onRename = { renameTarget = item },
                 onHide = { hideTarget = item },
                 onProperties = { propertiesTarget = item },
@@ -580,54 +642,6 @@ fun BrowserScreen(
                 },
                 onCustomize = { showMenuCustomization = true },
             ),
-        )
-    }
-
-    if (transferSources.isNotEmpty()) {
-        FolderPickerDialog(
-            title = stringResource(
-                if (transferMove) R.string.choose_move_destination else R.string.choose_copy_destination
-            ),
-            confirmLabel = stringResource(if (transferMove) R.string.move_here else R.string.copy_here),
-            rootPath = rootPath,
-            blockedPaths = transferSources.filter { it.isDirectory }.map { it.file.absolutePath }.toSet(),
-            onDismiss = { transferSources = emptyList() },
-            onConfirm = { destination ->
-                val sources = transferSources
-                val move = transferMove
-                transferSources = emptyList()
-                scope.launch {
-                    var done = 0
-                    var skipped = 0
-                    var failed = 0
-                    withContext(Dispatchers.IO) {
-                        for (source in sources) {
-                            val resolution = resolveConflict(context, destination, source.file.name) { conflictPrompt = it }
-                            if (resolution == null) break
-                            when (FileOperations.transferOutcome(source.file, destination, move) { resolution }) {
-                                FileOperations.TransferOutcome.DONE -> done++
-                                FileOperations.TransferOutcome.SKIPPED -> skipped++
-                                FileOperations.TransferOutcome.FAILED -> failed++
-                            }
-                        }
-                    }
-                    if (done > 0) {
-                        Toast.makeText(
-                            context,
-                            if (move) R.string.moved_ok else R.string.copied_ok,
-                            Toast.LENGTH_SHORT,
-                        ).show()
-                        com.stockfileexplorer.app.data.FileIndex.invalidate()
-                        refreshTick++
-                    }
-                    if (skipped > 0) {
-                        Toast.makeText(context, context.getString(R.string.transfer_skipped, skipped), Toast.LENGTH_SHORT).show()
-                    }
-                    if (done == 0 && skipped == 0) {
-                        Toast.makeText(context, R.string.transfer_failed, Toast.LENGTH_SHORT).show()
-                    }
-                }
-            },
         )
     }
 
@@ -671,6 +685,55 @@ fun BrowserScreen(
                 }
             },
             onDismiss = { showNewFolder = false }
+        )
+    }
+
+    if (showNewFile) {
+        TextInputDialog(
+            title = stringResource(R.string.new_file),
+            initialValue = "",
+            confirmLabel = stringResource(R.string.create),
+            onConfirm = { name ->
+                showNewFile = false
+                scope.launch {
+                    val ok = withContext(Dispatchers.IO) {
+                        if (!com.stockfileexplorer.app.data.Rename.validName(name)) false
+                        else try { File(currentPath, name).createNewFile() } catch (e: Exception) { false }
+                    }
+                    Toast.makeText(
+                        context,
+                        if (ok) context.getString(R.string.file_created)
+                        else context.getString(R.string.file_create_failed),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    if (ok) {
+                        com.stockfileexplorer.app.data.FileIndex.invalidate()
+                        refreshTick++
+                    }
+                }
+            },
+            onDismiss = { showNewFile = false }
+        )
+    }
+
+    if (viewSheetOpen) {
+        ViewSortSheet(
+            gridView = gridView,
+            sortMode = sortMode,
+            showHidden = showHidden,
+            onViewChange = { grid, applyAll ->
+                gridView = grid
+                if (applyAll) com.stockfileexplorer.app.FileActionPreferences.saveBrowserGrid(context, grid)
+            },
+            onSortChange = { mode, applyAll ->
+                sortMode = mode
+                if (applyAll) com.stockfileexplorer.app.FileActionPreferences.saveBrowserSort(sortContext, mode.name)
+            },
+            onHiddenChange = { hidden, applyAll ->
+                showHidden = hidden
+                if (applyAll) com.stockfileexplorer.app.FileActionPreferences.saveBrowserShowHidden(context, hidden)
+            },
+            onDismiss = { viewSheetOpen = false },
         )
     }
 
@@ -764,6 +827,114 @@ fun BrowserScreen(
     }
 }
 
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
+@Composable
+private fun PasteBar(count: Int, pasteEnabled: Boolean, onPaste: () -> Unit, onCancel: () -> Unit) {
+    androidx.compose.material3.Surface(
+        tonalElevation = 3.dp,
+        modifier = Modifier.fillMaxWidth().semantics { testTagsAsResourceId = true }.testTag("paste_bar"),
+    ) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = onCancel, modifier = Modifier.testTag("paste_cancel")) {
+                Icon(Icons.Filled.Close, contentDescription = null)
+                Spacer(Modifier.width(4.dp))
+                Text(stringResource(R.string.cancel))
+            }
+            Text(
+                stringResource(R.string.clipboard_items, count),
+                modifier = Modifier.weight(1f),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            TextButton(onClick = onPaste, enabled = pasteEnabled, modifier = Modifier.testTag("paste_confirm")) {
+                Icon(SfeIcons.ContentPaste, contentDescription = null)
+                Spacer(Modifier.width(4.dp))
+                Text(stringResource(R.string.paste))
+            }
+        }
+    }
+}
+
+@Composable
+private fun SheetRadioRow(selected: Boolean, label: String, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RadioButton(selected = selected, onClick = onClick)
+        Spacer(Modifier.width(8.dp))
+        Text(label)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.ui.ExperimentalComposeUiApi::class)
+@Composable
+private fun ViewSortSheet(
+    gridView: Boolean,
+    sortMode: SortMode,
+    showHidden: Boolean,
+    onViewChange: (Boolean, Boolean) -> Unit,
+    onSortChange: (SortMode, Boolean) -> Unit,
+    onHiddenChange: (Boolean, Boolean) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        var applyAll by remember { mutableStateOf(true) }
+        // The sheet must scroll: on small screens or with large fonts the sort rows
+        // otherwise fall below the viewport and become unreachable.
+        Column(Modifier.semantics { testTagsAsResourceId = true }.verticalScroll(androidx.compose.foundation.rememberScrollState()).testTag("view_sort_sheet")) {
+        Row(
+            Modifier.fillMaxWidth().clickable { applyAll = !applyAll }.padding(horizontal = 16.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Checkbox(checked = applyAll, onCheckedChange = { applyAll = it })
+            Text(stringResource(R.string.apply_to_all_folders))
+        }
+        androidx.compose.material3.HorizontalDivider()
+        Text(
+            stringResource(R.string.view_section),
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        )
+        SheetRadioRow(selected = !gridView, label = stringResource(R.string.view_list)) { onViewChange(false, applyAll) }
+        SheetRadioRow(selected = gridView, label = stringResource(R.string.view_grid)) { onViewChange(true, applyAll) }
+        androidx.compose.material3.HorizontalDivider()
+        Text(
+            stringResource(R.string.sort_by),
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        )
+        SortMode.entries.forEach { mode ->
+            SheetRadioRow(
+                selected = sortMode == mode,
+                label = stringResource(
+                    when (mode) {
+                        SortMode.NAME -> R.string.sort_name
+                        SortMode.DATE -> R.string.sort_date
+                        SortMode.SIZE -> R.string.sort_size
+                        SortMode.TYPE -> R.string.sort_type
+                    }
+                ),
+            ) { onSortChange(mode, applyAll) }
+        }
+        androidx.compose.material3.HorizontalDivider()
+        Text(
+            stringResource(R.string.misc_section),
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        )
+        Row(
+            Modifier.fillMaxWidth().clickable { onHiddenChange(!showHidden, applyAll) }.padding(horizontal = 16.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Checkbox(checked = showHidden, onCheckedChange = { onHiddenChange(it, applyAll) })
+            Text(stringResource(R.string.show_hidden))
+        }
+        Spacer(Modifier.height(24.dp))
+        }
+    }
+}
+
 @Composable
 fun Breadcrumb(currentPath: String, rootPath: String, onNavigate: (String) -> Unit) {
     val segments = remember(currentPath, rootPath) {
@@ -777,9 +948,16 @@ fun Breadcrumb(currentPath: String, rootPath: String, onNavigate: (String) -> Un
         }
         list
     }
-    LazyRow(verticalAlignment = Alignment.CenterVertically) {
-        items(segments.size) { index ->
-            val (label, path) = segments[index]
+    val breadcrumbScroll = androidx.compose.foundation.rememberScrollState()
+    // Keep the tail visible on deep paths (CX-style) while short paths stay untouched;
+    // every segment stays tappable and jumps to its folder.
+    LaunchedEffect(segments) { breadcrumbScroll.scrollTo(breadcrumbScroll.maxValue) }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.horizontalScroll(breadcrumbScroll)
+    ) {
+        segments.forEachIndexed { index, segment ->
+            val (label, path) = segment
             val isLast = index == segments.size - 1
             TextButton(onClick = { if (!isLast) onNavigate(path) }) {
                 Text(
